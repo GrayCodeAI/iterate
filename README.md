@@ -2,6 +2,10 @@
 
 A self-evolving coding agent written in Go. Every day it reads its own source code, finds an improvement, tests it, and commits — or reverts and documents the failure.
 
+## Deploy
+
+Live at: https://graycodeai.github.io/iterate/
+
 ## Features
 
 | Feature | iterate |
