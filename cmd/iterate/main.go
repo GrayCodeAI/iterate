@@ -14,10 +14,11 @@ import (
 
 	"github.com/GrayCodeAI/iterate/internal/community"
 	"github.com/GrayCodeAI/iterate/internal/evolution"
-	"github.com/GrayCodeAI/iterate/internal/provider"
 	"github.com/GrayCodeAI/iterate/internal/session"
 	"github.com/GrayCodeAI/iterate/internal/social"
 	"github.com/GrayCodeAI/iterate/internal/web"
+
+	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
 func main() {
@@ -51,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	p, err := provider.New()
+	p, err := iteragent.NewProvider("")
 	if err != nil {
 		logger.Error("provider init failed", "err", err)
 		os.Exit(1)
@@ -164,8 +165,8 @@ func banner() string {
  (_)| |_ ___  _ _| |_  ___  
  | ||  _/ -_)| '_/ _|/ -_) 
  |_| \__\___||_| \__|\___|  
- 
+
  self-evolving code agent
  ─────────────────────────
-`
+ `
 }

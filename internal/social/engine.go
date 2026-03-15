@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GrayCodeAI/iterate/internal/provider"
+	"github.com/GrayCodeAI/iteragent"
 )
 
 // Discussion represents a GitHub Discussion thread.
@@ -57,7 +57,7 @@ func New(repoPath, owner, repo string, logger *slog.Logger) *Engine {
 
 // Run executes one social session:
 // reads discussions, replies where useful, learns from humans.
-func (e *Engine) Run(ctx context.Context, p provider.Provider) error {
+func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 	if e.token == "" {
 		e.logger.Warn("GITHUB_TOKEN not set, skipping social loop")
 		return nil
@@ -92,7 +92,7 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 
 	userMessage := buildSocialPrompt(discussions)
 
-	messages := []provider.Message{
+	messages := []iteragent.Message{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userMessage},
 	}
@@ -144,7 +144,7 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 }
 
 // ReplyToIssues posts a comment on each addressed issue.
-func (e *Engine) ReplyToIssues(ctx context.Context, p provider.Provider, issueNumbers []int) error {
+func (e *Engine) ReplyToIssues(ctx context.Context, p iteragent.Provider, issueNumbers []int) error {
 	if e.token == "" || len(issueNumbers) == 0 {
 		return nil
 	}
@@ -182,7 +182,7 @@ Write a reply to this GitHub issue. Output ONLY the reply text, nothing else.`,
 
 		userMessage := fmt.Sprintf("Issue #%d: %s\n\n%s", issue.Number, issue.Title, issue.Body)
 
-		messages := []provider.Message{
+		messages := []iteragent.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userMessage},
 		}
