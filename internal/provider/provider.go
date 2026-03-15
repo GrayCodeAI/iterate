@@ -20,11 +20,11 @@ type Provider interface {
 }
 
 // New returns the provider selected by ITERATE_PROVIDER.
-// Supported values: ollama, openai, anthropic, groq (default: ollama)
+// Supported values: ollama, openai, anthropic, groq (default: groq)
 func New() (Provider, error) {
 	name := os.Getenv("ITERATE_PROVIDER")
 	if name == "" {
-		name = "ollama"
+		name = "groq"
 	}
 
 	switch name {
