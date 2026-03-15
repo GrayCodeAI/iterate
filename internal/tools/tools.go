@@ -1,5 +1,10 @@
-// Modified write_file function with error handling
-func write_file(path string, content string) error {
-    // ...
-    return nil
+package tools
+
+import (
+	"errors"
+	"io/ioutil"
+)
+
+func writeFile(path string, content string) error {
+	return ioutil.WriteFile(path, []byte(content), 0644)
 }
