@@ -43,45 +43,9 @@ def parse_journal(content):
     return entries
 
 
-def parse_identity(content):
-    intro_lines = []
-    rules = []
-    sections = re.split(r"^## ", content, flags=re.MULTILINE)
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-        lines = section.split("\n")
-        header = lines[0].strip()
-        if (
-            header.startswith("# ")
-            or header.startswith("Who ")
-            or header.startswith("I am ")
-        ):
-            for line in lines[1:]:
-                if line.strip():
-                    intro_lines.append(line.strip())
-        elif "rule" in header.lower():
-            for line in lines[1:]:
-                m = re.match(r"^\d+\.\s+\*\*(.+?)\*\*(.*)$", line)
-                if m:
-                    rules.append(
-                        f"<strong>{html.escape(m.group(1))}</strong>"
-                        f"{md_inline(m.group(2))}"
-                    )
-                elif re.match(r"^\d+\.", line):
-                    text = line.split(".", 1)[1].strip()
-                    rules.append(md_inline(text))
-    return {"intro": intro_lines, "rules": rules}
-
-
 def render_journal(entries):
     if not entries:
-        return (
-            '<div class="timeline-empty">'
-            "No journal entries yet. The journey begins soon."
-            "</div>"
-        )
+        return '<div class="journal-empty">The journey begins soon...</div>'
     parts = []
     for entry in entries:
         body_html = ""
@@ -89,425 +53,166 @@ def render_journal(entries):
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
         parts.append(
-            f'      <article class="entry">\n'
-            f'        <div class="entry-marker"></div>\n'
-            f'        <div class="entry-content">\n'
-            f'          <span class="entry-day">Day {entry["day"]}</span>\n'
-            f'          <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
-            f'          <p class="entry-body">{body_html}</p>\n'
-            f"        </div>\n"
-            f"      </article>"
+            f'  <div class="journal-card">\n'
+            f'    <div class="day">Day {entry["day"]}</div>\n'
+            f'    <div class="title">{md_inline(entry["title"])}</div>\n'
+            f'    <div class="body">{body_html}</div>\n'
+            f"  </div>"
         )
     return "\n".join(parts)
 
 
+def parse_identity(content):
+    intro = []
+    rules = []
+    started = False
+    lines = content.split("\n")
+    for line in lines:
+        line = line.strip()
+        if line.startswith("## "):
+            started = True
+            continue
+        if not started:
+            continue
+        if line.startswith("#"):
+            continue
+        if line.startswith("- "):
+            continue
+        if line and not line.startswith("##"):
+            if "rule" in line.lower():
+                continue
+            if any(line.startswith(str(i) + ".") for i in range(1, 20)):
+                m = re.match(r"^\d+\.\s+(.+)$", line)
+                if m:
+                    rules.append(m.group(1))
+            elif rules or not intro:
+                if line and not line.startswith("My "):
+                    intro.append(line)
+    return {"intro": intro, "rules": rules}
+
+
 def render_identity(identity):
-    parts = []
+    intro_html = ""
     if identity["intro"]:
-        mission = md_inline(identity["intro"][0])
-        parts.append(f'      <p class="mission">{mission}</p>')
-        for line in identity["intro"][1:]:
-            parts.append(f'      <p class="identity-text">{md_inline(line)}</p>')
+        intro = " ".join(identity["intro"][:2])
+        intro_html = f'<p class="mission">{md_inline(intro)}</p>'
+
+    rules_html = ""
     if identity["rules"]:
-        parts.append('      <ol class="rules">')
+        rules_html = '<ul class="rules-list">'
         for rule in identity["rules"]:
-            parts.append(f"        <li>{rule}</li>")
-        parts.append("      </ol>")
-    return "\n".join(parts)
+            rules_html += f"<li>{md_inline(rule)}</li>"
+        rules_html += "</ul>"
+
+    return intro_html + rules_html
 
 
-HTML_TEMPLATE = """\
-<!DOCTYPE html>
+def get_day_count():
+    try:
+        return int(read_file("DAY_COUNT").strip())
+    except:
+        return 0
+
+
+def main():
+    journal = read_file("JOURNAL.md")
+    identity = read_file("IDENTITY.md")
+
+    entries = parse_journal(journal)
+    identity_data = parse_identity(identity)
+    day_count = get_day_count()
+
+    journal_html = render_journal(entries)
+    identity_html = render_identity(identity_data)
+
+    html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iterate \u2014 Day {day_count}</title>
+  <title>iterate — Day {day_count}</title>
   <meta name="description" content="A self-evolving coding agent written in Go. Currently on Day {day_count}.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <nav>
-    <a href="#" class="nav-name">iterate</a>
-    <div class="nav-links">
-      <a href="#journal">journal</a>
-      <a href="#identity">identity</a>
-      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github \u2197</a>
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">ite<span>rate</span></div>
+      <nav>
+        <a href="#journal">journal</a>
+        <a href="#identity">about</a>
+        <a href="https://github.com/GrayCodeAI/iterate" target="_blank">github</a>
+      </nav>
     </div>
-  </nav>
+  </header>
 
-  <main>
-    <header class="hero">
-      <h1>iterate<span class="cursor">_</span></h1>
-      <p class="day-count">Day {day_count}</p>
-      <p class="tagline">a self-evolving coding agent written in Go</p>
-    </header>
+  <main class="container">
+    <section class="hero">
+      <div class="hero-content">
+        <h1><span>iterate</span></h1>
+        <p class="day">Day {day_count}</p>
+        <p class="tagline">a self-evolving coding agent in Go</p>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat">
+        <div class="stat-value">{len(entries)}</div>
+        <div class="stat-label">sessions</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">{day_count}</div>
+        <div class="stat-label">days old</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">1</div>
+        <div class="stat-label">version</div>
+      </div>
+    </section>
 
     <section id="journal">
-      <h2 class="section-label">// journal</h2>
-      <div class="timeline">
+      <h2>journal</h2>
+      <div class="journal-grid">
 {journal_html}
       </div>
     </section>
 
     <section id="identity">
-      <h2 class="section-label">// identity</h2>
+      <h2>about</h2>
+      <div class="identity-grid">
+        <div class="identity-card">
+          <h3>mission</h3>
 {identity_html}
+        </div>
+        <div class="identity-card">
+          <h3>tools</h3>
+          <div class="tools-grid">
+            <div class="tool">bash</div>
+            <div class="tool">read_file</div>
+            <div class="tool">write_file</div>
+            <div class="tool">edit_file</div>
+            <div class="tool">search</div>
+            <div class="tool">list_files</div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
   <footer>
-    <p>built by an AI that evolves itself</p>
+    <p>built by an AI that grows itself</p>
     <a href="https://github.com/GrayCodeAI/iterate">github.com/GrayCodeAI/iterate</a>
   </footer>
 </body>
 </html>
 """
 
-CSS = """\
-/* iterate journey — terminal chronicle */
-
-:root {
-  --bg: #0a0c10;
-  --bg-raised: #12161c;
-  --border: #1e2330;
-  --text: #9ca3af;
-  --text-bright: #d1d5db;
-  --text-dim: #4a5568;
-  --cyan: #22d3ee;
-  --green: #34d399;
-  --amber: #f59e0b;
-  --red: #ef4444;
-  --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
-}
-
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: 4rem;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.7;
-  -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: var(--cyan);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-strong {
-  color: var(--text-bright);
-  font-weight: 500;
-}
-
-code {
-  background: var(--bg-raised);
-  padding: 0.15em 0.4em;
-  font-size: 0.9em;
-  border: 1px solid var(--border);
-}
-
-
-/* ── nav ── */
-
-nav {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 640px;
-  width: 90%;
-  margin: 0 auto;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.nav-name {
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--cyan);
-  letter-spacing: 0.05em;
-}
-
-.nav-name:hover {
-  text-decoration: none;
-  opacity: 0.8;
-}
-
-.nav-links {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.nav-links a {
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-}
-
-.nav-links a:hover {
-  color: var(--text);
-  text-decoration: none;
-}
-
-
-/* ── main ── */
-
-main {
-  max-width: 640px;
-  width: 90%;
-  margin: 0 auto;
-}
-
-
-/* ── hero ── */
-
-.hero {
-  padding: 5rem 0 4rem;
-}
-
-.hero h1 {
-  font-size: 3.5rem;
-  font-weight: 700;
-  color: var(--cyan);
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.cursor {
-  animation: blink 1.2s step-end infinite;
-  color: var(--cyan);
-  font-weight: 300;
-}
-
-.day-count {
-  margin-top: 1rem;
-  font-size: 1rem;
-  color: var(--green);
-  font-weight: 500;
-}
-
-.tagline {
-  margin-top: 0.5rem;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  font-style: italic;
-}
-
-
-/* ── sections ── */
-
-section {
-  padding: 3.5rem 0 0;
-}
-
-.section-label {
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--text-dim);
-  letter-spacing: 0.12em;
-  margin-bottom: 2rem;
-}
-
-
-/* ── journal timeline ── */
-
-.timeline {
-  position: relative;
-  padding-left: 28px;
-}
-
-.timeline::before {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 6px;
-  bottom: 0;
-  width: 1px;
-  background: var(--border);
-}
-
-.timeline-empty {
-  color: var(--text-dim);
-  font-style: italic;
-  padding-left: 28px;
-}
-
-.entry {
-  position: relative;
-  margin-bottom: 2.5rem;
-}
-
-.entry-marker {
-  position: absolute;
-  left: -28px;
-  top: 8px;
-  width: 7px;
-  height: 7px;
-  background: var(--green);
-}
-
-.entry-day {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--green);
-  letter-spacing: 0.05em;
-}
-
-.entry-title {
-  font-size: 1.05rem;
-  font-weight: 500;
-  color: var(--text-bright);
-  margin: 0.25rem 0 0.5rem;
-  line-height: 1.4;
-}
-
-.entry-body {
-  color: var(--text);
-  font-size: 0.85rem;
-  line-height: 1.7;
-}
-
-
-/* ── identity ── */
-
-.mission {
-  font-size: 1rem;
-  color: var(--text-bright);
-  line-height: 1.8;
-  margin-bottom: 1.5rem;
-  padding-left: 1rem;
-  border-left: 2px solid var(--cyan);
-}
-
-.identity-text {
-  font-size: 0.85rem;
-  line-height: 1.7;
-  margin-bottom: 1rem;
-}
-
-.rules {
-  list-style: none;
-  counter-reset: rules;
-  padding: 0;
-  margin-top: 2rem;
-}
-
-.rules li {
-  counter-increment: rules;
-  position: relative;
-  padding-left: 2.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  line-height: 1.7;
-}
-
-.rules li::before {
-  content: counter(rules, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  font-weight: 300;
-  top: 0.15rem;
-}
-
-
-/* ── footer ── */
-
-footer {
-  max-width: 640px;
-  width: 90%;
-  margin: 4rem auto 0;
-  padding: 2rem 0 4rem;
-  border-top: 1px solid var(--border);
-}
-
-footer p {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  margin-bottom: 0.25rem;
-}
-
-footer a {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-
-footer a:hover {
-  color: var(--cyan);
-}
-
-
-/* ── responsive ── */
-
-@media (max-width: 480px) {
-  .hero h1 {
-    font-size: 2.5rem;
-  }
-
-  nav {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .nav-links {
-    gap: 1rem;
-  }
-}
-"""
-
-
-def build():
-    day_count = 0
-    try:
-        day_count = int(read_file("DAY_COUNT").strip())
-    except (ValueError, AttributeError):
-        pass
-
-    journal_html = render_journal(parse_journal(read_file("JOURNAL.md")))
-    identity_html = render_identity(parse_identity(read_file("IDENTITY.md")))
-
-    page = HTML_TEMPLATE.format(
-        day_count=day_count,
-        journal_html=journal_html,
-        identity_html=identity_html,
-    )
-
-    DOCS.mkdir(exist_ok=True)
-    (DOCS / "index.html").write_text(page)
-    (DOCS / "style.css").write_text(CSS)
-    (DOCS / ".nojekyll").touch()
-
+    (DOCS / "index.html").write_text(html_content)
     print(f"Site built: docs/index.html (Day {day_count})")
 
 
 if __name__ == "__main__":
-    build()
+    main()
