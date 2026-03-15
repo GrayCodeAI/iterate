@@ -9,8 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GrayCodeAI/iterate/internal/agent"
-	"github.com/GrayCodeAI/iterate/internal/provider"
+	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/session"
 )
 
@@ -32,7 +31,7 @@ func New(repoPath string, store *session.Store, logger *slog.Logger) *Engine {
 
 // Run executes one full evolution session.
 // It reads the repo, assesses it, implements improvements, tests, and commits or reverts.
-func (e *Engine) Run(ctx context.Context, p provider.Provider, issues string) (*session.Session, error) {
+func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (*session.Session, error) {
 	sess := &session.Session{
 		StartedAt: time.Now(),
 		Provider:  p.Name(),
@@ -52,8 +51,8 @@ func (e *Engine) Run(ctx context.Context, p provider.Provider, issues string) (*
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
 
 	// Create agent with all tools
-	tools := agent.DefaultTools(e.repoPath)
-	a := agent.New(p, tools, e.logger)
+	tools := iteragent.DefaultTools(e.repoPath)
+	a := iteragent.New(p, tools, e.logger)
 	sess.Events = a.Events
 
 	// Run the agent loop
@@ -168,21 +167,21 @@ func buildUserMessage(repoPath, journal, issues string) string {
 }
 
 func (e *Engine) runTests(ctx context.Context) (string, error) {
-	tools := agent.DefaultTools(e.repoPath)
-	tm := agent.ToolMap(tools)
+	tools := iteragent.DefaultTools(e.repoPath)
+	tm := iteragent.ToolMap(tools)
 	return tm["run_tests"].Execute(ctx, nil)
 }
 
 func (e *Engine) revert(ctx context.Context) error {
-	tools := agent.DefaultTools(e.repoPath)
-	tm := agent.ToolMap(tools)
+	tools := iteragent.DefaultTools(e.repoPath)
+	tm := iteragent.ToolMap(tools)
 	_, err := tm["git_revert"].Execute(ctx, nil)
 	return err
 }
 
 func (e *Engine) commit(ctx context.Context, msg string) error {
-	tools := agent.DefaultTools(e.repoPath)
-	tm := agent.ToolMap(tools)
+	tools := iteragent.DefaultTools(e.repoPath)
+	tm := iteragent.ToolMap(tools)
 	_, err := tm["git_commit"].Execute(ctx, map[string]string{"message": msg})
 	return err
 }
