@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/iterate/internal/agent"
-	"github.com/yourusername/iterate/internal/provider"
-	"github.com/yourusername/iterate/internal/session"
+	"github.com/GrayCodeAI/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/provider"
+	"github.com/GrayCodeAI/iterate/internal/session"
 )
 
 // Engine runs one evolution session.

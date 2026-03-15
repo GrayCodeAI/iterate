@@ -3,23 +3,18 @@ package agent
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/GrayCodeAI/iteragent"
 )
 
-// Tool represents a capability the agent can invoke.
-type Tool struct {
-	Name        string
-	Description string
-	Execute     func(ctx context.Context, args map[string]string) (string, error)
-}
+type Tool = iteragent.Tool
 
-// DefaultTools returns all built-in tools available to the agent.
 func DefaultTools(repoPath string) []Tool {
 	return []Tool{
 		bashTool(repoPath),
@@ -33,63 +28,6 @@ func DefaultTools(repoPath string) []Tool {
 		MutationTestTool(repoPath),
 	}
 }
-
-// ToolCall represents a parsed tool invocation from the LLM response.
-type ToolCall struct {
-	Tool string            `json:"tool"`
-	Args map[string]string `json:"args"`
-}
-
-// ParseToolCalls extracts tool calls from LLM output.
-// Format: ```tool\n{"tool":"name","args":{...}}\n```
-func ParseToolCalls(output string) []ToolCall {
-	var calls []ToolCall
-	lines := strings.Split(output, "\n")
-	inBlock := false
-	var block strings.Builder
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "```tool") {
-			inBlock = true
-			block.Reset()
-			continue
-		}
-		if inBlock && line == "```" {
-			var call ToolCall
-			if err := json.Unmarshal([]byte(block.String()), &call); err == nil {
-				calls = append(calls, call)
-			}
-			inBlock = false
-			continue
-		}
-		if inBlock {
-			block.WriteString(line + "\n")
-		}
-	}
-	return calls
-}
-
-// ToolMap converts a slice of tools to a name-indexed map.
-func ToolMap(tools []Tool) map[string]Tool {
-	m := make(map[string]Tool, len(tools))
-	for _, t := range tools {
-		m[t.Name] = t
-	}
-	return m
-}
-
-// ToolDescriptions returns a formatted string of all tool descriptions for the system prompt.
-func ToolDescriptions(tools []Tool) string {
-	var sb strings.Builder
-	sb.WriteString("## Available tools\n\n")
-	sb.WriteString("Call tools using:\n```tool\n{\"tool\":\"name\",\"args\":{\"key\":\"value\"}}\n```\n\n")
-	for _, t := range tools {
-		sb.WriteString(fmt.Sprintf("### %s\n%s\n\n", t.Name, t.Description))
-	}
-	return sb.String()
-}
-
-// --- Tool implementations ---
 
 func bashTool(repoPath string) Tool {
 	return Tool{
@@ -108,7 +46,7 @@ func bashTool(repoPath string) Tool {
 			var out bytes.Buffer
 			c.Stdout = &out
 			c.Stderr = &out
-			_ = c.Run() // capture output even on error
+			_ = c.Run()
 			return out.String(), nil
 		},
 	}
@@ -149,7 +87,7 @@ func writeFileTool(repoPath string) Tool {
 func listFilesTool(repoPath string) Tool {
 	return Tool{
 		Name:        "list_files",
-		Description: "List all Go source files in the repo.\nArgs: {} (no args needed)",
+		Description: "List all Go source files in the repo.\nArgs: {}",
 		Execute: func(ctx context.Context, args map[string]string) (string, error) {
 			var files []string
 			err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
@@ -216,7 +154,7 @@ func gitCommitTool(repoPath string) Tool {
 func gitRevertTool(repoPath string) Tool {
 	return Tool{
 		Name:        "git_revert",
-		Description: "Discard all unstaged changes (revert to last commit).\nArgs: {}",
+		Description: "Discard all unstaged changes.\nArgs: {}",
 		Execute: func(ctx context.Context, args map[string]string) (string, error) {
 			c := exec.CommandContext(ctx, "git", "checkout", "--", ".")
 			c.Dir = repoPath
@@ -229,7 +167,7 @@ func gitRevertTool(repoPath string) Tool {
 func runTestsTool(repoPath string) Tool {
 	return Tool{
 		Name:        "run_tests",
-		Description: "Run go build and go test across the whole repo.\nArgs: {}",
+		Description: "Run go build and go test.\nArgs: {}",
 		Execute: func(ctx context.Context, args map[string]string) (string, error) {
 			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()

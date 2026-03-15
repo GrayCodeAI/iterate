@@ -10,8 +10,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/websocket"
 
-	"github.com/yourusername/iterate/internal/agent"
-	"github.com/yourusername/iterate/internal/session"
+	"github.com/GrayCodeAI/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/session"
 )
 
 var upgrader = websocket.Upgrader{
