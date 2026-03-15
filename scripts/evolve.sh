@@ -2,20 +2,20 @@
 # scripts/evolve.sh — One evolution cycle. Run every 4 hours via GitHub Actions or manually.
 #
 # Usage:
-#   ITERATE_PROVIDER=groq ITERATE_MODEL=llama-3.3-70b-versatile ./scripts/evolve.sh
+#   ITERATE_PROVIDER=gemini ITERATE_MODEL=gemini-2.0-flash ./scripts/evolve.sh
 #
 # Environment:
-#   ITERATE_PROVIDER  — Provider: ollama, openai, anthropic, groq (default: groq)
-#   ITERATE_MODEL     — Model name (default: llama-3.3-70b-versatile)
-#   GROQ_API_KEY      — Required for groq provider
+#   ITERATE_PROVIDER  — Provider: ollama, openai, anthropic, groq, gemini (default: gemini)
+#   ITERATE_MODEL     — Model name (default: gemini-2.0-flash)
+#   GEMINI_API_KEY    — Required for gemini provider
 #   REPO              — GitHub repo (default: GrayCodeAI/iterate)
 #   GITHUB_TOKEN      — GitHub token for issue comments
 
 set -euo pipefail
 
 REPO="${REPO:-GrayCodeAI/iterate}"
-ITERATE_PROVIDER="${ITERATE_PROVIDER:-groq}"
-ITERATE_MODEL="${ITERATE_MODEL:-llama-3.3-70b-versatile}"
+ITERATE_PROVIDER="${ITERATE_PROVIDER:-gemini}"
+ITERATE_MODEL="${ITERATE_MODEL:-gemini-2.0-flash}"
 TIMEOUT="${TIMEOUT:-1200}"
 BIRTH_DATE="2026-03-15"
 DATE=$(date +%Y-%m-%d)
