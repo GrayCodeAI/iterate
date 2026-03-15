@@ -340,11 +340,11 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 			Repository struct {
 				Discussions struct {
 					Nodes []struct {
-						ID     string `json:"id"`
-						Number int    `json:"number"`
-						Title  string `json:"title"`
-						Body   string `json:"body"`
-						URL    string `json:"url"`
+						ID       string `json:"id"`
+						Number   int    `json:"number"`
+						Title    string `json:"title"`
+						Body     string `json:"body"`
+						URL      string `json:"url"`
 						Comments struct {
 							Nodes []struct {
 								ID     string `json:"id"`
