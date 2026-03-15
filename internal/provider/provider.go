@@ -20,11 +20,11 @@ type Provider interface {
 }
 
 // New returns the provider selected by ITERATE_PROVIDER.
-// Supported values: ollama, openai, anthropic, groq (default: groq)
+// Supported values: ollama, openai, anthropic, groq, gemini (default: gemini)
 func New() (Provider, error) {
 	name := os.Getenv("ITERATE_PROVIDER")
 	if name == "" {
-		name = "groq"
+		name = "gemini"
 	}
 
 	switch name {
@@ -65,6 +65,16 @@ func New() (Provider, error) {
 			BaseURL: "https://api.groq.com/openai/v1",
 			Model:   getEnvOr("ITERATE_MODEL", "llama-3.3-70b-versatile"),
 			APIKey:  key,
+		}), nil
+
+	case "gemini":
+		key := os.Getenv("GEMINI_API_KEY")
+		if key == "" {
+			return nil, fmt.Errorf("GEMINI_API_KEY is required for gemini provider")
+		}
+		return NewGemini(GeminiConfig{
+			Model:  getEnvOr("ITERATE_MODEL", "gemini-2.0-flash"),
+			APIKey: key,
 		}), nil
 
 	default:
