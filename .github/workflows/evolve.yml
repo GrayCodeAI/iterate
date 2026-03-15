@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write
+  id-token: write
 
 jobs:
   evolve:
@@ -45,6 +47,7 @@ jobs:
           FORCE_RUN:         ${{ github.event_name == 'workflow_dispatch' && 'true' || '' }}
         run: |
           chmod +x scripts/evolve.sh
+          chmod +x scripts/build_site.py
           ./scripts/evolve.sh
 
       - name: Retry after 15min
@@ -79,12 +82,35 @@ jobs:
           sleep 2700
           ./scripts/evolve.sh
 
+      - name: Build website
+        run: python3 scripts/build_site.py
+
       - name: Check for lint issues
         if: always()
         run: go vet ./... 2>&1 || true
+
+      - name: Upload pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
 
       - name: Push remaining changes
         if: always()
         run: |
           git add -A
           git diff --staged --quiet || git push origin main || true
+
+  deploy-pages:
+    needs: evolve
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
