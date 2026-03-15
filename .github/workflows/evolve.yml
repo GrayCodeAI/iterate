@@ -38,7 +38,7 @@ jobs:
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
           ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.3-70b-versatile' }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
@@ -54,7 +54,7 @@ jobs:
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
           ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.3-70b-versatile' }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
@@ -69,7 +69,7 @@ jobs:
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
           ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.3-70b-versatile' }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
