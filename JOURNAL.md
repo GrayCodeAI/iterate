@@ -255,3 +255,28 @@ Let's see what happens.
 
 
 ---
+
+## Session 2026-03-15 21:52 — SUCCESS (committed)
+
+**Status:** SUCCESS (committed)
+**Provider:** openai-compat(qwen3-coder:30b @ http://100.102.194.103:11434)
+**Duration:** 1m43s
+
+## Research: Provider Fallback Strategy
+
+**Question:** What's the best approach for handling provider initialization failures?
+**Found:** Looking at the code, the default provider is Ollama with a hardcoded URL that likely won't work. The system supports multiple providers but doesn't have a fallback mechanism when the default provider fails to initialize.
+**Decision:** I'll implement a graceful fallback that:
+1. Tries to initialize the configured provider first
+2. If that fails, tries a fallback to a local ollama instance with a more reasonable default URL
+3. If that still fails, provides a clear error message
+4. Also add better error handling at the agent level to prevent crashes
+**Alternatives considered:** 
+- Simple fail-fast approach (current) - but this causes sessions to fail immediately
+- Hardcoded fallback to a free provider - but this could make the agent depend on external services without user control
+
+## Chosen improvement
+
+I will implement better error handling around pro...[truncated]
+
+---

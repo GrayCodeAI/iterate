@@ -2,19 +2,20 @@
 # scripts/evolve.sh — One evolution cycle. Run every 4 hours via GitHub Actions or manually.
 #
 # Usage:
-#   OLLAMA_BASE_URL=http://... ITERATE_MODEL=qwen3-coder:30b ./scripts/evolve.sh
+#   ITERATE_PROVIDER=groq ITERATE_MODEL=llama-3.3-70b-versatile ./scripts/evolve.sh
 #
 # Environment:
-#   OLLAMA_BASE_URL  — Ollama server URL (default: http://100.102.194.103:11434)
-#   ITERATE_MODEL   — Model name (default: qwen3-coder:30b)
-#   REPO            — GitHub repo (default: GrayCodeAI/iterate)
-#   GITHUB_TOKEN    — GitHub token for issue comments
+#   ITERATE_PROVIDER  — Provider: ollama, openai, anthropic, groq (default: groq)
+#   ITERATE_MODEL     — Model name (default: llama-3.3-70b-versatile)
+#   GROQ_API_KEY      — Required for groq provider
+#   REPO              — GitHub repo (default: GrayCodeAI/iterate)
+#   GITHUB_TOKEN      — GitHub token for issue comments
 
 set -euo pipefail
 
 REPO="${REPO:-GrayCodeAI/iterate}"
-OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://100.102.194.103:11434}"
-ITERATE_MODEL="${ITERATE_MODEL:-qwen3-coder:30b}"
+ITERATE_PROVIDER="${ITERATE_PROVIDER:-groq}"
+ITERATE_MODEL="${ITERATE_MODEL:-llama-3.3-70b-versatile}"
 TIMEOUT="${TIMEOUT:-1200}"
 BIRTH_DATE="2026-03-15"
 DATE=$(date +%Y-%m-%d)
@@ -29,7 +30,7 @@ fi
 echo "$DAY" > DAY_COUNT
 
 echo "=== Day $DAY ($DATE $SESSION_TIME) ==="
-echo "Model: $ITERATE_MODEL @ $OLLAMA_BASE_URL"
+echo "Provider: $ITERATE_PROVIDER, Model: $ITERATE_MODEL"
 echo "Plan timeout: ${TIMEOUT}s | Impl timeout: 900s/task"
 echo ""
 

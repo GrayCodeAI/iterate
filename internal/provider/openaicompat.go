@@ -90,8 +90,7 @@ func (p *openAICompat) Complete(ctx context.Context, messages []Message) (string
 
 	var result openAIResponse
 	if err := json.Unmarshal(raw, &result); err != nil {
-		// Debug: print raw response on error
-		return "", fmt.Errorf("unmarshal response: %w, raw: %s", err, string(raw))
+		return "", fmt.Errorf("unmarshal response: %w", err)
 	}
 	if result.Error != nil {
 		return "", fmt.Errorf("provider error: %s", result.Error.Message)
