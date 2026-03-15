@@ -1,4 +1,4 @@
-module github.com/yourusername/iterate
+module github.com/GrayCodeAI/iterate
 
 go 1.22
 
