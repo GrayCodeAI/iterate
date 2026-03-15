@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/iterate/internal/provider"
+	"github.com/GrayCodeAI/iterate/internal/provider"
 )
 
 // Discussion represents a GitHub Discussion thread.

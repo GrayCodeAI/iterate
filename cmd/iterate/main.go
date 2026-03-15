@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/iterate/internal/community"
-	"github.com/yourusername/iterate/internal/evolution"
-	"github.com/yourusername/iterate/internal/provider"
-	"github.com/yourusername/iterate/internal/session"
-	"github.com/yourusername/iterate/internal/social"
-	"github.com/yourusername/iterate/internal/web"
+	"github.com/GrayCodeAI/iterate/internal/community"
+	"github.com/GrayCodeAI/iterate/internal/evolution"
+	"github.com/GrayCodeAI/iterate/internal/provider"
+	"github.com/GrayCodeAI/iterate/internal/session"
+	"github.com/GrayCodeAI/iterate/internal/social"
+	"github.com/GrayCodeAI/iterate/internal/web"
 )
 
 func main() {

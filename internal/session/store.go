@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/yourusername/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/agent"
 )
 
 // Session records one evolution run.
