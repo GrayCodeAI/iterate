@@ -10,7 +10,7 @@ vendor/
 # General
 .DS_Store
 
-# Rust (yoyo-evolve)
+# Rust
 /target
 Cargo.lock
 __pycache__/
