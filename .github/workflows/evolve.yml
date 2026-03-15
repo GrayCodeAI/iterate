@@ -36,9 +36,9 @@ jobs:
         id: attempt1
         continue-on-error: true
         env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'gemini' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'gemini-2.0-flash' }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.1-70b-versatile' }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
@@ -52,9 +52,9 @@ jobs:
         if: steps.attempt1.outcome == 'failure'
         continue-on-error: true
         env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'gemini' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'gemini-2.0-flash' }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.1-70b-versatile' }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
@@ -67,9 +67,9 @@ jobs:
       - name: Retry after 45min
         if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
         env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'gemini' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'gemini-2.0-flash' }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'groq' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'llama-3.1-70b-versatile' }}
+          GROQ_API_KEY:      ${{ secrets.GROK_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
