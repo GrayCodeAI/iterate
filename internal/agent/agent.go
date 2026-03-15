@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/GrayCodeAI/iteragent"
+	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/provider"
 )
 
