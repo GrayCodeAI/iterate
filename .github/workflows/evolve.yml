@@ -1,18 +1,18 @@
-name: evolve
+name: Evolution
 
 on:
   schedule:
-    - cron: '0 0,8,16 * * *'
-  workflow_dispatch:
+    - cron: '0 */4 * * *'  # every 4 hours
+  workflow_dispatch:       # manual trigger for testing
+
+permissions:
+  contents: write
+  issues: write
 
 jobs:
   evolve:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pages: write
-      id-token: write
+    timeout-minutes: 150
 
     steps:
       - name: Checkout
@@ -27,59 +27,61 @@ jobs:
           go-version: '1.22'
           cache: true
 
-      - name: Install mutation testing
-        run: go install github.com/zimmski/go-mutesting/cmd/go-mutesting@latest || true
-
-      - name: Build iterate
-        run: go build -o iterate ./cmd/iterate
-
-      - name: Build site generator
-        run: go build -o build_site ./cmd/build_site
-
       - name: Configure git
         run: |
           git config user.name  "iterate[bot]"
           git config user.email "iterate@users.noreply.github.com"
 
       - name: Run evolution session
+        id: attempt1
+        continue-on-error: true
         env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'anthropic' }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
-          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL }}
+          OLLAMA_BASE_URL:   ${{ vars.OLLAMA_BASE_URL || 'http://100.102.194.103:11434' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'qwen3-coder:30b' }}
+          REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT:            ${{ secrets.GH_PAT }}
+          FORCE_RUN:         ${{ github.event_name == 'workflow_dispatch' && 'true' || '' }}
         run: |
-          ./iterate \
-            --repo . \
-            --gh-owner ${{ github.repository_owner }} \
-            --gh-repo  ${{ github.event.repository.name }} \
-            --issue-limit 5 \
-            --reply-issues
+          chmod +x scripts/evolve.sh
+          ./scripts/evolve.sh
 
-      - name: Rebuild journey site
-        run: ./build_site .
+      - name: Retry after 15min
+        id: attempt2
+        if: steps.attempt1.outcome == 'failure'
+        continue-on-error: true
+        env:
+          OLLAMA_BASE_URL:   ${{ vars.OLLAMA_BASE_URL || 'http://100.102.194.103:11434' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'qwen3-coder:30b' }}
+          REPO:              ${{ github.repository }}
+          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT:            ${{ secrets.GH_PAT }}
+          FORCE_RUN:         ${{ github.event_name == 'workflow_dispatch' && 'true' || '' }}
+        run: |
+          echo "Waiting 15 minutes before retry..."
+          sleep 900
+          ./scripts/evolve.sh
 
-      - name: Push all changes
+      - name: Retry after 45min
+        if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
+        env:
+          OLLAMA_BASE_URL:   ${{ vars.OLLAMA_BASE_URL || 'http://100.102.194.103:11434' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'qwen3-coder:30b' }}
+          REPO:              ${{ github.repository }}
+          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT:            ${{ secrets.GH_PAT }}
+          FORCE_RUN:         ${{ github.event_name == 'workflow_dispatch' && 'true' || '' }}
+        run: |
+          echo "Waiting 45 minutes before retry..."
+          sleep 2700
+          ./scripts/evolve.sh
+
+      - name: Check for lint issues
+        if: always()
+        run: go vet ./... 2>&1 || true
+
+      - name: Push remaining changes
+        if: always()
         run: |
           git add -A
-          git diff --staged --quiet || git push origin main
-
-      - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
-
-  deploy-pages:
-    needs: evolve
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git diff --staged --quiet || git push origin main || true
