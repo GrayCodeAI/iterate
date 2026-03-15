@@ -1,0 +1,22 @@
+# Go
+/iterate
+*.exe
+.iterate/
+vendor/
+*.db
+*.db-shm
+*.db-wal
+
+# General
+.DS_Store
+
+# Rust (yoyo-evolve)
+/target
+Cargo.lock
+__pycache__/
+ISSUES_TODAY.md
+ISSUE_RESPONSE.md
+/tmp/
+.worktrees/
+mutants.out/
+mutants.out.old/

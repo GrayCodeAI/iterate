@@ -1,0 +1,25 @@
+# Mutation testing configuration for iterate
+
+[mutate]
+
+# Directories to mutate
+directories = [
+    "internal/agent",
+    "internal/community",
+    "internal/evolution",
+    "internal/provider",
+    "internal/session",
+    "internal/social",
+    "internal/web",
+]
+
+# Packages to ignore
+ignore = [
+    "internal/web",
+]
+
+# Test commands to run
+[[run]]
+name = "go test"
+command = "go test -v ./..."
+timeout = 60
