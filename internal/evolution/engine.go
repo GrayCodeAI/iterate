@@ -50,13 +50,17 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
 
-	// Create agent with all tools
+	// Create agent with all tools - builder pattern like yoyo-evolve
 	tools := iteragent.DefaultTools(e.repoPath)
-	a := iteragent.New(p, tools, e.logger)
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+
+	a := iteragent.New(p, tools, e.logger).
+		WithSystemPrompt(systemPrompt).
+		WithSkillSet(skills)
 	sess.Events = a.Events
 
 	// Run the agent loop
-	output, err := a.Run(ctx, systemPrompt, userMessage)
+	output, err := a.Run(ctx, "", userMessage)
 	sess.FinishedAt = time.Now()
 	sess.RawOutput = output
 
