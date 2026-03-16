@@ -1,5 +1,5 @@
-github.com/GrayCodeAI/iteragent v0.1.0 h1:PDTdptdzRo12tu87JXQy9/cbAxHk+le0vjkPr/+3yTs=
-github.com/GrayCodeAI/iteragent v0.1.0/go.mod h1:YQe51e7LC4cyWEapx8UfZiid2fUmLzsJ54R2ZhBkmHw=
+github.com/GrayCodeAI/iteragent v1.0.0 h1:L681D4vkQhEsBwL3ceJQ6DCmlUYAKxL3cnd2EXYJI5U=
+github.com/GrayCodeAI/iteragent v1.0.0/go.mod h1:YQe51e7LC4cyWEapx8UfZiid2fUmLzsJ54R2ZhBkmHw=
 github.com/go-chi/chi/v5 v5.0.12 h1:9euLV5sTrTNTRUU9POmDUvfxyj6LAABLUcEWO+JJb4s=
 github.com/go-chi/chi/v5 v5.0.12/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
 github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
