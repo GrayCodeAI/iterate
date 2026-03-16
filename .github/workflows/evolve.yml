@@ -39,7 +39,7 @@ jobs:
         continue-on-error: true
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'nvidia' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'nvidia/llama-3.3-nemotron-70b-instruct' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'meta/llama-3.3-70b-instruct' }}
           ITERATE_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
@@ -56,7 +56,7 @@ jobs:
         continue-on-error: true
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'nvidia' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'nvidia/llama-3.3-nemotron-70b-instruct' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'meta/llama-3.3-70b-instruct' }}
           ITERATE_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
@@ -71,7 +71,7 @@ jobs:
         if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'nvidia' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'nvidia/llama-3.3-nemotron-70b-instruct' }}
+          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'meta/llama-3.3-70b-instruct' }}
           ITERATE_API_KEY:   ${{ secrets.NVIDIA_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
