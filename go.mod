@@ -3,7 +3,7 @@ module github.com/GrayCodeAI/iterate
 go 1.22
 
 require (
-	github.com/GrayCodeAI/iteragent v1.0.4
+	github.com/GrayCodeAI/iteragent v1.0.5
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/google/go-github/v61 v61.0.0
 	github.com/gorilla/websocket v1.5.3
@@ -12,5 +12,3 @@ require (
 )
 
 require github.com/google/go-querystring v1.1.0 // indirect
-
-replace github.com/GrayCodeAI/iteragent => ../iteragent
