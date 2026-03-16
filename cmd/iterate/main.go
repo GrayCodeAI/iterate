@@ -31,6 +31,8 @@ func main() {
 		issueMax    = flag.Int("issue-limit", 5, "Max community issues to include")
 		socialOnly  = flag.Bool("social", false, "Run social loop only (no evolution)")
 		replyIssues = flag.Bool("reply-issues", true, "Post bot replies to addressed issues")
+		provider    = flag.String("provider", "", "Provider to use (anthropic, openai, groq, gemini)")
+		model       = flag.String("model", "", "Model to use")
 	)
 	flag.Parse()
 
@@ -52,7 +54,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	p, err := iteragent.NewProvider("")
+	// Set model env var if provided
+	if *model != "" {
+		os.Setenv("ITERATE_MODEL", *model)
+	}
+
+	p, err := iteragent.NewProvider(*provider)
 	if err != nil {
 		logger.Error("provider init failed", "err", err)
 		os.Exit(1)

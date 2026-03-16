@@ -118,77 +118,194 @@ const dashboardHTML = `<!DOCTYPE html>
 <title>iterate — self-evolving agent</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #0f0f0f; color: #e0e0e0; }
-  header { padding: 1.5rem 2rem; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 1rem; }
-  header h1 { font-size: 1.25rem; font-weight: 600; color: #fff; }
-  header .badge { background: #1a1a2e; color: #7c7cf0; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; border: 1px solid #7c7cf033; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 1.5rem 2rem; }
-  .card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 1.25rem; }
-  .card h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 0.5rem; }
-  .card .value { font-size: 2rem; font-weight: 700; color: #fff; }
-  .card .sub { font-size: 0.8rem; color: #555; margin-top: 0.25rem; }
-  .panel { margin: 0 2rem 2rem; background: #161616; border: 1px solid #222; border-radius: 12px; }
-  .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid #222; font-size: 0.85rem; font-weight: 600; color: #999; display: flex; align-items: center; gap: 0.5rem; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
-  .dot.live { background: #22c55e; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  #live-log { padding: 1rem 1.25rem; font-family: monospace; font-size: 0.8rem; line-height: 1.7; max-height: 400px; overflow-y: auto; }
-  .event { padding: 0.2rem 0; border-bottom: 1px solid #1a1a1a; }
-  .event .type { display: inline-block; width: 100px; color: #555; }
-  .event.thought .type { color: #7c7cf0; }
-  .event.tool_call .type { color: #f0a84b; }
-  .event.tool_result .type { color: #4bade0; }
-  .event.done .type { color: #22c55e; }
-  .event.error .type { color: #ef4444; }
+  :root {
+    --bg: #0a0a0b;
+    --bg-elevated: #111113;
+    --bg-subtle: #18181b;
+    --border: #27272a;
+    --border-subtle: #1f1f23;
+    --text: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --purple: #8b5cf6;
+    --font-sans: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', Monaco, monospace;
+  }
+  body { 
+    font-family: var(--font-sans); 
+    background: var(--bg); 
+    color: var(--text); 
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  header { 
+    padding: 1.5rem 2.5rem; 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    gap: 1.25rem; 
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { 
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    letter-spacing: -0.03em;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+  .logo span { color: var(--accent); }
+  .badge { 
+    background: var(--bg-subtle); 
+    color: var(--text-secondary); 
+    padding: 0.35rem 0.85rem; 
+    border-radius: 6px; 
+    font-size: 0.75rem; 
+    font-weight: 500;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+  }
+  .container { max-width: 1400px; margin: 0 auto; padding: 2rem 2.5rem; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--bg-elevated); padding: 1.75rem 2rem; }
+  .stat-card h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 600; margin-bottom: 0.75rem; }
+  .stat-card .value { font-size: 2.5rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .stat-card .value.accent { color: var(--accent); }
+  .stat-card .sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
+  
+  .panel { 
+    background: var(--bg-elevated); 
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .panel-header { 
+    padding: 1rem 1.5rem; 
+    border-bottom: 1px solid var(--border-subtle); 
+    font-size: 0.8rem; 
+    font-weight: 600; 
+    color: var(--text-secondary); 
+    display: flex; 
+    align-items: center; 
+    gap: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .status-dot.live { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  
+  #live-log { 
+    padding: 1rem 1.5rem; 
+    font-family: var(--font-mono); 
+    font-size: 0.75rem; 
+    line-height: 1.8; 
+    max-height: 380px; 
+    overflow-y: auto; 
+    background: var(--bg);
+  }
+  #live-log::-webkit-scrollbar { width: 6px; }
+  #live-log::-webkit-scrollbar-track { background: var(--bg); }
+  #live-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  
+  .event { padding: 0.25rem 0; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 1rem; }
+  .event:last-child { border-bottom: none; }
+  .event .type { 
+    color: var(--text-muted); 
+    min-width: 110px; 
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .event.thought .type { color: var(--purple); }
+  .event.tool_call .type { color: var(--warning); }
+  .event.tool_result .type { color: var(--info); }
+  .event.done .type { color: var(--accent); }
+  .event.error .type { color: var(--danger); }
+  .event .content { color: var(--text-secondary); flex: 1; word-break: break-word; }
+  
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th { text-align: left; padding: 0.75rem 1.25rem; color: #555; font-weight: 500; border-bottom: 1px solid #222; font-size: 0.75rem; text-transform: uppercase; }
-  td { padding: 0.75rem 1.25rem; border-bottom: 1px solid #1a1a1a; color: #ccc; }
-  .status { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
-  .status.committed { background: #14532d; color: #4ade80; }
-  .status.reverted  { background: #7f1d1d; color: #f87171; }
-  .status.running   { background: #1e1b4b; color: #a5b4fc; }
-  .status.error     { background: #7f1d1d; color: #f87171; }
+  th { text-align: left; padding: 1rem 1.5rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-subtle); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-subtle); }
+  
+  .status-tag { 
+    display: inline-block; 
+    padding: 0.25rem 0.65rem; 
+    border-radius: 4px; 
+    font-size: 0.7rem; 
+    font-weight: 600; 
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .status-tag.committed { background: var(--accent-dim); color: var(--accent); }
+  .status-tag.reverted  { background: #450a0a; color: #f87171; }
+  .status-tag.running   { background: #1e1b4b; color: #a5b4fc; }
+  .status-tag.error     { background: #450a0a; color: #f87171; }
+  .status-tag.commit_failed { background: #451a03; color: #fb923c; }
+  
+  .mono { font-family: var(--font-mono); }
+  .text-muted { color: var(--text-muted); }
+  
+  .empty-state { 
+    padding: 3rem; 
+    text-align: center; 
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>iterate</h1>
+  <div class="logo">iterate<span>_</span></div>
   <span class="badge" id="provider">loading...</span>
   <span class="badge" id="day-badge">day ?</span>
 </header>
 
-<div class="grid">
-  <div class="card">
-    <h2>Total sessions</h2>
-    <div class="value" id="stat-total">—</div>
-    <div class="sub">all time</div>
+<div class="container">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <h3>Total Sessions</h3>
+      <div class="value" id="stat-total">—</div>
+      <div class="sub">all time</div>
+    </div>
+    <div class="stat-card">
+      <h3>Successful</h3>
+      <div class="value accent" id="stat-committed">—</div>
+      <div class="sub">improvements committed</div>
+    </div>
+    <div class="stat-card">
+      <h3>Reverted</h3>
+      <div class="value" id="stat-reverted">—</div>
+      <div class="sub">tests failed</div>
+    </div>
   </div>
-  <div class="card">
-    <h2>Committed</h2>
-    <div class="value" id="stat-committed">—</div>
-    <div class="sub">successful improvements</div>
-  </div>
-  <div class="card">
-    <h2>Reverted</h2>
-    <div class="value" id="stat-reverted">—</div>
-    <div class="sub">tests failed</div>
-  </div>
-</div>
 
-<div class="panel">
-  <div class="panel-header">
-    <div class="dot live" id="live-dot"></div>
-    Live agent stream
+  <div class="panel">
+    <div class="panel-header">
+      <div class="status-dot live" id="live-dot"></div>
+      Agent Activity
+    </div>
+    <div id="live-log"><span class="text-muted">Waiting for agent activity...</span></div>
   </div>
-  <div id="live-log"><span style="color:#444">Waiting for agent activity...</span></div>
-</div>
 
-<div class="panel">
-  <div class="panel-header">Session history</div>
-  <table>
-    <thead><tr><th>Date</th><th>Status</th><th>Provider</th><th>Duration</th></tr></thead>
-    <tbody id="sessions-table"></tbody>
-  </table>
+  <div class="panel">
+    <div class="panel-header">Session History</div>
+    <table>
+      <thead><tr><th>Date</th><th>Status</th><th>Provider</th><th>Duration</th><th>Output</th></tr></thead>
+      <tbody id="sessions-table">
+        <tr><td colspan="5" class="empty-state">No sessions yet</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>
@@ -207,15 +324,21 @@ async function loadSessions() {
   const r = await fetch('/api/sessions');
   const sessions = await r.json();
   const tbody = document.getElementById('sessions-table');
-  tbody.innerHTML = (sessions || []).map(s => {
+  if (!sessions || sessions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No sessions yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s => {
     const start = new Date(s.StartedAt);
     const end = new Date(s.FinishedAt);
     const dur = s.FinishedAt ? Math.round((end-start)/1000)+'s' : '—';
+    const output = s.RawOutput ? (s.RawOutput.slice(0, 60) + (s.RawOutput.length > 60 ? '...' : '')) : '—';
     return '<tr>' +
-      '<td>' + start.toLocaleString() + '</td>' +
-      '<td><span class="status ' + s.Status + '">' + s.Status + '</span></td>' +
-      '<td>' + s.Provider + '</td>' +
+      '<td class="mono">' + start.toLocaleDateString() + ' <span class="text-muted">' + start.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + '</span></td>' +
+      '<td><span class="status-tag ' + s.Status + '">' + s.Status + '</span></td>' +
+      '<td class="mono">' + (s.Provider || '—') + '</td>' +
       '<td>' + dur + '</td>' +
+      '<td class="text-muted" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(output) + '</td>' +
     '</tr>';
   }).join('');
 }
@@ -229,8 +352,10 @@ function connectWS() {
     const event = JSON.parse(e.data);
     const div = document.createElement('div');
     div.className = 'event ' + event.Type;
-    const content = event.Content.length > 200 ? event.Content.slice(0,200)+'...' : event.Content;
-    div.innerHTML = '<span class="type">' + event.Type + '</span> ' + escapeHtml(content);
+    let content = event.Content || '';
+    if (typeof content === 'object') content = JSON.stringify(content);
+    content = content.length > 300 ? content.slice(0,300)+'...' : content;
+    div.innerHTML = '<span class="type">' + event.Type + '</span><span class="content">' + escapeHtml(content) + '</span>';
     if (log.children[0]?.textContent?.includes('Waiting')) log.innerHTML = '';
     log.appendChild(div);
     log.scrollTop = log.scrollHeight;
@@ -247,7 +372,8 @@ function connectWS() {
 }
 
 function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (!s) return '';
+  return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 loadStats(); loadSessions(); connectWS();
