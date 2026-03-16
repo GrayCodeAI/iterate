@@ -2,7 +2,7 @@ name: Evolution
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # every 4 hours
+    - cron: '*/5 * * * *'  # every 5 minutes for testing
   workflow_dispatch:       # manual trigger for testing
 
 permissions:
