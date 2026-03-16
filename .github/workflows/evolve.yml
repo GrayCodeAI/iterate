@@ -72,7 +72,7 @@ jobs:
         env:
           ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'gemini' }}
           ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'gemini-2.0-flash' }}
-          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          ITERATE_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
           REPO:              ${{ github.repository }}
           GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GH_PAT:            ${{ secrets.GH_PAT }}
