@@ -243,6 +243,27 @@ section h2 {
   line-height: 1.7;
 }
 
+.session-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.session-card .session-title {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.session-card .body {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 /* identity */
 .identity-grid {
   display: grid;

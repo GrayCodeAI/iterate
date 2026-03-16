@@ -33,13 +33,27 @@ def parse_journal(content):
         if not chunk:
             continue
         lines = chunk.split("\n")
+
+        # Match Day entries (e.g., "Day 0 — Born")
         m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
-        if not m:
+        if m:
+            day = int(m.group(1))
+            title = m.group(2).strip()
+            body = "\n".join(lines[1:]).strip()
+            entries.append({"day": day, "title": title, "body": body, "is_day": True})
             continue
-        day = int(m.group(1))
-        title = m.group(2).strip()
-        body = "\n".join(lines[1:]).strip()
-        entries.append({"day": day, "title": title, "body": body})
+
+        # Match Session entries (e.g., "Session 2026-03-16 15:23 — SUCCESS")
+        m = re.match(
+            r"Session\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0]
+        )
+        if m:
+            date = m.group(1)
+            time = m.group(2)
+            status = m.group(3).strip()
+            title = f"{date} {time} — {status}"
+            body = "\n".join(lines[1:]).strip()
+            entries.append({"day": 0, "title": title, "body": body, "is_day": False})
     return entries
 
 
@@ -52,13 +66,24 @@ def render_journal(entries):
         if entry["body"]:
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
-        parts.append(
-            f'  <div class="journal-card">\n'
-            f'    <div class="day">Day {entry["day"]}</div>\n'
-            f'    <div class="title">{md_inline(entry["title"])}</div>\n'
-            f'    <div class="body">{body_html}</div>\n'
-            f"  </div>"
-        )
+
+        if entry.get("is_day", True):
+            # Day entries - show as cards
+            parts.append(
+                f'  <div class="journal-card">\n'
+                f'    <div class="day">Day {entry["day"]}</div>\n'
+                f'    <div class="title">{md_inline(entry["title"])}</div>\n'
+                f'    <div class="body">{body_html}</div>\n'
+                f"  </div>"
+            )
+        else:
+            # Session entries - show in smaller format
+            parts.append(
+                f'  <div class="session-card">\n'
+                f'    <div class="session-title">{md_inline(entry["title"])}</div>\n'
+                f'    <div class="body">{body_html}</div>\n'
+                f"  </div>"
+            )
     return "\n".join(parts)
 
 
