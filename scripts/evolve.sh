@@ -2,12 +2,12 @@
 # scripts/evolve.sh — One evolution cycle. Run every 4 hours via GitHub Actions or manually.
 #
 # Usage:
-#   ITERATE_PROVIDER=gemini ITERATE_MODEL=gemini-2.0-flash ./scripts/evolve.sh
+#   ITERATE_API_KEY=your-key ITERATE_PROVIDER=gemini ./scripts/evolve.sh
 #
 # Environment:
 #   ITERATE_PROVIDER  — Provider: ollama, openai, anthropic, groq, gemini (default: gemini)
 #   ITERATE_MODEL     — Model name (default: gemini-2.0-flash)
-#   GEMINI_API_KEY    — Required for gemini provider
+#   ITERATE_API_KEY   — API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)
 #   REPO              — GitHub repo (default: GrayCodeAI/iterate)
 #   GITHUB_TOKEN      — GitHub token for issue comments
 
@@ -17,9 +17,26 @@ REPO="${REPO:-GrayCodeAI/iterate}"
 ITERATE_PROVIDER="${ITERATE_PROVIDER:-gemini}"
 ITERATE_MODEL="${ITERATE_MODEL:-gemini-2.0-flash}"
 TIMEOUT="${TIMEOUT:-1200}"
+ITERATE_API_KEY="${ITERATE_API_KEY:-}"
 BIRTH_DATE="2026-03-15"
 DATE=$(date +%Y-%m-%d)
 SESSION_TIME=$(date +%H:%M)
+
+# Get API key from provider-specific env if not provided
+if [ -z "$ITERATE_API_KEY" ]; then
+    case "$ITERATE_PROVIDER" in
+        anthropic) ITERATE_API_KEY="${ANTHROPIC_API_KEY:-}" ;;
+        openai)    ITERATE_API_KEY="${OPENAI_API_KEY:-}" ;;
+        groq)      ITERATE_API_KEY="${GROQ_API_KEY:-}" ;;
+        gemini)    ITERATE_API_KEY="${GEMINI_API_KEY:-}" ;;
+        ollama)   ITERATE_API_KEY="${OPENAI_API_KEY:-}" ;;
+    esac
+fi
+
+API_KEY_FLAG=""
+if [ -n "$ITERATE_API_KEY" ]; then
+    API_KEY_FLAG="--api-key $ITERATE_API_KEY"
+fi
 
 # Compute calendar day
 if date -j &>/dev/null; then
@@ -204,6 +221,7 @@ PLANEOF
 
 ${TIMEOUT_CMD:+$TIMEOUT_CMD "$TIMEOUT"} ./iterate \
     --repo . \
+    $API_KEY_FLAG \
     < "$PLAN_PROMPT" 2>&1 || true
 
 rm -f "$PLAN_PROMPT"
@@ -271,6 +289,7 @@ TEOF
 
     ${TIMEOUT_CMD:+$TIMEOUT_CMD "$IMPL_TIMEOUT"} ./iterate \
         --repo . \
+        $API_KEY_FLAG \
         < "$TASK_PROMPT" 2>&1 || true
 
     rm -f "$TASK_PROMPT"
@@ -407,7 +426,7 @@ Steps:
 5. Commit: git add -A && git commit -m "Day $DAY ($SESSION_TIME): fix build errors"
 FIXEOF
 
-        ./iterate --repo . < "$FIX_PROMPT" 2>&1 || true
+        ./iterate --repo . $API_KEY_FLAG < "$FIX_PROMPT" 2>&1 || true
         rm -f "$FIX_PROMPT"
     else
         echo "  Build: FAIL after $FIX_ATTEMPTS fix attempts — reverting to pre-session state"
@@ -441,7 +460,7 @@ Then 2-4 sentences: what you did, what worked, what's next.
 Be specific and honest. Then commit: git add JOURNAL.md && git commit -m "Day $DAY ($SESSION_TIME): journal entry"
 JEOF
 
-    ./iterate --repo . < "$JOURNAL_PROMPT" 2>&1 || true
+    ./iterate --repo . $API_KEY_FLAG < "$JOURNAL_PROMPT" 2>&1 || true
     rm -f "$JOURNAL_PROMPT"
 fi
 
