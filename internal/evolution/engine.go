@@ -96,10 +96,9 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 
 func buildSystemPrompt(repoPath, identity string) string {
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
-	selfAssess, _ := os.ReadFile(filepath.Join(repoPath, "skills/self-assess.md"))
-	evolveSkill, _ := os.ReadFile(filepath.Join(repoPath, "skills/evolve.md"))
-	researchSkill, _ := os.ReadFile(filepath.Join(repoPath, "skills/research.md"))
-	releaseSkill, _ := os.ReadFile(filepath.Join(repoPath, "skills/release.md"))
+
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
+	skillsPrompt := skills.FormatForPrompt()
 
 	return fmt.Sprintf(`You are iterate, a self-evolving coding agent written in Go.
 
@@ -108,17 +107,6 @@ func buildSystemPrompt(repoPath, identity string) string {
 
 ## Personality
 %s
-
-## Self-assessment skill
-%s
-
-## Evolution skill
-%s
-
-## Research skill
-%s
-
-## Release skill
 %s
 
 ## Tool call format
@@ -128,10 +116,7 @@ Wrap tool calls in triple backtick blocks:
 `+"```",
 		identity,
 		string(personality),
-		string(selfAssess),
-		string(evolveSkill),
-		string(researchSkill),
-		string(releaseSkill),
+		skillsPrompt,
 	)
 }
 
