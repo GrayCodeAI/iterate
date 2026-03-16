@@ -33,6 +33,7 @@ func main() {
 		replyIssues = flag.Bool("reply-issues", true, "Post bot replies to addressed issues")
 		provider    = flag.String("provider", "", "Provider to use (anthropic, openai, groq, gemini)")
 		model       = flag.String("model", "", "Model to use")
+		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
 	)
 	flag.Parse()
 
@@ -59,7 +60,7 @@ func main() {
 		os.Setenv("ITERATE_MODEL", *model)
 	}
 
-	p, err := iteragent.NewProvider(*provider)
+	p, err := iteragent.NewProvider(*provider, *apiKey)
 	if err != nil {
 		logger.Error("provider init failed", "err", err)
 		os.Exit(1)
