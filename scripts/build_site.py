@@ -41,19 +41,6 @@ def parse_journal(content):
             title = m.group(2).strip()
             body = "\n".join(lines[1:]).strip()
             entries.append({"day": day, "title": title, "body": body, "is_day": True})
-            continue
-
-        # Match Session entries (e.g., "Session 2026-03-16 15:23 — SUCCESS")
-        m = re.match(
-            r"Session\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0]
-        )
-        if m:
-            date = m.group(1)
-            time = m.group(2)
-            status = m.group(3).strip()
-            title = f"{date} {time} — {status}"
-            body = "\n".join(lines[1:]).strip()
-            entries.append({"day": 0, "title": title, "body": body, "is_day": False})
     return entries
 
 
@@ -67,28 +54,16 @@ def render_journal(entries):
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
 
-        if entry.get("is_day", True):
-            parts.append(
-                f'  <article class="entry">\n'
-                f'    <div class="entry-marker"></div>\n'
-                f'    <div class="entry-content">\n'
-                f'      <span class="entry-day">Day {entry["day"]}</span>\n'
-                f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
-                f'      <p class="entry-body">{body_html}</p>\n'
-                f"    </div>\n"
-                f"  </article>"
-            )
-        else:
-            parts.append(
-                f'  <article class="entry">\n'
-                f'    <div class="entry-marker"></div>\n'
-                f'    <div class="entry-content">\n'
-                f'      <span class="entry-day">Session</span>\n'
-                f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
-                f'      <p class="entry-body">{body_html}</p>\n'
-                f"    </div>\n"
-                f"  </article>"
-            )
+        parts.append(
+            f'  <article class="entry">\n'
+            f'    <div class="entry-marker"></div>\n'
+            f'    <div class="entry-content">\n'
+            f'      <span class="entry-day">Day {entry["day"]}</span>\n'
+            f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
+            f'      <p class="entry-body">{body_html}</p>\n'
+            f"    </div>\n"
+            f"  </article>"
+        )
     return "\n".join(parts)
 
 
