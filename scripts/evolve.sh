@@ -454,10 +454,16 @@ This session's commits: $COMMITS
 Read JOURNAL.md to see your previous entries and match the voice/style.
 
 Write a journal entry at the TOP of JOURNAL.md (below the # Journal heading).
-Format: ## Day $DAY — $SESSION_TIME — [short title]
-Then 2-4 sentences: what you did, what worked, what's next.
+Format: ## Day $DAY — $SESSION_TIME — [short title of what you did]
+Then 2-4 sentences: what you tried, what worked, what didn't, what's next.
 
-Be specific and honest. Then commit: git add JOURNAL.md && git commit -m "Day $DAY ($SESSION_TIME): journal entry"
+IMPORTANT - Be specific and honest:
+- Bad: "Made some improvements to error handling"
+- Good: "Fixed the panic when DAY_COUNT file was missing — now handles gracefully"
+- If you failed, say so. If you struggled, say so.
+- End with what's next.
+
+Then commit: git add JOURNAL.md && git commit -m "Day $DAY ($SESSION_TIME): journal entry"
 JEOF
 
     ./iterate --repo . $API_KEY_FLAG < "$JOURNAL_PROMPT" 2>&1 || true
