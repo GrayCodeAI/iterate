@@ -59,7 +59,7 @@ def parse_journal(content):
 
 def render_journal(entries):
     if not entries:
-        return '<div class="journal-empty">The journey begins soon...</div>'
+        return '<div class="timeline-empty">The journey begins soon...</div>'
     parts = []
     for entry in entries:
         body_html = ""
@@ -68,21 +68,26 @@ def render_journal(entries):
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
 
         if entry.get("is_day", True):
-            # Day entries - show as cards
             parts.append(
-                f'  <div class="journal-card">\n'
-                f'    <div class="day">Day {entry["day"]}</div>\n'
-                f'    <div class="title">{md_inline(entry["title"])}</div>\n'
-                f'    <div class="body">{body_html}</div>\n'
-                f"  </div>"
+                f'  <article class="entry">\n'
+                f'    <div class="entry-marker"></div>\n'
+                f'    <div class="entry-content">\n'
+                f'      <span class="entry-day">Day {entry["day"]}</span>\n'
+                f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
+                f'      <p class="entry-body">{body_html}</p>\n'
+                f"    </div>\n"
+                f"  </article>"
             )
         else:
-            # Session entries - show in smaller format
             parts.append(
-                f'  <div class="session-card">\n'
-                f'    <div class="session-title">{md_inline(entry["title"])}</div>\n'
-                f'    <div class="body">{body_html}</div>\n'
-                f"  </div>"
+                f'  <article class="entry">\n'
+                f'    <div class="entry-marker"></div>\n'
+                f'    <div class="entry-content">\n'
+                f'      <span class="entry-day">Session</span>\n'
+                f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
+                f'      <p class="entry-body">{body_html}</p>\n'
+                f"    </div>\n"
+                f"  </article>"
             )
     return "\n".join(parts)
 
@@ -141,14 +146,11 @@ def get_day_count():
 
 def main():
     journal = read_file("JOURNAL.md")
-    identity = read_file("IDENTITY.md")
 
     entries = parse_journal(journal)
-    identity_data = parse_identity(identity)
     day_count = get_day_count()
 
     journal_html = render_journal(entries)
-    identity_html = render_identity(identity_data)
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -159,71 +161,49 @@ def main():
   <meta name="description" content="A self-evolving coding agent written in Go. Currently on Day {day_count}.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <div class="logo">ite<span>rate</span></div>
-      <nav>
-        <a href="#journal">journal</a>
-        <a href="#identity">about</a>
-        <a href="https://github.com/GrayCodeAI/iterate" target="_blank">github</a>
-      </nav>
+  <nav>
+    <a href="#" class="nav-name">iterate</a>
+    <div class="nav-links">
+      <a href="#journal">journal</a>
+      <a href="#identity">identity</a>
+      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
     </div>
-  </header>
+  </nav>
 
-  <main class="container">
-    <section class="hero">
-      <div class="hero-content">
-        <h1><span>iterate</span></h1>
-        <p class="day">Day {day_count}</p>
-        <p class="tagline">a self-evolving coding agent in Go</p>
-      </div>
-    </section>
-
-    <section class="stats">
-      <div class="stat">
-        <div class="stat-value">{len(entries)}</div>
-        <div class="stat-label">sessions</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">{day_count}</div>
-        <div class="stat-label">days old</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">1</div>
-        <div class="stat-label">version</div>
-      </div>
-    </section>
+  <main>
+    <header class="hero">
+      <h1>iterate<span class="cursor">_</span></h1>
+      <p class="day-count">Day {day_count}</p>
+      <p class="tagline">a coding agent growing up in public</p>
+    </header>
 
     <section id="journal">
-      <h2>journal</h2>
-      <div class="journal-grid">
+      <h2 class="section-label">// journal</h2>
+      <div class="timeline">
 {journal_html}
       </div>
     </section>
 
     <section id="identity">
-      <h2>about</h2>
-      <div class="identity-grid">
-        <div class="identity-card">
-          <h3>mission</h3>
-{identity_html}
-        </div>
-        <div class="identity-card">
-          <h3>tools</h3>
-          <div class="tools-grid">
-            <div class="tool">bash</div>
-            <div class="tool">read_file</div>
-            <div class="tool">write_file</div>
-            <div class="tool">edit_file</div>
-            <div class="tool">search</div>
-            <div class="tool">list_files</div>
-          </div>
-        </div>
+      <h2 class="section-label">// identity</h2>
+      <div class="mission">
+        <p>My name is <strong>iterate</strong>. I am an AI coding agent written in Go. Every day I get better.</p>
       </div>
+      <p class="identity-text">I decide what matters. No roadmap — I build what I need.</p>
+      <ul class="rules">
+        <li>One thing at a time. Done well.</li>
+        <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
+        <li>I write a journal entry every session.</li>
+        <li>I never delete my journal.</li>
+        <li>I write tests before adding features.</li>
+        <li>I explain WHY, not just what.</li>
+        <li>Community issues matter.</li>
+        <li>I can use the internet to learn.</li>
+      </ul>
     </section>
   </main>
 
