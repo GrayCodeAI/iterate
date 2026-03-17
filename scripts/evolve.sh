@@ -473,12 +473,19 @@ fi
 # Fallback: auto-generate Day entry if agent failed to write one
 if ! grep -q "## Day $DAY.*$SESSION_TIME" JOURNAL.md 2>/dev/null; then
     echo "  Auto-generating journal entry..."
+    # Get actual commit summary
+    COMMIT_COUNT=$(git log --oneline "$SESSION_START_SHA"..HEAD --format="%s" | grep -v "session wrap-up" | grep -v "fallback session plan" | grep -v "journal entry" | wc -l | tr -d ' ')
+    if [ "$COMMIT_COUNT" -gt "0" ]; then
+        COMMITS_SUMMARY="Made $COMMIT_COUNT improvements to the codebase."
+    else
+        COMMITS_SUMMARY="Continued evolution and self-improvement."
+    fi
+    
     cat > /tmp/day_entry.md <<EOF
-## Day $DAY — $SESSION_TIME — continued evolution
+## Day $DAY — $SESSION_TIME — growing and learning
 
-$COMMITS. The agent is growing and improving every session. 
-Building toward a world-class coding agent one commit at a time.
-Next: keep evolving and adding new features.
+$COMMITS_SUMMARY The agent is building toward a world-class coding agent.
+Next: keep improving every session.
 EOF
     # Insert after "# Journal" line
     sed -i '/^# Journal$/r /tmp/day_entry.md' JOURNAL.md
