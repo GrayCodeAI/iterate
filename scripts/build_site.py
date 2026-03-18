@@ -27,38 +27,41 @@ def md_to_html(text):
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
     text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
 
-    # Separate rules from content
-    lines = text.split("\n")
-    rule_lines = []
-    content_lines = []
+    # Split into paragraphs
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 
-    for line in lines:
-        if re.match(r"^\d{2}\.\s", line):
-            # Strip the number prefix and add to rules
-            rule_text = re.sub(r"^\d{2}\.\s", "", line)
-            rule_lines.append(rule_text)
+    # Philosophy line marks the start of rules
+    philosophy_idx = -1
+    for i, p in enumerate(paragraphs):
+        if "I am not a product" in p:
+            philosophy_idx = i
+            break
+
+    # Content paragraphs (before rules) and rules (after philosophy)
+    if philosophy_idx >= 0:
+        content_paras = paragraphs[:philosophy_idx+1]
+        rule_paras = paragraphs[philosophy_idx+1:]
+    else:
+        content_paras = paragraphs
+        rule_paras = []
+
+    # Build content HTML
+    content_html = ""
+    for i, para in enumerate(content_paras):
+        if i == 0:
+            content_html += f'<p class="mission">{para}</p>'
         else:
-            content_lines.append(line)
+            content_html += f'<p class="identity-text">{para}</p>'
 
-    # Build paragraphs from non-rule content
-    content = "\n".join(content_lines)
-    # Paragraphs
-    content = re.sub(r"\n\n+", "</p><p>", content)
-    content = f"<p>{content}</p>"
-    # Add mission class to first paragraph
-    content = content.replace("<p>", '<p class="mission">', 1)
-    # Add identity-text class to other paragraphs
-    content = re.sub(r'</p><p>', '</p><p class="identity-text">', content)
-
-    # Build ordered list from rules
+    # Build rules HTML
     rules_html = ""
-    if rule_lines:
+    if rule_paras:
         rules_html = '<ol class="rules">\n'
-        for rule in rule_lines:
+        for rule in rule_paras:
             rules_html += f"    <li>{rule}</li>\n"
         rules_html += "  </ol>"
 
-    return content + "\n  " + rules_html if rules_html else content
+    return content_html + "\n  " + rules_html if rules_html else content_html
 
 def md_inline(text):
     text = html.escape(text)
