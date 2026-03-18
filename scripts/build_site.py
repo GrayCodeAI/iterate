@@ -55,8 +55,7 @@ def parse_journal(content):
         if m:
             day = int(m.group(1))
             rest = m.group(2).strip()
-            time_m = re.match(r"(\d{1,2}:\d{2})\s*[—–\-]+\s*(.+)", rest)
-            title = time_m.group(2).strip() if time_m else rest
+            title = rest  # Keep the full "HH:MM — Title" format
             body = "\n".join(lines[1:]).strip()
             entries.append({"day": day, "title": title, "body": body})
     return entries
