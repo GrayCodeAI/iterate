@@ -20,3 +20,4 @@ ISSUE_RESPONSE.md
 .worktrees/
 mutants.out/
 mutants.out.old/
+iteragent-pkg/
