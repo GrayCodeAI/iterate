@@ -33,6 +33,8 @@ def md_to_html(text):
     # Paragraphs
     text = re.sub(r"\n\n+", "</p><p>", text)
     text = f"<p>{text}</p>"
+    # Add mission class to first paragraph
+    text = text.replace("<p>", '<p class="mission">', 1)
     return text
 
 def md_inline(text):
