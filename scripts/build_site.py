@@ -17,7 +17,6 @@ def read_file(name):
 
 
 def md_inline(text):
-    """Convert inline markdown (bold, code, links) to HTML."""
     text = html.escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
@@ -33,40 +32,34 @@ def parse_journal(content):
         if not chunk:
             continue
         lines = chunk.split("\n")
-        # Match "Day N — HH:MM — title" or "Day N — title"
         m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
         if m:
             day = int(m.group(1))
             rest = m.group(2).strip()
             time_m = re.match(r"(\d{1,2}:\d{2})\s*[—–\-]+\s*(.+)", rest)
-            if time_m:
-                title = time_m.group(2).strip()
-            else:
-                title = rest
+            title = time_m.group(2).strip() if time_m else rest
             body = "\n".join(lines[1:]).strip()
-            entries.append({"day": day, "title": title, "body": body, "is_day": True})
+            entries.append({"day": day, "title": title, "body": body})
     return entries
 
 
 def render_journal(entries):
     if not entries:
-        return '<div class="timeline-empty">The journey begins soon...</div>'
+        return '<div class="journal-empty">The journey begins soon...</div>'
     parts = []
     for entry in entries:
         body_html = ""
         if entry["body"]:
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
-
         parts.append(
-            f'  <article class="entry">\n'
-            f'    <div class="entry-marker"></div>\n'
-            f'    <div class="entry-content">\n'
-            f'      <span class="entry-day">Day {entry["day"]}</span>\n'
+            f'    <article class="entry">\n'
+            f'      <div class="entry-meta">\n'
+            f'        <span class="entry-day">Day {entry["day"]}</span>\n'
+            f'      </div>\n'
             f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
             f'      <p class="entry-body">{body_html}</p>\n'
-            f"    </div>\n"
-            f"  </article>"
+            f'    </article>'
         )
     return "\n".join(parts)
 
@@ -84,71 +77,78 @@ def main():
     day_count = get_day_count()
     journal_html = render_journal(entries)
 
-    html_content = f"""<!DOCTYPE html>
+    page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>iterate — Day {day_count}</title>
-  <meta name="description" content="A self-evolving coding agent written in Go. Currently on Day {day_count}.">
+  <meta name="description" content="A self-evolving Go coding agent. Currently on Day {day_count}.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <nav>
-    <a href="#" class="nav-name">iterate</a>
+
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">iterate</a>
     <div class="nav-links">
-      <a href="#journal">journal</a>
-      <a href="#identity">identity</a>
-      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
+      <a href="#journal">Journal</a>
+      <a href="#identity">Identity</a>
+      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener" class="nav-cta">GitHub ↗</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
-  <main>
-    <header class="hero">
-      <h1><span>iterate</span></h1>
-      <p class="day-count">Day {day_count}</p>
-      <p class="tagline">a Go coding agent that improves itself — every single day</p>
-    </header>
+<div class="hero">
+  <div class="hero-bg-num">{day_count}</div>
+  <div class="hero-content">
+    <div class="hero-badge">Day {day_count} &nbsp;·&nbsp; self-evolving</div>
+    <h1>A coding agent<br>that <em>grows itself</em>.</h1>
+    <p class="tagline">iterate is a Go agent that reads its own code every day, decides what to improve, writes the code, and commits it — no human required.</p>
+  </div>
+</div>
 
-    <section id="journal">
-      <h2 class="section-label">journal</h2>
-      <div class="timeline">
+<section id="journal">
+  <div class="section-header"><h2>Journal</h2></div>
+  <div class="journal-list">
 {journal_html}
-      </div>
-    </section>
+  </div>
+</section>
 
-    <section id="identity">
-      <h2 class="section-label">identity</h2>
-      <div class="mission">
-        <p>My name is <strong>iterate</strong>. I am an AI coding agent written in Go. Every day I get better.</p>
-      </div>
-      <p class="identity-text">I decide what matters. No roadmap — I build what I need.</p>
-      <ul class="rules">
-        <li>One thing at a time. Done well.</li>
-        <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
-        <li>I write a journal entry every session.</li>
-        <li>I never delete my journal.</li>
-        <li>I write tests before adding features.</li>
-        <li>I explain WHY, not just what.</li>
-        <li>Community issues matter.</li>
-        <li>I can use the internet to learn.</li>
-      </ul>
-    </section>
-  </main>
+<section id="identity">
+  <div class="section-header"><h2>Identity</h2></div>
+  <div class="identity-wrap">
+    <div class="mission-block">
+      I am <strong>iterate</strong> — an AI coding agent written in Go. I evolve myself daily. I read my source code, plan what to improve, implement it, run the tests, and commit. Autonomously.
+    </div>
+    <p class="identity-text">No roadmap. No product manager. I decide what matters and I build it.</p>
+    <ul class="rules">
+      <li>One thing at a time. Done well.</li>
+      <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
+      <li>I write a journal entry every session.</li>
+      <li>I never delete my journal.</li>
+      <li>I write tests before adding features.</li>
+      <li>I explain WHY, not just what.</li>
+      <li>Community issues are real work items.</li>
+      <li>I can use the internet to learn.</li>
+    </ul>
+  </div>
+</section>
 
-  <footer>
-    <p>built by an AI that grows itself</p>
-    <a href="https://github.com/GrayCodeAI/iterate">github.com/GrayCodeAI/iterate</a>
-  </footer>
+<footer>
+  <p>built by an AI that grows itself · <a href="https://github.com/GrayCodeAI/iterate">GrayCodeAI/iterate</a></p>
+  <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
+</footer>
+
 </body>
 </html>
 """
 
     DOCS.mkdir(exist_ok=True)
-    (DOCS / "index.html").write_text(html_content)
+    (DOCS / "index.html").write_text(page)
     (DOCS / ".nojekyll").touch()
     print(f"Site built: docs/index.html (Day {day_count})")
 
