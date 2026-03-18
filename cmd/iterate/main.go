@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -34,6 +35,18 @@ func main() {
 		provider    = flag.String("provider", "", "Provider to use (anthropic, openai, groq, gemini)")
 		model       = flag.String("model", "", "Model to use")
 		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
+		thinking    = flag.String("thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")
+
+		// Interactive REPL
+		chat = flag.Bool("chat", false, "Start interactive REPL (slash commands + free-form chat)")
+
+		// 3-phase evolution
+		phase = flag.String("phase", "", "Evolution phase: plan, implement, communicate, or \"\" (all)")
+
+		// Session management
+		saveSession  = flag.String("save-session", "", "Save agent messages to JSON file after run")
+		loadSession  = flag.String("load-session", "", "Load agent messages from JSON file before run")
+		compactFlag  = flag.Bool("compact", false, "Compact loaded session if it exceeds 80% of context budget before running")
 	)
 	flag.Parse()
 
@@ -68,6 +81,12 @@ func main() {
 	logger.Info("using provider", "name", p.Name())
 
 	ctx := context.Background()
+
+	// Interactive REPL mode.
+	if *chat {
+		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(*thinking), logger)
+		return
+	}
 
 	// Social-only mode (used by the 4h social workflow)
 	if *socialOnly {
@@ -120,15 +139,82 @@ func main() {
 		}
 	}
 
-	// Run evolution session
-	engine := evolution.New(absRepo, store, logger)
+	// Load session messages if requested
+	var sessionMessages []iteragent.Message
+	if *loadSession != "" {
+		msgs, err := loadSessionFromFile(*loadSession)
+		if err != nil {
+			logger.Warn("failed to load session", "path", *loadSession, "err", err)
+		} else {
+			sessionMessages = msgs
+			logger.Info("loaded session", "path", *loadSession, "messages", len(msgs))
+		}
+	}
+
+	// Compact if needed (80% of 100k token budget)
+	if *compactFlag && len(sessionMessages) > 0 {
+		cfg := iteragent.DefaultContextConfig()
+		sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, cfg)
+		logger.Info("compacted session messages", "remaining", len(sessionMessages))
+	}
+
+	// Run evolution session, wiring live events to the web dashboard.
+	engine := evolution.New(absRepo, store, logger).
+		WithEventSink(webServer.EventBus()).
+		WithThinking(iteragent.ThinkingLevel(*thinking))
 	logger.Info("starting evolution session", "repo", absRepo)
 	fmt.Println(banner())
 
-	sess, err := engine.Run(ctx, p, issues)
-	if err != nil {
-		logger.Error("evolution session failed", "err", err)
-		os.Exit(1)
+	var sess *session.Session
+	switch *phase {
+	case "plan":
+		logger.Info("running plan phase")
+		if err := engine.RunPlanPhase(ctx, p, issues); err != nil {
+			logger.Error("plan phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("plan phase complete")
+		return
+	case "implement":
+		logger.Info("running implement phase")
+		if err := engine.RunImplementPhase(ctx, p); err != nil {
+			logger.Error("implement phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("implement phase complete")
+		return
+	case "communicate":
+		logger.Info("running communicate phase")
+		if err := engine.RunCommunicatePhase(ctx, p); err != nil {
+			logger.Error("communicate phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("communicate phase complete")
+		return
+	default:
+		// "" — run all phases (original single-shot behaviour)
+		var runErr error
+		sess, runErr = engine.Run(ctx, p, issues)
+		if runErr != nil {
+			logger.Error("evolution session failed", "err", runErr)
+			os.Exit(1)
+		}
+	}
+
+	// Auto-save session messages to .iterate/last-session.json
+	autoSavePath := filepath.Join(absRepo, ".iterate", "last-session.json")
+	_ = os.MkdirAll(filepath.Dir(autoSavePath), 0o755)
+	if err := saveSessionToFile(autoSavePath, sessionMessages); err != nil {
+		logger.Warn("auto-save session failed", "err", err)
+	}
+
+	// Save session to explicit path if requested
+	if *saveSession != "" {
+		if err := saveSessionToFile(*saveSession, sessionMessages); err != nil {
+			logger.Warn("save session failed", "path", *saveSession, "err", err)
+		} else {
+			logger.Info("session saved", "path", *saveSession)
+		}
 	}
 
 	// Post bot replies to issues that were addressed
@@ -149,10 +235,12 @@ func main() {
 
 	incrementDayCount(absRepo)
 
-	logger.Info("session complete",
-		"status", sess.Status,
-		"duration", sess.FinishedAt.Sub(sess.StartedAt).Round(time.Second),
-	)
+	if sess != nil {
+		logger.Info("session complete",
+			"status", sess.Status,
+			"duration", sess.FinishedAt.Sub(sess.StartedAt).Round(time.Second),
+		)
+	}
 
 	if *serve {
 		logger.Info("web dashboard running, press Ctrl+C to stop", "addr", *addr)
@@ -169,12 +257,35 @@ func incrementDayCount(repoPath string) {
 
 func banner() string {
 	return `
-  _  _            _         
- (_)| |_ ___  _ _| |_  ___  
- | ||  _/ -_)| '_/ _|/ -_) 
- |_| \__\___||_| \__|\___|  
+  _  _            _
+ (_)| |_ ___  _ _| |_  ___
+ | ||  _/ -_)| '_/ _|/ -_)
+ |_| \__\___||_| \__|\___|
 
  self-evolving code agent
  ─────────────────────────
  `
+}
+
+// saveSessionToFile marshals messages as JSON and writes to path.
+func saveSessionToFile(path string, messages []iteragent.Message) error {
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	data, err := json.Marshal(messages)
+	if err != nil {
+		return fmt.Errorf("marshal messages: %w", err)
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// loadSessionFromFile reads JSON from path and deserializes as []Message.
+func loadSessionFromFile(path string) ([]iteragent.Message, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read session file: %w", err)
+	}
+	var messages []iteragent.Message
+	if err := json.Unmarshal(data, &messages); err != nil {
+		return nil, fmt.Errorf("unmarshal messages: %w", err)
+	}
+	return messages, nil
 }

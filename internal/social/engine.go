@@ -127,6 +127,9 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 		if err := e.appendLearnings(learnings); err != nil {
 			e.logger.Warn("failed to append learnings", "err", err)
 		}
+		if err := e.appendLearningsJSONL(decisions, strings.TrimSpace(string(dayCount))); err != nil {
+			e.logger.Warn("failed to append learnings jsonl", "err", err)
+		}
 	}
 
 	// Optionally start a new discussion
@@ -261,7 +264,7 @@ func extractLearnings(decisions []socialDecision) string {
 }
 
 func (e *Engine) appendLearnings(text string) error {
-	path := filepath.Join(e.repoPath, "SOCIAL_LEARNINGS.md")
+	path := filepath.Join(e.repoPath, "memory", "active_social_learnings.md")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -271,6 +274,53 @@ func (e *Engine) appendLearnings(text string) error {
 	entry := fmt.Sprintf("\n## %s\n\n%s\n\n---\n", time.Now().Format("2006-01-02"), text)
 	_, err = f.WriteString(entry)
 	return err
+}
+
+// WriteLearningsToMemory is the public entry point for the synthesize workflow.
+// It writes a social learning entry with the given who and insight fields.
+func (e *Engine) WriteLearningsToMemory(who, insight string) error {
+	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	decisions := []socialDecision{{Learning: insight}}
+	if who != "" {
+		// Embed who into the learning text so it appears in the output
+		decisions[0].Learning = fmt.Sprintf("[%s] %s", who, insight)
+	}
+	return e.appendLearningsJSONL(decisions, strings.TrimSpace(string(dayCount)))
+}
+
+// appendLearningsJSONL appends a social learning as a JSON line to memory/social_learnings.jsonl.
+func (e *Engine) appendLearningsJSONL(decisions []socialDecision, dayCount string) error {
+	path := filepath.Join(e.repoPath, "memory", "social_learnings.jsonl")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	day := 0
+	fmt.Sscanf(strings.TrimSpace(dayCount), "%d", &day)
+	ts := time.Now().UTC().Format(time.RFC3339)
+
+	for _, d := range decisions {
+		if d.Learning == "" {
+			continue
+		}
+		entry := map[string]interface{}{
+			"type":    "social",
+			"day":     day,
+			"ts":      ts,
+			"source":  "social session",
+			"who":     "",
+			"insight": d.Learning,
+		}
+		line, err := json.Marshal(entry)
+		if err != nil {
+			continue
+		}
+		f.Write(line)
+		f.Write([]byte("\n"))
+	}
+	return nil
 }
 
 // --- GitHub REST API calls ---

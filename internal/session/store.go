@@ -101,6 +101,32 @@ func (s *Store) List(n int) ([]Session, error) {
 	return sessions, nil
 }
 
+// LoadLastMessages reads the most recent session's raw_output from the store
+// and returns it deserialized as a []Message slice.
+// If the stored value is not JSON-encoded messages, an empty slice is returned.
+func (s *Store) LoadLastMessages(repoPath string) ([]agent.Message, error) {
+	var rawOutput string
+	err := s.db.QueryRow(`
+		SELECT raw_output FROM sessions
+		WHERE status = 'committed'
+		ORDER BY started_at DESC
+		LIMIT 1`).Scan(&rawOutput)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// raw_output may be a JSON array of Message objects saved by a previous session
+	var messages []agent.Message
+	if err := json.Unmarshal([]byte(rawOutput), &messages); err != nil {
+		// Not a message array — the raw_output is just text; return nothing
+		return nil, nil
+	}
+	return messages, nil
+}
+
 // Stats returns aggregate counts by status.
 func (s *Store) Stats() (map[string]int, error) {
 	rows, err := s.db.Query(`SELECT status, COUNT(*) FROM sessions GROUP BY status`)

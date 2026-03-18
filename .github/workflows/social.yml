@@ -48,8 +48,8 @@ jobs:
             --gh-owner ${{ github.repository_owner }} \
             --gh-repo  ${{ github.event.repository.name }}
 
-      - name: Push SOCIAL_LEARNINGS.md if changed
+      - name: Push memory files if changed
         run: |
-          git add SOCIAL_LEARNINGS.md || true
-          git diff --staged --quiet || git commit -m "chore: update social learnings"
+          git add memory/ || true
+          git diff --staged --quiet || git commit -m "chore: update memory files"
           git push origin main || true

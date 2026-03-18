@@ -12,3 +12,5 @@ require (
 )
 
 require github.com/google/go-querystring v1.1.0 // indirect
+
+replace github.com/GrayCodeAI/iteragent => ../iteragent

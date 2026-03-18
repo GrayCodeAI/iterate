@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iterate
+        uses: actions/checkout@v4
+        with:
+          path: iterate
+
+      # The go.mod has: replace github.com/GrayCodeAI/iteragent => ../iteragent
+      # So we also check out iteragent as a sibling directory.
+      - name: Checkout iteragent
+        uses: actions/checkout@v4
+        with:
+          repository: GrayCodeAI/iteragent
+          path: iteragent
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: iterate/go.sum
+
+      - name: Build
+        working-directory: iterate
+        run: go build ./...
+
+      - name: Test
+        working-directory: iterate
+        run: go test ./...
+
+      - name: Vet
+        working-directory: iterate
+        run: go vet ./...
+
+      - name: Format check
+        working-directory: iterate
+        run: test -z "$(gofmt -l .)" || (echo "Files need gofmt:" && gofmt -l . && exit 1)
