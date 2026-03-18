@@ -27,7 +27,7 @@ func main() {
 		issueMax    = flag.Int("issue-limit", 5, "Max community issues to include")
 		socialOnly  = flag.Bool("social", false, "Run social loop only (no evolution)")
 		replyIssues = flag.Bool("reply-issues", true, "Post bot replies to addressed issues")
-		provider    = flag.String("provider", "", "Provider to use (anthropic, openai, groq, gemini)")
+		provider    = flag.String("provider", "anthropic", "Provider to use (anthropic, openai, groq, gemini)")
 		model       = flag.String("model", "", "Model to use")
 		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
 		thinking    = flag.String("thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")
