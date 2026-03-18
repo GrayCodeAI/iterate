@@ -135,6 +135,8 @@ func promptLine(prompt string) (string, bool) {
 				buf = buf[:len(buf)-1]
 				fmt.Print("\b \b")
 			}
+		case 27: // ESC — read and discard the rest of the sequence
+			os.Stdin.Read(make([]byte, 2))
 		default:
 			if b[0] >= 32 {
 				buf = append(buf, b[0])

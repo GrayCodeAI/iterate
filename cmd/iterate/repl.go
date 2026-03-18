@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -147,24 +148,54 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 	return newP, currentThinking
 }
 
-// selectOllamaModel prompts for Ollama URL, fetches models, and lets user pick.
+// selectOllamaModel discovers Tailscale Ollama hosts, lets user pick host then model.
 func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
-	currentURL := os.Getenv("OLLAMA_BASE_URL")
-	if currentURL == "" {
-		currentURL = "http://localhost:11434/v1"
+	// Discover Tailscale machines with Ollama
+	fmt.Printf("%sdiscovering Ollama hosts…%s\r\n", colorDim, colorReset)
+	hosts := discoverOllamaHosts()
+
+	var url string
+	if len(hosts) > 0 {
+		labels := make([]string, len(hosts))
+		for i, h := range hosts {
+			labels[i] = fmt.Sprintf("%-20s  %s", h.name, h.url)
+		}
+		labels = append(labels, "enter URL manually")
+
+		choice, ok := selectItem("Select Ollama host", labels)
+		if !ok {
+			return nil, currentThinking
+		}
+		if choice == "enter URL manually" {
+			url = ""
+		} else {
+			for _, h := range hosts {
+				if strings.HasPrefix(choice, h.name) {
+					url = h.url
+					break
+				}
+			}
+		}
 	}
 
-	url, ok := promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
-	if !ok {
-		return nil, currentThinking
-	}
 	if url == "" {
-		url = currentURL
+		currentURL := os.Getenv("OLLAMA_BASE_URL")
+		if currentURL == "" {
+			currentURL = "http://localhost:11434/v1"
+		}
+		var ok bool
+		url, ok = promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
+		if !ok {
+			return nil, currentThinking
+		}
+		if url == "" {
+			url = currentURL
+		}
 	}
-	os.Setenv("OLLAMA_BASE_URL", url)
 
+	os.Setenv("OLLAMA_BASE_URL", url)
 	tagsURL := strings.TrimSuffix(strings.TrimSuffix(url, "/v1"), "/") + "/api/tags"
-	fmt.Printf("%sfetching models…%s\n", colorDim, colorReset)
+	fmt.Printf("%sfetching models…%s\r\n", colorDim, colorReset)
 
 	models, err := fetchOllamaModels(tagsURL)
 	if err != nil || len(models) == 0 {
@@ -187,6 +218,80 @@ func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provi
 		return nil, currentThinking
 	}
 	return p, currentThinking
+}
+
+type ollamaHost struct {
+	name string
+	url  string
+}
+
+// discoverOllamaHosts scans Tailscale peers for running Ollama instances.
+func discoverOllamaHosts() []ollamaHost {
+	out, err := exec.Command("tailscale", "status", "--json").Output()
+	if err != nil {
+		return nil
+	}
+	// Parse IPs from tailscale status --json
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil
+	}
+
+	type peer struct {
+		HostName     string   `json:"HostName"`
+		TailscaleIPs []string `json:"TailscaleIPs"`
+		Online       bool     `json:"Online"`
+	}
+	var peers map[string]peer
+	if err := json.Unmarshal(raw["Peer"], &peers); err != nil {
+		return nil
+	}
+
+	// Also add self
+	var self peer
+	if selfRaw, ok := raw["Self"]; ok {
+		json.Unmarshal(selfRaw, &self)
+	}
+	allPeers := make(map[string]peer)
+	for k, v := range peers {
+		allPeers[k] = v
+	}
+	if self.HostName != "" {
+		allPeers["self"] = self
+	}
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	var mu sync.Mutex
+	var hosts []ollamaHost
+	var wg sync.WaitGroup
+
+	for _, p := range allPeers {
+		if len(p.TailscaleIPs) == 0 {
+			continue
+		}
+		ip := p.TailscaleIPs[0]
+		name := p.HostName
+		wg.Add(1)
+		go func(name, ip string) {
+			defer wg.Done()
+			url := fmt.Sprintf("http://%s:11434", ip)
+			resp, err := client.Get(url + "/")
+			if err != nil {
+				return
+			}
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				mu.Lock()
+				hosts = append(hosts, ollamaHost{name: name, url: url + "/v1"})
+				mu.Unlock()
+			}
+		}(name, ip)
+	}
+	wg.Wait()
+
+	// Sort by name
+	sort.Slice(hosts, func(i, j int) bool { return hosts[i].name < hosts[j].name })
+	return hosts
 }
 
 // handleCommand processes a slash command. Returns true if the REPL should exit.
