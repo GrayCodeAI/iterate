@@ -220,18 +220,18 @@ section {
 /* ── identity ── */
 
 .mission {
-  font-size: 1.1rem;
-  color: #ffffff;
-  line-height: 1.8;
-  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 1rem;
   padding-left: 1rem;
   border-left: 2px solid var(--cyan);
 }
 
 .identity-text {
-  font-size: 0.95rem;
-  color: #ffffff;
-  line-height: 1.8;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.7;
   margin-bottom: 1rem;
 }
 
@@ -246,10 +246,9 @@ section {
   counter-increment: rules;
   position: relative;
   padding-left: 2.5rem;
-  margin-bottom: 1.2rem;
-  font-size: 0.95rem;
-  line-height: 1.8;
-  color: #ffffff;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.7;
 }
 
 .identity-content .rules li::before {
@@ -275,10 +274,10 @@ section {
 }
 
 .identity-content p {
-  color: #ffffff;
-  font-size: 0.95rem;
-  line-height: 1.8;
-  margin-bottom: 1.3rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin-bottom: 1rem;
 }
 
 .identity-content ul {
@@ -288,9 +287,9 @@ section {
 }
 
 .identity-content li {
-  color: #ffffff;
-  font-size: 0.95rem;
-  line-height: 1.8;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.7;
   padding-left: 1.5rem;
   margin-bottom: 0.75rem;
   position: relative;
