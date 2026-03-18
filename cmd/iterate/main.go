@@ -31,7 +31,8 @@ func main() {
 		model       = flag.String("model", "", "Model to use")
 		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
 		thinking    = flag.String("thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")
-		chat        = flag.Bool("chat", false, "Start interactive REPL (slash commands + free-form chat)")
+		chat        = flag.Bool("chat", false, "Start interactive REPL (default when no other mode set)")
+		evolve      = flag.Bool("evolve", false, "Run one evolution session (non-interactive)")
 		phase       = flag.String("phase", "", "Evolution phase: plan, implement, communicate, or \"\" (all)")
 		saveSession = flag.String("save-session", "", "Save agent messages to JSON file after run")
 		loadSession = flag.String("load-session", "", "Load agent messages from JSON file before run")
@@ -62,7 +63,8 @@ func main() {
 
 	ctx := context.Background()
 
-	if *chat {
+	// Default to REPL unless --evolve or --social is explicitly set.
+	if *chat || (!*evolve && !*socialOnly && *phase == "") {
 		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(*thinking), logger)
 		return
 	}

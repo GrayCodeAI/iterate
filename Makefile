@@ -4,10 +4,10 @@ build:
 	go build -o iterate ./cmd/iterate
 
 run: build
-	./iterate --repo .
+	./iterate
 
-chat: build
-	./iterate --chat --repo .
+evolve: build
+	./iterate --evolve --repo .
 
 test:
 	go test ./...
