@@ -3,7 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +16,6 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
-	"log/slog"
 )
 
 const (
@@ -25,24 +28,20 @@ const (
 	colorRed    = "\033[31m"
 )
 
-// REPL runs an interactive session with iterate.
-// Supports slash commands and free-form chat.
-func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) {
+func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) *iteragent.Agent {
 	tools := iteragent.DefaultTools(repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
-
-	a := iteragent.New(p, tools, logger).
+	return iteragent.New(p, tools, logger).
 		WithSystemPrompt(replSystemPrompt(repoPath)).
 		WithSkillSet(skills).
 		WithThinkingLevel(thinking)
+}
 
-	fmt.Printf("\n%s iterate%s  %s%s%s", colorLime+colorBold, colorReset, colorDim, p.Name(), colorReset)
-	if thinking != "" && thinking != iteragent.ThinkingLevelOff {
-		fmt.Printf("  %sthinking:%s %s", colorDim, colorReset, thinking)
-	}
-	fmt.Println()
-	fmt.Printf("%sType a message, or /help for commands. Ctrl+C to exit.%s\n", colorDim, colorReset)
-	fmt.Println()
+// runREPL runs an interactive session with iterate.
+func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) {
+	a := makeAgent(p, repoPath, thinking, logger)
+
+	printHeader(p, thinking)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -55,6 +54,18 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 			continue
 		}
 
+		// /model handled here so it has scanner access and can swap provider+agent.
+		if line == "/model" || strings.HasPrefix(line, "/model ") {
+			newP, newThinking := selectModel(scanner, thinking)
+			if newP != nil {
+				p = newP
+				thinking = newThinking
+				a = makeAgent(p, repoPath, thinking, logger)
+				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
+			}
+			continue
+		}
+
 		if strings.HasPrefix(line, "/") {
 			if done := handleCommand(ctx, line, a, p, repoPath, &thinking, logger); done {
 				return
@@ -62,9 +73,182 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 			continue
 		}
 
-		// Free-form prompt — stream events.
 		streamAndPrint(ctx, a, line)
 	}
+}
+
+func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel) {
+	fmt.Printf("\n%s iterate%s  %s%s%s", colorLime+colorBold, colorReset, colorDim, p.Name(), colorReset)
+	if thinking != "" && thinking != iteragent.ThinkingLevelOff {
+		fmt.Printf("  %sthinking:%s %s", colorDim, colorReset, thinking)
+	}
+	fmt.Println()
+	fmt.Printf("%sType a message, or /help for commands. Ctrl+C to exit.%s\n", colorDim, colorReset)
+	fmt.Println()
+}
+
+// selectModel shows an interactive provider+model picker. Returns new provider or nil on cancel.
+func selectModel(scanner *bufio.Scanner, currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
+	providers := []string{"anthropic", "openai", "gemini", "groq", "ollama"}
+
+	fmt.Println()
+	fmt.Printf("%sSelect provider:%s\n", colorYellow, colorReset)
+	for i, name := range providers {
+		fmt.Printf("  %s%d.%s %s\n", colorDim, i+1, colorReset, name)
+	}
+	fmt.Printf("%s❯%s ", colorCyan, colorReset)
+	if !scanner.Scan() {
+		return nil, currentThinking
+	}
+	choice := strings.TrimSpace(scanner.Text())
+	if choice == "" {
+		return nil, currentThinking
+	}
+
+	var providerName string
+	// Accept number or name
+	switch choice {
+	case "1", "anthropic":
+		providerName = "anthropic"
+	case "2", "openai":
+		providerName = "openai"
+	case "3", "gemini":
+		providerName = "gemini"
+	case "4", "groq":
+		providerName = "groq"
+	case "5", "ollama":
+		providerName = "ollama"
+	default:
+		fmt.Printf("%sunknown option%s\n\n", colorRed, colorReset)
+		return nil, currentThinking
+	}
+
+	if providerName == "ollama" {
+		return selectOllamaModel(scanner, currentThinking)
+	}
+
+	// For non-ollama providers, just prompt for API key if needed
+	fmt.Printf("%sAPI key (or press Enter to use env var):%s ", colorDim, colorReset)
+	if !scanner.Scan() {
+		return nil, currentThinking
+	}
+	apiKey := strings.TrimSpace(scanner.Text())
+
+	var newP iteragent.Provider
+	var err error
+	if apiKey != "" {
+		newP, err = iteragent.NewProvider(providerName, apiKey)
+	} else {
+		newP, err = iteragent.NewProvider(providerName)
+	}
+	if err != nil {
+		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+		return nil, currentThinking
+	}
+	return newP, currentThinking
+}
+
+// selectOllamaModel prompts for Ollama URL, fetches models, and lets user pick.
+func selectOllamaModel(scanner *bufio.Scanner, currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
+	currentURL := os.Getenv("OLLAMA_BASE_URL")
+	if currentURL == "" {
+		currentURL = "http://localhost:11434/v1"
+	}
+
+	fmt.Printf("%sOllama URL [%s]:%s ", colorDim, currentURL, colorReset)
+	if !scanner.Scan() {
+		return nil, currentThinking
+	}
+	url := strings.TrimSpace(scanner.Text())
+	if url == "" {
+		url = currentURL
+	}
+	os.Setenv("OLLAMA_BASE_URL", url)
+
+	// Fetch model list from Ollama
+	tagsURL := strings.TrimSuffix(strings.TrimSuffix(url, "/v1"), "/") + "/api/tags"
+	fmt.Printf("%sfetching models from %s…%s\n", colorDim, tagsURL, colorReset)
+
+	models, err := fetchOllamaModels(tagsURL)
+	if err != nil || len(models) == 0 {
+		// Fall back to manual entry
+		fmt.Printf("%scould not fetch models, enter model name:%s ", colorDim, colorReset)
+		if !scanner.Scan() {
+			return nil, currentThinking
+		}
+		model := strings.TrimSpace(scanner.Text())
+		if model == "" {
+			return nil, currentThinking
+		}
+		os.Setenv("ITERATE_MODEL", model)
+		p, err := iteragent.NewProvider("ollama")
+		if err != nil {
+			fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+			return nil, currentThinking
+		}
+		return p, currentThinking
+	}
+
+	fmt.Printf("%sSelect model:%s\n", colorYellow, colorReset)
+	for i, m := range models {
+		fmt.Printf("  %s%d.%s %s\n", colorDim, i+1, colorReset, m)
+	}
+	fmt.Printf("%s❯%s ", colorCyan, colorReset)
+	if !scanner.Scan() {
+		return nil, currentThinking
+	}
+	pick := strings.TrimSpace(scanner.Text())
+
+	var modelName string
+	// Accept number or direct name
+	for i, m := range models {
+		if pick == fmt.Sprintf("%d", i+1) || pick == m {
+			modelName = m
+			break
+		}
+	}
+	if modelName == "" {
+		// treat as literal model name
+		modelName = pick
+	}
+	if modelName == "" {
+		return nil, currentThinking
+	}
+
+	os.Setenv("ITERATE_MODEL", modelName)
+	p, err := iteragent.NewProvider("ollama")
+	if err != nil {
+		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+		return nil, currentThinking
+	}
+	return p, currentThinking
+}
+
+// fetchOllamaModels fetches the list of model names from an Ollama /api/tags endpoint.
+func fetchOllamaModels(tagsURL string) ([]string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(tagsURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	names := make([]string, len(result.Models))
+	for i, m := range result.Models {
+		names[i] = m.Name
+	}
+	return names, nil
 }
 
 // handleCommand processes a slash command. Returns true if the REPL should exit.
@@ -81,7 +265,7 @@ Available commands:
   /tools              — list available tools
   /skills             — list available skills
   /thinking <level>   — set thinking level: off|minimal|low|medium|high
-  /model <name>       — switch model (sets ITERATE_MODEL, restarts agent)
+  /model              — switch provider/model interactively
   /test               — run go test ./...
   /build              — run go build ./...
   /lint               — run go vet ./...
@@ -129,14 +313,6 @@ Available commands:
 		a.WithThinkingLevel(*thinking)
 		fmt.Printf("Thinking set to %s.\n", *thinking)
 
-	case "/model":
-		if len(parts) < 2 {
-			fmt.Println("Usage: /model <model-name>")
-			return false
-		}
-		os.Setenv("ITERATE_MODEL", parts[1])
-		fmt.Printf("Model set to %s (takes effect on next agent run).\n", parts[1])
-
 	case "/test":
 		runShell(repoPath, "go", "test", "./...")
 
@@ -162,7 +338,6 @@ Available commands:
 		}
 
 	case "/compact":
-		// Compact by reassigning Messages on the agent (re-use public field).
 		cfg := iteragent.DefaultContextConfig()
 		a.Messages = iteragent.CompactMessagesTiered(a.Messages, cfg)
 		fmt.Printf("Compacted to %d messages.\n", len(a.Messages))
@@ -231,7 +406,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	stopOnce := func() {
 		spinnerOnce.Do(func() {
 			close(stopSpinner)
-			<-spinnerDone // wait for spinner to fully exit
+			<-spinnerDone
 		})
 	}
 	go spinner(stopSpinner, spinnerDone)
