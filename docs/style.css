@@ -35,7 +35,7 @@ body {
 }
 
 a {
-  color: var(--yellow);
+  color: var(--lime);
   text-decoration: none;
 }
 
@@ -76,7 +76,7 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--yellow);
+  color: var(--lime);
   letter-spacing: 0.05em;
 }
 
@@ -120,7 +120,7 @@ main {
 .hero h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--yellow);
+  color: var(--lime);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -132,14 +132,14 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--yellow);
+  color: var(--lime);
   font-weight: 300;
 }
 
 .day-count {
   margin-top: 1rem;
   font-size: 1rem;
-  color: var(--lime);
+  color: var(--yellow);
   font-weight: 500;
 }
 
@@ -200,13 +200,13 @@ section {
   top: 8px;
   width: 7px;
   height: 7px;
-  background: var(--lime);
+  background: var(--yellow);
 }
 
 .entry-day {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--lime);
+  color: var(--yellow);
   letter-spacing: 0.05em;
 }
 
@@ -233,7 +233,7 @@ section {
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--yellow);
+  border-left: 2px solid var(--lime);
 }
 
 .identity-text {
@@ -291,7 +291,7 @@ footer a {
 }
 
 footer a:hover {
-  color: var(--yellow);
+  color: var(--lime);
 }
 
 
