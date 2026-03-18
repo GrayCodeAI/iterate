@@ -401,6 +401,7 @@ Available commands:
 func spinner(stop <-chan struct{}, done chan<- struct{}) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	i := 0
+	start := time.Now()
 	for {
 		select {
 		case <-stop:
@@ -408,7 +409,8 @@ func spinner(stop <-chan struct{}, done chan<- struct{}) {
 			close(done)
 			return
 		default:
-			fmt.Printf("\r%s%s%s thinking…", colorLime, frames[i%len(frames)], colorReset)
+			elapsed := time.Since(start).Round(time.Millisecond)
+			fmt.Printf("\r%s%s%s thinking… %s%s%s", colorLime, frames[i%len(frames)], colorReset, colorDim, elapsed, colorReset)
 			i++
 			time.Sleep(80 * time.Millisecond)
 		}
@@ -420,6 +422,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	events := a.Prompt(ctx, prompt)
 	var lastContent string
 	inProgress := false
+	start := time.Now()
 
 	stopSpinner := make(chan struct{})
 	spinnerDone := make(chan struct{})
@@ -466,10 +469,11 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	if inProgress {
 		fmt.Print("\r\033[K")
 	}
+	elapsed := time.Since(start).Round(time.Millisecond)
 	if lastContent != "" {
 		fmt.Printf("%s%s%s\n", colorBold, lastContent, colorReset)
 	}
-	fmt.Println()
+	fmt.Printf("%s%s%s\n\n", colorDim, elapsed, colorReset)
 }
 
 // runShell runs a command in repoPath and prints its output.
