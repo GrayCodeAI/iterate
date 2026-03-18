@@ -1,42 +1,142 @@
-# Claude Code Gap
+# iterate vs Claude Code — Gap Analysis
 
-Things iterate cannot do without human intervention.
-Updated by the agent when it discovers a gap. Humans can help by filing a `help-wanted` issue.
+How iterate compares to Claude Code today. Updated by the agent as it evolves.
+
+## Feature Matrix
+
+### Core Agent Loop
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Multi-turn conversation | ✅ | ✅ |
+| Tool use (bash, read, write, edit) | ✅ | ✅ |
+| Streaming output | ✅ | ✅ |
+| Context compaction (3-tier) | ✅ | ✅ |
+| Extended thinking | ✅ | ✅ |
+| Self-evolution (modifies own code) | ✅ | ❌ |
+| 3-phase evolution loop | ✅ | ❌ |
+
+### CLI & UX
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Interactive REPL | ✅ | ✅ |
+| Slash commands | ✅ (14) | ✅ (42+) |
+| Tab completion | ❌ | ✅ |
+| Readline history | ❌ | ✅ |
+| Syntax highlighting | ❌ | ✅ |
+| Diff view | ❌ | ✅ |
+| Cost tracking | ❌ | ✅ |
+
+### Context Management
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Session save/load (JSON) | ✅ | ✅ |
+| Context compaction | ✅ | ✅ |
+| Memory (learnings.jsonl) | ✅ | 🟡 project memory |
+| Memory synthesis | ✅ | ❌ |
+| Conversation bookmarks | ❌ | ✅ |
+
+### Provider & Model
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Anthropic | ✅ | ✅ |
+| OpenAI | ✅ | ❌ |
+| Gemini | ✅ | ❌ |
+| Groq | ✅ | ❌ |
+| Mid-session model switch | ✅ (`/model`) | ✅ |
+| Prompt caching | ✅ | ✅ |
+
+### Tools
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| bash / shell | ✅ | ✅ |
+| read_file | ✅ | ✅ |
+| write_file | ✅ | ✅ |
+| edit_file | ✅ | ✅ |
+| search (grep) | ✅ | ✅ |
+| list_files | ✅ | ✅ |
+| git operations | ✅ | ✅ |
+| MCP (stdio + HTTP) | ✅ | ✅ |
+| OpenAPI adapter | ✅ | ❌ |
+| Web fetch | ✅ | ✅ |
+| Concurrent tool execution | ❌ | ✅ |
+
+### Project Understanding
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Reads own source code | ✅ | ✅ |
+| CLAUDE.md support | ✅ | ✅ |
+| Skills system | ✅ | 🟡 slash commands |
+| Codebase indexing | ❌ | ✅ |
+| Fuzzy file search | ❌ | ✅ |
+| PR workflow | ❌ | ✅ |
+
+### Permission System
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Tool approval prompts | ❌ | ✅ |
+| Allow/deny glob patterns | ❌ | ✅ |
+| Directory restrictions | ❌ | ✅ |
+| Audit log | ❌ | ✅ |
+
+### Community
+
+| Feature | iterate | Claude Code |
+|---------|---------|-------------|
+| Reads GitHub issues | ✅ | ❌ |
+| Posts issue comments | ✅ | ❌ |
+| Social learning | ✅ | ❌ |
+| Journey website | ✅ | ❌ |
+| Issue voting system | ❌ | ❌ |
 
 ---
 
-## Things that require a human
+## Priority Queue
 
-### Secrets & credentials
-- Rotating API keys or adding new provider credentials to GitHub Actions secrets
-- Setting up OAuth tokens for new integrations
+Things iterate should build next (highest value / lowest effort first):
 
-### Infrastructure
-- Enabling GitHub Pages for the first time (requires repo settings)
-- Creating or configuring GitHub Actions environments
-- Setting branch protection rules on `main`
-
-### External accounts / services
-- Registering on a new platform (npm, pkg.go.dev, etc.)
-- Publishing the first version of a package (requires human approval on most registries)
-
-### Repository settings
-- Changing repo visibility (public ↔ private)
-- Adding collaborators or managing team permissions
-- Configuring Dependabot alerts
-
-### Ambiguous decisions
-- Deciding whether a breaking API change is acceptable
-- Choosing between two fundamentally different architectural approaches
-- Deprecating a feature that other people depend on
+1. **Tab completion in REPL** — quality of life
+2. **`/diff` command** — show pending changes
+3. **`/cost` command** — token usage per session
+4. **Concurrent tool execution** — big perf win
+5. **Permission prompts** — safety and trust
+6. **`/pr` workflow** — create/review PRs
+7. **Codebase indexing** — faster navigation
+8. **Readline history** — persist across sessions
 
 ---
 
-## Things iterate used to need humans for (now solved)
+## What Humans Still Need to Do
 
-| Was blocked on | Solved on | How |
-|---|---|---|
-| 3-phase evolution | Day 1 | `--phase plan\|implement\|communicate` flag |
-| Memory persistence across sessions | Day 1 | JSONL archives + daily synthesis workflow |
-| Real-time evolution visibility | Day 1 | WebSocket dashboard at `:8080` |
-| Community issue intake | Day 1 | GitHub API via `go-github` |
+Things iterate cannot do without human intervention:
+
+- **Secrets** — add/rotate API keys, tokens
+- **Infrastructure** — DNS, hosting, billing
+- **Repository settings** — branch protection, Actions secrets
+- **Publishing** — releasing to registries, app stores
+- **Ambiguous decisions** — when two valid approaches conflict
+
+---
+
+## Recently Completed
+
+- ✅ 3-phase evolution (plan → implement → communicate)
+- ✅ Streaming event architecture
+- ✅ Interactive REPL with 14 slash commands
+- ✅ MCP stdio + HTTP transports
+- ✅ OpenAPI adapter with OperationFilter
+- ✅ Prompt caching
+- ✅ Skills progressive disclosure
+- ✅ Context compaction (3-tier)
+- ✅ Memory system (JSONL + synthesis)
+- ✅ GitHub issues integration
+- ✅ Social learning engine
+- ✅ Journey website (GitHub Pages)
+- ✅ CI/CD workflows
+- ✅ Removed SQLite (simplified, no CGo)

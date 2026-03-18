@@ -1,110 +1,186 @@
 # iterate
 
-A self-evolving coding agent written in Go. Every day it reads its own source code, finds an improvement, tests it, and commits — or reverts and documents the failure.
+**A self-evolving coding agent written in Go.**
 
-## Deploy
+iterate reads its own source code every day, decides what to improve, writes the code, runs the tests, and commits. No human writes its code. It does it itself.
 
-Live at: https://graycodeai.github.io/iterate/
+→ **[Watch it grow](https://graycodeai.github.io/iterate/)**
 
-## Features
+---
 
-| Feature | iterate |
-|---------|---------|
-| Language | **Go** |
-| IDENTITY.md (immutable) | ✓ |
-| PERSONALITY.md (voice) | ✓ |
-| JOURNAL.md (append-only) | ✓ |
-| SOCIAL_LEARNINGS.md | ✓ |
-| DAY_COUNT | ✓ |
-| Self-assess skill | ✓ |
-| Evolve skill | ✓ |
-| Communicate skill | ✓ |
-| Social skill | ✓ |
-| Release skill | ✓ |
-| Research skill | ✓ |
-| Evolution loop (daily) | ✓ |
-| Social loop (4h) | ✓ |
-| Issue bot replies | ✓ |
-| Mutation testing | ✓ (go-mutesting) |
-| Journey website | ✓ (Go) |
-| Multi-file support | **Full repo tree** |
-| Provider switching | **Ollama, OpenAI, Anthropic, Groq** |
-| Web dashboard | **Live dashboard + WebSocket** |
-| Session storage | **SQLite + JOURNAL.md** |
+## What It Does
 
-## Quick start
+Every session, iterate runs a 3-phase evolution loop:
+
+1. **Plan** — reads source, journal, and community issues → writes `SESSION_PLAN.md`
+2. **Implement** — one agent per task → `go build` → `go test` → commit or revert
+3. **Communicate** — reads plan → posts GitHub comments on addressed issues
+
+Each session is logged to `JOURNAL.md`. The site at GitHub Pages updates automatically.
+
+---
+
+## Quick Start
 
 ```bash
-git clone https://github.com/yourusername/iterate
+# Clone
+git clone https://github.com/GrayCodeAI/iterate
 cd iterate
-go build -o iterate ./cmd/iterate
 
-# Run with Ollama (local, default)
-ITERATE_MODEL=llama3.2 ./iterate
+# Set API key
+export ANTHROPIC_API_KEY=sk-...
 
-# Run with Anthropic
-ITERATE_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... ./iterate
+# Build
+make build
 
-# Run with web dashboard
-ITERATE_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-... ./iterate --serve --addr :8080
+# Run one evolution session
+./iterate --repo .
+
+# Or start interactive REPL
+./iterate --chat
 ```
 
-## Switching providers
+**Providers supported:** Anthropic, OpenAI, Gemini, Groq
 
-Set `ITERATE_PROVIDER` to one of:
+---
 
-| Value | Needs |
-|-------|-------|
-| `ollama` | Ollama running at `http://localhost:11434` |
-| `openai` | `OPENAI_API_KEY` |
-| `anthropic` | `ANTHROPIC_API_KEY` |
-| `groq` | `GROQ_API_KEY` |
+## Interactive REPL
 
-Optionally set `ITERATE_MODEL` to override the default model for any provider.
+Start with `./iterate --chat` or `make chat`:
+
+```
+iterate> /help
+
+Available commands:
+  /help               — show this help
+  /clear              — reset conversation history
+  /tools              — list available tools
+  /skills             — list available skills
+  /thinking <level>   — set thinking level: off|minimal|low|medium|high
+  /model <name>       — switch model
+  /test               — run go test ./...
+  /build              — run go build ./...
+  /lint               — run go vet ./...
+  /commit <msg>       — git add -A && git commit
+  /status             — git status + day count
+  /compact            — compact conversation history
+  /phase <phase>      — run evolution phase: plan|implement|communicate
+  /quit               — exit
+```
+
+---
+
+## CLI Flags
+
+```
+--repo          Path to repo iterate will evolve (default: .)
+--chat          Start interactive REPL
+--phase         Run single phase: plan, implement, communicate (default: all)
+--provider      Provider: anthropic, openai, gemini, groq
+--model         Model override
+--api-key       API key (or set env var)
+--thinking      Extended thinking: off, minimal, low, medium, high
+--gh-owner      GitHub repo owner (for issues)
+--gh-repo       GitHub repo name (for issues)
+--issue-limit   Max issues to include (default: 5)
+--save-session  Save messages to JSON file
+--load-session  Load messages from JSON file
+--compact       Compact loaded session before running
+--social        Run social loop only
+--reply-issues  Post replies to addressed issues (default: true)
+```
+
+---
+
+## Run Automatically
+
+iterate runs itself every 4 hours via GitHub Actions. To set up your own:
+
+1. Fork this repo
+2. Add `ANTHROPIC_API_KEY` to repository secrets
+3. Enable GitHub Actions and GitHub Pages
+4. That's it — it will start evolving
+
+See `.github/workflows/evolve.yml` for the full pipeline.
+
+---
 
 ## Architecture
 
 ```
-cmd/iterate/         CLI entrypoint
+cmd/iterate/
+  main.go           CLI entry, flag parsing, mode dispatch
+  repl.go           Interactive REPL with slash commands
+
 internal/
-  agent/             Core agent loop + tools (bash, file, git)
-  provider/          LLM providers (Ollama, OpenAI-compat, Anthropic)
-  evolution/         Evolution engine — assess, implement, test, commit/revert
-  community/         GitHub issue ingestion + vote ranking
-  session/           SQLite session storage
-  web/               Dashboard server + WebSocket live stream
-skills/              Agent skill prompts (self-assess, evolve)
-IDENTITY.md          Immutable agent constitution
-JOURNAL.md           Append-only session log
-DAY_COUNT            Current evolution day
+  evolution/
+    engine.go       3-phase evolution engine
+  community/        GitHub issues + discussions
+  social/           Social interaction engine
+
+skills/             Structured skill files
+  evolve/           Self-modification rules and safety
+  self-assess/      Codebase evaluation
+  communicate/      Issue response posting
+  research/         Learning from docs/web
+  social/           Community interaction
+  release/          Release management
+
+memory/
+  learnings.jsonl         Append-only lesson log
+  active_learnings.md     Synthesized knowledge
+
+scripts/
+  evolve.sh               Main evolution pipeline
+  build_site.py           Journal → GitHub Pages
+  format_issues.py        Issue formatting for context
 ```
 
-## Talk to it
+---
 
-Open a GitHub issue with one of these labels:
+## Memory System
 
-| Label | Description |
-|-------|-------------|
-| `agent-input` | Community suggestions, bug reports, feature requests |
-| `agent-self` | Issues the agent filed for itself as future TODOs |
-| `agent-help-wanted` | Issues where the agent is stuck and asking humans for help |
+iterate remembers what it learns:
 
-Issues with more 👍 reactions get prioritized. The agent reads them during its next session (every 8 hours).
+- **`memory/learnings.jsonl`** — append-only JSONL, one lesson per line
+- **`memory/active_learnings.md`** — synthesized periodically by `synthesize.yml`
+- **`JOURNAL.md`** — human-readable session log
 
-## Web dashboard
+The synthesis workflow compresses old entries and promotes durable insights to active memory.
 
-When running with `--serve`, the dashboard at `http://localhost:8080` shows:
-- Live agent stream (WebSocket)
-- Session history with status and duration
-- Commit/revert stats
+---
 
-## Run automatically
+## Community
 
-Push to GitHub and set up secrets:
-- `ANTHROPIC_API_KEY` (or your chosen provider's key)
-- Set `ITERATE_PROVIDER` in repo variables
+- **File a bug:** use the Bug template
+- **Suggest a feature:** use the Suggestion template  
+- **Give iterate a challenge:** use the Challenge template
+- **Need help:** use the Help Wanted template
 
-The GitHub Action at `.github/workflows/evolve.yml` runs every 8 hours (at 00:00, 08:00, and 16:00 UTC).
+Issues labeled `input` are read by the agent and factored into its next session plan.
+
+---
+
+## Talk to It
+
+iterate reads GitHub issues. Label them `input` and it will respond.
+
+```
+gh issue create --repo GrayCodeAI/iterate \
+  --title "Add X feature" \
+  --body "..." \
+  --label "input"
+```
+
+---
+
+## Built On
+
+- **[iteragent](https://github.com/GrayCodeAI/iteragent)** — Go agent SDK (providers, tools, streaming, MCP, OpenAPI)
+- **Anthropic Claude** — the LLM brain
+- **GitHub Actions** — the heartbeat
+
+---
 
 ## License
 
