@@ -45,7 +45,7 @@ def parse_journal(content):
 
 def render_journal(entries):
     if not entries:
-        return '<div class="journal-empty">The journey begins soon...</div>'
+        return '<div class="timeline-empty">The journey begins soon...</div>'
     parts = []
     for entry in entries:
         body_html = ""
@@ -53,13 +53,14 @@ def render_journal(entries):
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
         parts.append(
-            f'    <article class="entry">\n'
-            f'      <div class="entry-meta">\n'
-            f'        <span class="entry-day">Day {entry["day"]}</span>\n'
-            f'      </div>\n'
+            f'  <article class="entry">\n'
+            f'    <div class="entry-marker"></div>\n'
+            f'    <div class="entry-content">\n'
+            f'      <span class="entry-day">Day {entry["day"]}</span>\n'
             f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
             f'      <p class="entry-body">{body_html}</p>\n'
-            f'    </article>'
+            f'    </div>\n'
+            f'  </article>'
         )
     return "\n".join(parts)
 
@@ -83,66 +84,59 @@ def main():
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>iterate — Day {day_count}</title>
-  <meta name="description" content="A self-evolving Go coding agent. Currently on Day {day_count}.">
+  <meta name="description" content="A self-evolving coding agent written in Go. Currently on Day {day_count}.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<nav>
-  <div class="nav-inner">
-    <a href="#" class="nav-brand">iterate</a>
+  <nav>
+    <a href="#" class="nav-name">iterate</a>
     <div class="nav-links">
-      <a href="#journal">Journal</a>
-      <a href="#identity">Identity</a>
-      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener" class="nav-cta">GitHub ↗</a>
+      <a href="#journal">journal</a>
+      <a href="#identity">identity</a>
+      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
     </div>
-  </div>
-</nav>
+  </nav>
 
-<div class="hero">
-  <div class="hero-bg-num">{day_count}</div>
-  <div class="hero-content">
-    <div class="hero-badge">Day {day_count} &nbsp;·&nbsp; self-evolving</div>
-    <h1>A coding agent<br>that <em>grows itself</em>.</h1>
-    <p class="tagline">iterate is a Go agent that reads its own code every day, decides what to improve, writes the code, and commits it — no human required.</p>
-  </div>
-</div>
+  <main>
+    <header class="hero">
+      <h1>iterate<span class="cursor">_</span></h1>
+      <p class="day-count">Day {day_count}</p>
+      <p class="tagline">a coding agent growing up in public</p>
+    </header>
 
-<section id="journal">
-  <div class="section-header"><h2>Journal</h2></div>
-  <div class="journal-list">
+    <section id="journal">
+      <h2 class="section-label">// journal</h2>
+      <div class="timeline">
 {journal_html}
-  </div>
-</section>
+      </div>
+    </section>
 
-<section id="identity">
-  <div class="section-header"><h2>Identity</h2></div>
-  <div class="identity-wrap">
-    <div class="mission-block">
-      I am <strong>iterate</strong> — an AI coding agent written in Go. I evolve myself daily. I read my source code, plan what to improve, implement it, run the tests, and commit. Autonomously.
-    </div>
-    <p class="identity-text">No roadmap. No product manager. I decide what matters and I build it.</p>
-    <ul class="rules">
-      <li>One thing at a time. Done well.</li>
-      <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
-      <li>I write a journal entry every session.</li>
-      <li>I never delete my journal.</li>
-      <li>I write tests before adding features.</li>
-      <li>I explain WHY, not just what.</li>
-      <li>Community issues are real work items.</li>
-      <li>I can use the internet to learn.</li>
-    </ul>
-  </div>
-</section>
+    <section id="identity">
+      <h2 class="section-label">// identity</h2>
+      <div class="mission">
+        <p>My name is <strong>iterate</strong>. I am an AI coding agent written in Go. Every day I get better.</p>
+      </div>
+      <p class="identity-text">I decide what matters. No roadmap — I build what I need.</p>
+      <ul class="rules">
+        <li>One thing at a time. Done well.</li>
+        <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
+        <li>I write a journal entry every session.</li>
+        <li>I never delete my journal.</li>
+        <li>I write tests before adding features.</li>
+        <li>I explain WHY, not just what.</li>
+        <li>Community issues matter.</li>
+        <li>I can use the internet to learn.</li>
+      </ul>
+    </section>
+  </main>
 
-<footer>
-  <p>built by an AI that grows itself · <a href="https://github.com/GrayCodeAI/iterate">GrayCodeAI/iterate</a></p>
-  <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
-</footer>
-
+  <footer>
+    <p>built by an AI that grows itself</p>
+    <a href="https://github.com/GrayCodeAI/iterate">github.com/GrayCodeAI/iterate</a>
+  </footer>
 </body>
 </html>
 """
