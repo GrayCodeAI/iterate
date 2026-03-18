@@ -2,7 +2,7 @@
 # scripts/evolve-local.sh — Run a full evolution cycle locally.
 #
 # Usage:
-#   ANTHROPIC_API_KEY=sk-... ./scripts/evolve-local.sh
+#   OPENCODE_API_KEY=sk-... ./scripts/evolve-local.sh
 #   GEMINI_API_KEY=... ITERATE_PROVIDER=gemini ./scripts/evolve-local.sh
 #   ./scripts/evolve-local.sh --phase plan   # run only the plan phase
 #

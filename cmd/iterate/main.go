@@ -29,7 +29,7 @@ func main() {
 		replyIssues = flag.Bool("reply-issues", true, "Post bot replies to addressed issues")
 		provider    = flag.String("provider", "gemini", "Provider to use (anthropic, openai, groq, gemini)")
 		model       = flag.String("model", "", "Model to use")
-		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
+		apiKey      = flag.String("api-key", "", "API key (or set OPENCODE_API_KEY, GEMINI_API_KEY, etc.)")
 		thinking    = flag.String("thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")
 		chat        = flag.Bool("chat", false, "Start interactive REPL (default when no other mode set)")
 		evolve      = flag.Bool("evolve", false, "Run one evolution session (non-interactive)")

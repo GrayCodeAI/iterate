@@ -28,7 +28,7 @@ fi
 
 # Phase A: Planning
 log "Phase A: Planning..."
-ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" ./iterate -p \
+ANTHROPIC_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
   "Read your source code, JOURNAL.md, and any issues in .iterate/ISSUES_TODAY.md.
    Write SESSION_PLAN.md with:
    - 3-5 focused improvement tasks
@@ -39,7 +39,7 @@ ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" ./iterate -p \
 # Phase B: Implementation
 if [[ -f "$PLAN_FILE" ]]; then
   log "Phase B: Implementation..."
-  ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" ./iterate -p \
+  ANTHROPIC_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
     "Read SESSION_PLAN.md and implement each task step by step.
      For each task:
      1. Make changes
@@ -54,7 +54,7 @@ fi
 # Phase C: Communication
 log "Phase C: Communication..."
 if [[ -f "$PLAN_FILE" ]]; then
-  ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" ./iterate -p \
+  ANTHROPIC_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
     "Read SESSION_PLAN.md and extract the 'Issue Responses' section.
      For each issue you addressed, post a GitHub comment with your summary.
      Use: gh issue comment <number> --body '...'" \
