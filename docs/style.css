@@ -252,7 +252,7 @@ section {
   color: #ffffff;
 }
 
-.rules li::before {
+.identity-content .rules li::before {
   content: counter(rules, decimal-leading-zero);
   position: absolute;
   left: 0;
