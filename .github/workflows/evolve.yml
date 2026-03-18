@@ -26,13 +26,18 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.22'
+          go-version: '1.25'
 
       - name: Setup iteragent path
         run: |
           cd $GITHUB_WORKSPACE
           mkdir -p ..
           cp -r iteragent-pkg ../iteragent
+
+      - name: Configure git
+        run: |
+          git config user.name "iterate[bot]"
+          git config user.email "iterate@users.noreply.github.com"
 
       - name: Build iterate
         run: go build ./cmd/iterate
@@ -47,8 +52,6 @@ jobs:
 
       - name: Push changes
         run: |
-          git config user.name "iterate[bot]"
-          git config user.email "iterate@users.noreply.github.com"
           if [[ -n $(git status -s) ]]; then
             git add -A
             git commit -m "iterate: auto-evolution session $(date -u +'%Y-%m-%d %H:%M:%S')"
