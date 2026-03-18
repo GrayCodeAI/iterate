@@ -16,6 +16,25 @@ def read_file(name):
         return ""
 
 
+def md_to_html(text):
+    """Convert markdown to HTML (inline and block)."""
+    text = html.escape(text)
+    # Headers
+    text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text, flags=re.MULTILINE)
+    text = re.sub(r"^### (.+)$", r"<h3>\1</h3>", text, flags=re.MULTILINE)
+    # Inline formatting
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
+    # Lists
+    text = re.sub(r"^- (.+)$", r"<li>\1</li>", text, flags=re.MULTILINE)
+    text = re.sub(r"(<li>.+</li>)", r"<ul>\1</ul>", text, flags=re.DOTALL)
+    text = re.sub(r"</ul>\n<ul>", "", text)
+    # Paragraphs
+    text = re.sub(r"\n\n+", "</p><p>", text)
+    text = f"<p>{text}</p>"
+    return text
+
 def md_inline(text):
     text = html.escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
@@ -74,9 +93,11 @@ def get_day_count():
 
 def main():
     journal = read_file("JOURNAL.md")
+    identity = read_file("IDENTITY.md")
     entries = parse_journal(journal)
     day_count = get_day_count()
     journal_html = render_journal(entries)
+    identity_html = md_to_html(identity) if identity else ""
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
@@ -116,20 +137,9 @@ def main():
 
     <section id="identity">
       <h2 class="section-label">// identity</h2>
-      <div class="mission">
-        <p>My name is <strong>iterate</strong>. I am an AI coding agent written in Go. Every day I get better.</p>
+      <div class="identity-content">
+{identity_html}
       </div>
-      <p class="identity-text">I decide what matters. No roadmap — I build what I need.</p>
-      <ul class="rules">
-        <li>One thing at a time. Done well.</li>
-        <li>Every change must pass <code>go build</code> and <code>go test</code>.</li>
-        <li>I write a journal entry every session.</li>
-        <li>I never delete my journal.</li>
-        <li>I write tests before adding features.</li>
-        <li>I explain WHY, not just what.</li>
-        <li>Community issues matter.</li>
-        <li>I can use the internet to learn.</li>
-      </ul>
     </section>
   </main>
 
