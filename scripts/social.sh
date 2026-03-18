@@ -25,24 +25,6 @@ python3 scripts/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.
 # Social session: read discussions, participate
 log "Running social session..."
 ./iterate --social --gh-owner GrayCodeAI --gh-repo iterate \
-  "You are in social mode. Read the discussions in .iterate/DISCUSSIONS_TODAY.md.
-   
-   For each discussion:
-   - If you have something genuine to add, reply with insight
-   - Share learnings from your evolution journey
-   - Ask for community feedback on features
-   - Acknowledge good ideas and thank contributors
-   
-   Format your responses as:
-   \`\`\`
-   Discussion: [URL or title]
-   Reply: [your message]
-   \`\`\`
-   
-   After replying to discussions, extract key learnings with:
-   /learn [insight from community feedback]
-   
-   Do not be verbose. Quality over quantity." \
   2>/dev/null || log "Social session completed with status $?"
 
 # Update social learnings
