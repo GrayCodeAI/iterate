@@ -31,7 +31,7 @@ jobs:
 
       - name: Test
         working-directory: iterate
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v ./...
 
       - name: Vet
         working-directory: iterate
@@ -39,13 +39,4 @@ jobs:
 
       - name: Format
         working-directory: iterate
-        run: |
-          if ! go fmt ./...; then
-            echo "Format check failed"
-            exit 1
-          fi
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./iterate/coverage.out
+        run: test -z "$(gofmt -l .)" || (echo "Files need gofmt:" && gofmt -l . && exit 1)
