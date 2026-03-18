@@ -292,11 +292,11 @@ type ollamaHost struct {
 
 // knownHosts are the fixed Tailscale machines to check for Ollama.
 var knownHosts = []ollamaHost{
-	{name: "agx-01",  url: "http://100.102.194.103:11434/v1"},
-	{name: "agx-02",  url: "http://100.87.35.70:11434/v1"},
+	{name: "agx-01", url: "http://100.102.194.103:11434/v1"},
+	{name: "agx-02", url: "http://100.87.35.70:11434/v1"},
 	{name: "gb10-01", url: "http://100.93.184.1:11434/v1"},
 	{name: "gb10-02", url: "http://100.87.126.2:11434/v1"},
-	{name: "vps-1",   url: "http://100.79.60.48:11434/v1"},
+	{name: "vps-1", url: "http://100.79.60.48:11434/v1"},
 }
 
 // discoverOllamaHosts checks known Tailscale machines for running Ollama.

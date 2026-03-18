@@ -197,8 +197,8 @@ func listSessions() []string {
 // ---------------------------------------------------------------------------
 
 type Bookmark struct {
-	Name      string             `json:"name"`
-	CreatedAt time.Time          `json:"created_at"`
+	Name      string              `json:"name"`
+	CreatedAt time.Time           `json:"created_at"`
 	Messages  []iteragent.Message `json:"messages"`
 }
 
@@ -614,18 +614,18 @@ func sessionStats() string {
 // ---------------------------------------------------------------------------
 
 type theme struct {
-	name    string
-	lime    string
-	yellow  string
-	cyan    string
-	purple  string
-	dim     string
-	bold    string
-	red     string
-	green   string
-	amber   string
-	blue    string
-	reset   string
+	name   string
+	lime   string
+	yellow string
+	cyan   string
+	purple string
+	dim    string
+	bold   string
+	red    string
+	green  string
+	amber  string
+	blue   string
+	reset  string
 }
 
 var themes = map[string]theme{
@@ -1593,10 +1593,10 @@ func snapshotsDir() string {
 }
 
 type snapshot struct {
-	Name      string            `json:"name"`
-	CreatedAt time.Time         `json:"created_at"`
-	Branch    string            `json:"branch"`
-	Commit    string            `json:"commit"`
+	Name      string              `json:"name"`
+	CreatedAt time.Time           `json:"created_at"`
+	Branch    string              `json:"branch"`
+	Commit    string              `json:"commit"`
 	Messages  []iteragent.Message `json:"messages"`
 }
 
@@ -1662,9 +1662,9 @@ var autoCommitEnabled bool
 // ---------------------------------------------------------------------------
 
 type mcpServer struct {
-	Name    string `json:"name"`
-	URL     string `json:"url,omitempty"`
-	Command string `json:"command,omitempty"`
+	Name    string   `json:"name"`
+	URL     string   `json:"url,omitempty"`
+	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 }
 
@@ -1772,12 +1772,12 @@ func createGist(content, filename, description string, public bool) (string, err
 
 func initProject(repoPath, projectName string) []string {
 	files := map[string]string{
-		"IDENTITY.md":    fmt.Sprintf("# %s\n\nA self-evolving project powered by iterate.\n", projectName),
-		"PERSONALITY.md": "Helpful, concise, and direct.\n",
-		"JOURNAL.md":     fmt.Sprintf("# Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
-		"DAY_COUNT":      "1",
+		"IDENTITY.md":            fmt.Sprintf("# %s\n\nA self-evolving project powered by iterate.\n", projectName),
+		"PERSONALITY.md":         "Helpful, concise, and direct.\n",
+		"JOURNAL.md":             fmt.Sprintf("# Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
+		"DAY_COUNT":              "1",
 		"memory/learnings.jsonl": "",
-		"skills/.keep":   "",
+		"skills/.keep":           "",
 	}
 	var created []string
 	for path, content := range files {
@@ -1792,4 +1792,3 @@ func initProject(repoPath, projectName string) []string {
 	}
 	return created
 }
-
