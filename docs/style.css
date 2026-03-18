@@ -7,7 +7,7 @@
   --text: #9ca3af;
   --text-bright: #d1d5db;
   --text-dim: #4a5568;
-  --purple: #a855f7;
+  --orange: #f97316;
   --amber: #f59e0b;
   --red: #ef4444;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
@@ -34,7 +34,7 @@ body {
 }
 
 a {
-  color: var(--purple);
+  color: var(--orange);
   text-decoration: none;
 }
 
@@ -75,7 +75,7 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--purple);
+  color: var(--orange);
   letter-spacing: 0.05em;
 }
 
@@ -119,7 +119,7 @@ main {
 .hero h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--purple);
+  color: var(--orange);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -131,7 +131,7 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--purple);
+  color: var(--orange);
   font-weight: 300;
 }
 
@@ -232,7 +232,7 @@ section {
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--purple);
+  border-left: 2px solid var(--orange);
 }
 
 .identity-text {
@@ -290,7 +290,7 @@ footer a {
 }
 
 footer a:hover {
-  color: var(--purple);
+  color: var(--orange);
 }
 
 
