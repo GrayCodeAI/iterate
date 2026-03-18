@@ -430,14 +430,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 		switch iteragent.EventType(e.Type) {
 		case iteragent.EventMessageUpdate:
 			stopOnce()
-			if !inProgress {
-				inProgress = true
-			}
-			preview := e.Content
-			if len(preview) > 100 {
-				preview = "…" + preview[len(preview)-100:]
-			}
-			fmt.Printf("\r\033[K%s%s%s", colorDim, preview, colorReset)
+			inProgress = true
 			lastContent = e.Content
 
 		case iteragent.EventToolExecutionStart:
