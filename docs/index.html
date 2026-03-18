@@ -12,7 +12,24 @@
 </head>
 <body>
   <nav>
-    <a href="#" class="nav-name">iterate</a>
+    <div class="nav-logo-name">
+      <svg class="nav-logo" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <!-- Spiral representing growth and iteration -->
+        <defs>
+          <style>
+            .spiral-lime { stroke: #a3e635; fill: none; stroke-width: 2; }
+            .spiral-cyan { stroke: #22d3ee; fill: none; stroke-width: 2; }
+          </style>
+        </defs>
+        <!-- Outer spiral in cyan -->
+        <path class="spiral-cyan" d="M 20 8 Q 28 8 28 16 Q 28 24 20 24 Q 12 24 12 16 Q 12 8 20 8" stroke-linecap="round"/>
+        <!-- Middle spiral in lime -->
+        <path class="spiral-lime" d="M 20 12 Q 24 12 24 16 Q 24 20 20 20 Q 16 20 16 16 Q 16 12 20 12" stroke-linecap="round"/>
+        <!-- Upward arrow accent -->
+        <path class="spiral-cyan" d="M 20 28 L 20 32 M 17 29 L 20 32 L 23 29" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <a href="#" class="nav-name">iterate</a>
+    </div>
     <div class="nav-links">
       <a href="#journal">journal</a>
       <a href="#identity">identity</a>

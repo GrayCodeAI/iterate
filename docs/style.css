@@ -70,6 +70,18 @@ nav {
   background: var(--bg);
 }
 
+.nav-logo-name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
