@@ -32,6 +32,7 @@ jobs:
       - name: Run social session
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          ITERATE_PROVIDER: opencode
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash scripts/social.sh

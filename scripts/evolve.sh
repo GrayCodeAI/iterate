@@ -28,24 +28,13 @@ fi
 
 # Phase A: Planning
 log "Phase A: Planning..."
-OPENCODE_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
-  "Read your source code, JOURNAL.md, and any issues in .iterate/ISSUES_TODAY.md.
-   Write SESSION_PLAN.md with:
-   - 3-5 focused improvement tasks
-   - Issue responses section for each issue you want to address
-   Then STOP and do not execute anything yet." \
+./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
   2>/dev/null || log "Planning phase completed with status $?"
 
 # Phase B: Implementation
 if [[ -f "$PLAN_FILE" ]]; then
   log "Phase B: Implementation..."
-  OPENCODE_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
-    "Read SESSION_PLAN.md and implement each task step by step.
-     For each task:
-     1. Make changes
-     2. Run: go build ./... && go test ./...
-     3. If tests pass, commit. If not, revert and explain the failure.
-     Work through all tasks in the plan." \
+  ./iterate --phase implement \
     2>/dev/null || log "Implementation phase completed with status $?"
 else
   log "No SESSION_PLAN.md found, skipping implementation"
@@ -54,10 +43,7 @@ fi
 # Phase C: Communication
 log "Phase C: Communication..."
 if [[ -f "$PLAN_FILE" ]]; then
-  OPENCODE_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
-    "Read SESSION_PLAN.md and extract the 'Issue Responses' section.
-     For each issue you addressed, post a GitHub comment with your summary.
-     Use: gh issue comment <number> --body '...'" \
+  ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate \
     2>/dev/null || log "Communication phase completed with status $?"
 fi
 

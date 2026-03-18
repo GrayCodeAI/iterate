@@ -24,7 +24,7 @@ python3 scripts/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.
 
 # Social session: read discussions, participate
 log "Running social session..."
-OPENCODE_API_KEY="${OPENCODE_API_KEY}" ./iterate -p \
+./iterate --social --gh-owner GrayCodeAI --gh-repo iterate \
   "You are in social mode. Read the discussions in .iterate/DISCUSSIONS_TODAY.md.
    
    For each discussion:
