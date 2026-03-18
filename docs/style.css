@@ -1,17 +1,17 @@
 /* iterate — autonomous growth chronicle */
 
 :root {
-  /* Clean Go-inspired palette: blue + orange */
-  --bg: #f8f9fa;
-  --bg-alt: #ffffff;
-  --border: #e5e7eb;
-  --text: #374151;
-  --text-bright: #111827;
-  --text-dim: #6b7280;
+  /* Dark Go-inspired palette: blue + orange */
+  --bg: #0f172a;         /* Dark blue-gray */
+  --bg-alt: #1a1f35;     /* Slightly lighter */
+  --border: #2d3748;
+  --text: #cbd5e1;
+  --text-bright: #e2e8f0;
+  --text-dim: #64748b;
   --primary: #0173e7;    /* Go blue */
   --accent: #f97316;     /* Orange */
   --success: #22c55e;
-  --subtle: #d1d5db;
+  --subtle: #3f4651;
   --font: "Fira Code", "JetBrains Mono", "Cascadia Code", "Source Code Pro", monospace;
 }
 
@@ -255,7 +255,7 @@ section {
 /* ── identity ── */
 
 .identity-content {
-  background: var(--bg-alt);
+  background: linear-gradient(135deg, rgba(1, 115, 231, 0.1), rgba(249, 115, 22, 0.05));
   padding: 2rem;
   border-radius: 8px;
   border: 1px solid var(--border);
