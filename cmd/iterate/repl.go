@@ -13,6 +13,16 @@ import (
 	"log/slog"
 )
 
+const (
+	colorReset  = "\033[0m"
+	colorLime   = "\033[38;5;154m"
+	colorYellow = "\033[38;5;220m"
+	colorDim    = "\033[2m"
+	colorBold   = "\033[1m"
+	colorCyan   = "\033[36m"
+	colorRed    = "\033[31m"
+)
+
 // REPL runs an interactive session with iterate.
 // Supports slash commands and free-form chat.
 func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) {
@@ -24,17 +34,17 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		WithSkillSet(skills).
 		WithThinkingLevel(thinking)
 
-	fmt.Printf("\niterate REPL — %s", p.Name())
+	fmt.Printf("\n%s iterate%s  %s%s%s", colorLime+colorBold, colorReset, colorDim, p.Name(), colorReset)
 	if thinking != "" && thinking != iteragent.ThinkingLevelOff {
-		fmt.Printf(", thinking: %s", thinking)
+		fmt.Printf("  %sthinking:%s %s", colorDim, colorReset, thinking)
 	}
 	fmt.Println()
-	fmt.Println("Type a message, or /help for commands. Ctrl+C to exit.")
+	fmt.Printf("%sType a message, or /help for commands. Ctrl+C to exit.%s\n", colorDim, colorReset)
 	fmt.Println()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("iterate> ")
+		fmt.Printf("%s❯%s ", colorLime, colorReset)
 		if !scanner.Scan() {
 			break
 		}
@@ -81,7 +91,7 @@ Available commands:
 `)
 
 	case "/quit", "/exit", "/q":
-		fmt.Println("bye")
+		fmt.Printf("%sbye 🌱%s\n", colorLime, colorReset)
 		return true
 
 	case "/clear":
@@ -201,42 +211,40 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 			if !inProgress {
 				inProgress = true
 			}
-			// Show last 100 chars of in-progress response.
 			preview := e.Content
 			if len(preview) > 100 {
 				preview = "…" + preview[len(preview)-100:]
 			}
-			fmt.Printf("\r\033[K%s", preview)
+			fmt.Printf("\r\033[K%s%s%s", colorDim, preview, colorReset)
 			lastContent = e.Content
 
 		case iteragent.EventToolExecutionStart:
-			fmt.Printf("\r\033[K[%s]", e.ToolName)
+			fmt.Printf("\r\033[K%s⚙ %s%s", colorYellow, e.ToolName, colorReset)
 
 		case iteragent.EventToolExecutionEnd:
 			snippet := e.Result
 			if len(snippet) > 60 {
 				snippet = snippet[:60] + "…"
 			}
-			fmt.Printf(" → %s\n", snippet)
+			fmt.Printf("%s → %s%s\n", colorDim, snippet, colorReset)
 
 		case iteragent.EventContextCompacted:
-			fmt.Println("\r\033[K[context compacted]")
+			fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
 
 		case iteragent.EventMessageEnd:
 			lastContent = e.Content
 
 		case iteragent.EventError:
-			fmt.Printf("\r\033[KError: %s\n", e.Content)
+			fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
 		}
 	}
 	a.Finish()
 
-	// Clear the in-progress line and print the full final response.
 	if inProgress {
 		fmt.Print("\r\033[K")
 	}
 	if lastContent != "" {
-		fmt.Println(lastContent)
+		fmt.Printf("%s%s%s\n", colorBold, lastContent, colorReset)
 	}
 	fmt.Println()
 }
