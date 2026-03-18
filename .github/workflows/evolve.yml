@@ -18,6 +18,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/checkout@v4
+        with:
+          repository: GrayCodeAI/iteragent
+          path: ../iteragent
+          fetch-depth: 0
+
       - uses: actions/setup-go@v4
         with:
           go-version: '1.22'
