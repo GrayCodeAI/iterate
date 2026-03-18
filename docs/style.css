@@ -1,14 +1,15 @@
-/* iterate — clean monospace minimal aesthetic */
+/* iterate — terminal/CLI aesthetic */
 
 :root {
-  --bg: #0a0c10;
-  --bg-raised: #12161c;
-  --border: #1e2330;
-  --text: #9ca3af;
-  --text-bright: #d1d5db;
-  --text-dim: #4a5568;
+  --bg: #0a0e1a;
+  --bg-surface: #101621;
+  --border: #1a2332;
+  --text: #a0aec0;
+  --text-bright: #e2e8f0;
+  --text-dim: #64748b;
   --cyan: #22d3ee;
   --lime: #a3e635;
+  --prompt: #10b981;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
 }
 
@@ -30,6 +31,8 @@ body {
   font-size: 14px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 a {
@@ -72,14 +75,19 @@ nav {
 
 .nav-name {
   font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--cyan);
+  font-size: 0.75rem;
+  color: var(--prompt);
   letter-spacing: 0.05em;
+}
+
+.nav-name::before {
+  content: '$ ';
+  color: var(--text-dim);
 }
 
 .nav-name:hover {
   text-decoration: none;
-  opacity: 0.8;
+  color: var(--lime);
 }
 
 .nav-links {
@@ -89,12 +97,12 @@ nav {
 
 .nav-links a {
   color: var(--text-dim);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   letter-spacing: 0.08em;
 }
 
 .nav-links a:hover {
-  color: var(--text);
+  color: var(--cyan);
   text-decoration: none;
 }
 
@@ -109,15 +117,20 @@ main {
 /* ── hero ── */
 
 .hero {
-  padding: 5rem 0 4rem;
+  padding: 4rem 0 3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2rem;
+  margin: 2rem 0;
+  background: var(--bg-surface);
 }
 
 .hero h1 {
-  font-size: 3.5rem;
+  font-size: 2.5rem;
   font-weight: 700;
   color: var(--cyan);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.05em;
 }
 
 @keyframes blink {
@@ -127,35 +140,50 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--cyan);
-  font-weight: 300;
+  color: var(--lime);
+  font-weight: 700;
+}
+
+.cursor::after {
+  content: '█';
 }
 
 .day-count {
   margin-top: 1rem;
-  font-size: 1rem;
-  color: var(--lime);
+  font-size: 0.85rem;
+  color: var(--prompt);
   font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.day-count::before {
+  content: '// ';
+  color: var(--text-dim);
 }
 
 .tagline {
   margin-top: 0.5rem;
   color: var(--text-dim);
-  font-size: 0.85rem;
-  font-style: italic;
+  font-size: 0.8rem;
+  font-style: normal;
 }
 
 /* ── sections ── */
 
 section {
-  padding: 3.5rem 0 0;
+  padding: 3rem 0;
+  border-top: 1px solid var(--border);
+}
+
+section:first-of-type {
+  border-top: none;
 }
 
 .section-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 400;
   color: var(--text-dim);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.15em;
   margin-bottom: 2rem;
 }
 
@@ -163,76 +191,96 @@ section {
 
 .timeline {
   position: relative;
-  padding-left: 28px;
+  padding-left: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
 }
 
 .timeline::before {
   content: '';
   position: absolute;
-  left: 3px;
-  top: 6px;
-  bottom: 0;
-  width: 1px;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 1px;
   background: var(--border);
+  border-top: 1px solid var(--border);
 }
 
 .timeline-empty {
   color: var(--text-dim);
-  font-style: italic;
-  padding-left: 28px;
+  font-style: normal;
+  padding-left: 0;
 }
 
 .entry {
   position: relative;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
+  padding-left: 0;
+  border-left: 2px solid var(--prompt);
+  padding-left: 1rem;
+}
+
+.entry:last-child {
+  margin-bottom: 0;
 }
 
 .entry-marker {
   position: absolute;
-  left: -28px;
-  top: 8px;
-  width: 7px;
-  height: 7px;
-  background: var(--lime);
+  left: -6px;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  background: var(--prompt);
 }
 
 .entry-day {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  color: var(--lime);
-  letter-spacing: 0.05em;
+  color: var(--prompt);
+  letter-spacing: 0.1em;
+}
+
+.entry-day::before {
+  content: '> ';
 }
 
 .entry-title {
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text-bright);
+  color: var(--cyan);
   margin: 0.25rem 0 0.5rem;
   line-height: 1.4;
 }
 
 .entry-body {
   color: var(--text);
-  font-size: 0.85rem;
-  line-height: 1.7;
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
 /* ── identity ── */
 
 .mission {
-  font-size: 1.5rem;
+  font-size: 1.1rem;
   color: var(--text);
   line-height: 1.8;
   margin-bottom: 1.5rem;
-  padding-left: 1rem;
-  border-left: 2px solid var(--cyan);
+  padding: 1.5rem;
+  border-left: 3px solid var(--cyan);
+  background: var(--bg-surface);
+  border-radius: 4px;
 }
 
 .identity-text {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text);
   line-height: 1.7;
   margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-surface);
+  border-radius: 4px;
 }
 
 .rules {
@@ -240,42 +288,56 @@ section {
   counter-reset: rules;
   padding: 0;
   margin-top: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
 }
 
 .rules li {
   counter-increment: rules;
   position: relative;
   padding-left: 2.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  line-height: 1.7;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  padding-top: 0.25rem;
+}
+
+.rules li:last-child {
+  margin-bottom: 0;
 }
 
 .identity-content .rules li::before {
-  content: counter(rules, decimal-leading-zero);
+  content: counter(rules, decimal-leading-zero) '.';
   position: absolute;
   left: 0;
-  color: var(--text-dim);
+  color: var(--prompt);
   font-size: 0.75rem;
-  font-weight: 300;
-  top: 0.15rem;
+  font-weight: 700;
+  top: 0;
 }
 
 .identity-content h2 {
-  color: var(--lime);
-  font-size: 1rem;
-  font-weight: 500;
+  color: var(--cyan);
+  font-size: 0.85rem;
+  font-weight: 700;
   margin-top: 2rem;
   margin-bottom: 1rem;
+  letter-spacing: 0.1em;
 }
 
 .identity-content h2:first-child {
   margin-top: 0;
 }
 
+.identity-content h2::before {
+  content: '// ';
+  color: var(--text-dim);
+}
+
 .identity-content p {
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   line-height: 1.7;
   margin-bottom: 1rem;
 }
@@ -284,34 +346,38 @@ section {
   list-style: none;
   padding: 0;
   margin: 1rem 0;
+  border-left: 2px solid var(--prompt);
+  padding-left: 1rem;
 }
 
 .identity-content li {
   color: var(--text);
-  font-size: 0.85rem;
-  line-height: 1.7;
-  padding-left: 1.5rem;
-  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  padding-left: 1rem;
+  margin-bottom: 0.6rem;
   position: relative;
 }
 
 .identity-content li::before {
-  content: '→';
+  content: '•';
   position: absolute;
   left: 0;
-  color: var(--cyan);
+  color: var(--prompt);
   font-weight: bold;
 }
 
 .identity-content strong {
   color: var(--text-bright);
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .identity-content code {
-  background: var(--bg-raised);
-  color: var(--cyan);
+  background: var(--bg-surface);
+  color: var(--lime);
   border: 1px solid var(--border);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
 }
 
 /* ── footer ── */
@@ -325,25 +391,30 @@ footer {
 }
 
 footer p {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-dim);
   margin-bottom: 0.25rem;
+  letter-spacing: 0.05em;
 }
 
 footer a {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-dim);
 }
 
 footer a:hover {
-  color: var(--cyan);
+  color: var(--lime);
 }
 
 /* ── responsive ── */
 
 @media (max-width: 480px) {
+  .hero {
+    padding: 1.5rem;
+  }
+
   .hero h1 {
-    font-size: 2.5rem;
+    font-size: 1.8rem;
   }
 
   nav {
@@ -354,5 +425,13 @@ footer a:hover {
 
   .nav-links {
     gap: 1rem;
+  }
+
+  .timeline {
+    padding: 1rem;
+  }
+
+  .entry {
+    padding-left: 0.75rem;
   }
 }
