@@ -22,9 +22,9 @@ Regularly evaluate iterate's quality and identify improvement opportunities.
 ## Gap Analysis
 
 Look for:
-1. **Missing features compared to yoyo-evolve**
-   - Check README.md for feature list gaps
-   - Evaluate commands that are partially implemented
+1. **Incomplete features**
+   - Check README.md for command implementation status
+   - Evaluate shallow commands that need deeper AI integration
 2. **UX improvements**
    - Are error messages helpful?
    - Could commands be more intuitive?

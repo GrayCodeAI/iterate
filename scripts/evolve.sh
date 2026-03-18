@@ -2,7 +2,7 @@
 set -e
 
 # iterate evolution pipeline: plan → implement → respond
-# Runs the 3-phase evolution cycle, similar to yoyo-evolve
+# Autonomous 3-phase evolution cycle
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
