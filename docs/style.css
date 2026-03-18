@@ -70,18 +70,6 @@ nav {
   background: var(--bg);
 }
 
-.nav-logo-name {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.nav-logo {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
@@ -125,7 +113,7 @@ main {
 }
 
 .hero h1 {
-  font-size: 4.5rem;
+  font-size: 3.5rem;
   font-weight: 700;
   color: var(--cyan);
   line-height: 1;
