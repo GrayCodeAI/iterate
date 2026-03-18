@@ -1,14 +1,16 @@
-/* iterate — clean monospace minimal aesthetic */
+/* iterate — vibrant multicolor monospace */
 
 :root {
-  --bg: #0a0c10;
-  --bg-raised: #12161c;
-  --border: #1e2330;
-  --text: #9ca3af;
-  --text-bright: #d1d5db;
+  --bg: #080a12;
+  --bg-raised: #0e1220;
+  --border: #1a2035;
+  --text: #a0aec0;
+  --text-bright: #f0f4ff;
   --text-dim: #4a5568;
   --cyan: #22d3ee;
   --lime: #a3e635;
+  --pink: #f472b6;
+  --yellow: #fbbf24;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
 }
 
@@ -38,12 +40,13 @@ a {
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--pink);
+  text-decoration: none;
 }
 
 strong {
-  color: var(--text-bright);
-  font-weight: 500;
+  color: var(--yellow);
+  font-weight: 600;
 }
 
 code {
@@ -51,6 +54,7 @@ code {
   padding: 0.15em 0.4em;
   font-size: 0.9em;
   border: 1px solid var(--border);
+  color: var(--lime);
 }
 
 /* ── nav ── */
@@ -62,24 +66,25 @@ nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 640px;
+  max-width: 680px;
   width: 90%;
   margin: 0 auto;
-  padding: 1rem 0;
+  padding: 1.2rem 0;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: rgba(8, 10, 18, 0.95);
+  backdrop-filter: blur(8px);
 }
 
 .nav-name {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--cyan);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .nav-name:hover {
   text-decoration: none;
-  opacity: 0.8;
+  color: var(--lime);
 }
 
 .nav-links {
@@ -89,19 +94,20 @@ nav {
 
 .nav-links a {
   color: var(--text-dim);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  transition: color 0.2s;
 }
 
 .nav-links a:hover {
-  color: var(--text);
+  color: var(--pink);
   text-decoration: none;
 }
 
 /* ── main ── */
 
 main {
-  max-width: 640px;
+  max-width: 680px;
   width: 90%;
   margin: 0 auto;
 }
@@ -110,10 +116,11 @@ main {
 
 .hero {
   padding: 5rem 0 4rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .hero h1 {
-  font-size: 3.5rem;
+  font-size: 3.8rem;
   font-weight: 700;
   color: var(--cyan);
   line-height: 1;
@@ -127,36 +134,39 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--cyan);
+  color: var(--pink);
   font-weight: 300;
 }
 
 .day-count {
-  margin-top: 1rem;
-  font-size: 1rem;
+  margin-top: 1.2rem;
+  font-size: 0.85rem;
   color: var(--lime);
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .tagline {
   margin-top: 0.5rem;
   color: var(--text-dim);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-style: italic;
 }
 
 /* ── sections ── */
 
 section {
-  padding: 3.5rem 0 0;
+  padding: 4rem 0 0;
 }
 
 .section-label {
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--text-dim);
-  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--pink);
+  letter-spacing: 0.2em;
   margin-bottom: 2rem;
+  text-transform: uppercase;
 }
 
 /* ── journal timeline ── */
@@ -173,7 +183,7 @@ section {
   top: 6px;
   bottom: 0;
   width: 1px;
-  background: var(--border);
+  background: linear-gradient(180deg, var(--cyan) 0%, var(--pink) 50%, var(--lime) 100%);
 }
 
 .timeline-empty {
@@ -193,60 +203,63 @@ section {
   top: 8px;
   width: 7px;
   height: 7px;
-  background: var(--lime);
+  background: var(--yellow);
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
 
 .entry-day {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: var(--lime);
-  letter-spacing: 0.05em;
+  color: var(--yellow);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .entry-title {
-  font-size: 1.05rem;
-  font-weight: 500;
-  color: var(--text-bright);
-  margin: 0.25rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cyan);
+  margin: 0.3rem 0 0.6rem;
   line-height: 1.4;
 }
 
 .entry-body {
   color: var(--text);
-  font-size: 0.85rem;
-  line-height: 1.7;
+  font-size: 0.82rem;
+  line-height: 1.75;
 }
 
 /* ── identity ── */
 
 .mission {
-  font-size: 1.5rem;
-  color: var(--text);
+  font-size: 1.4rem;
+  color: var(--text-bright);
   line-height: 1.8;
-  margin-bottom: 1.5rem;
-  padding-left: 1rem;
-  border-left: 2px solid var(--cyan);
+  margin-bottom: 2rem;
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--pink);
 }
 
 .identity-text {
   font-size: 0.85rem;
   color: var(--text);
-  line-height: 1.7;
-  margin-bottom: 1rem;
+  line-height: 1.8;
+  margin-bottom: 1.25rem;
 }
 
 .rules {
   list-style: none;
   counter-reset: rules;
   padding: 0;
-  margin-top: 2rem;
+  margin-top: 1.5rem;
 }
 
 .rules li {
   counter-increment: rules;
   position: relative;
-  padding-left: 2.5rem;
-  margin-bottom: 0.75rem;
+  padding-left: 2.8rem;
+  margin-bottom: 1rem;
   font-size: 0.85rem;
   line-height: 1.7;
 }
@@ -255,18 +268,20 @@ section {
   content: counter(rules, decimal-leading-zero);
   position: absolute;
   left: 0;
-  color: var(--text-dim);
+  color: var(--pink);
   font-size: 0.75rem;
-  font-weight: 300;
+  font-weight: 700;
   top: 0.15rem;
 }
 
 .identity-content h2 {
-  color: var(--lime);
-  font-size: 1rem;
-  font-weight: 500;
-  margin-top: 2rem;
+  color: var(--yellow);
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
   margin-bottom: 1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .identity-content h2:first-child {
@@ -276,7 +291,7 @@ section {
 .identity-content p {
   color: var(--text);
   font-size: 0.85rem;
-  line-height: 1.7;
+  line-height: 1.75;
   margin-bottom: 1rem;
 }
 
@@ -299,39 +314,39 @@ section {
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--cyan);
+  color: var(--lime);
   font-weight: bold;
 }
 
 .identity-content strong {
-  color: var(--text-bright);
-  font-weight: 500;
+  color: var(--yellow);
+  font-weight: 600;
 }
 
 .identity-content code {
   background: var(--bg-raised);
-  color: var(--cyan);
+  color: var(--lime);
   border: 1px solid var(--border);
 }
 
 /* ── footer ── */
 
 footer {
-  max-width: 640px;
+  max-width: 680px;
   width: 90%;
-  margin: 4rem auto 0;
+  margin: 5rem auto 0;
   padding: 2rem 0 4rem;
   border-top: 1px solid var(--border);
 }
 
 footer p {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-dim);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
 }
 
 footer a {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-dim);
 }
 
@@ -343,13 +358,13 @@ footer a:hover {
 
 @media (max-width: 480px) {
   .hero h1 {
-    font-size: 2.5rem;
+    font-size: 2.6rem;
   }
 
   nav {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.75rem;
   }
 
   .nav-links {
