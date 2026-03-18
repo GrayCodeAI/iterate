@@ -2074,6 +2074,57 @@ Available commands:
 			}
 		}
 
+	case "/search":
+		query := strings.TrimSpace(strings.TrimPrefix(line, parts[0]))
+		if query == "" {
+			fmt.Println("Usage: /search <query>")
+			return false
+		}
+		matches := 0
+		for i, msg := range a.Messages {
+			if strings.Contains(strings.ToLower(msg.Content), strings.ToLower(query)) {
+				role := msg.Role
+				if role == "assistant" {
+					role = colorLime + "AI" + colorReset
+				} else {
+					role = colorYellow + "You" + colorReset
+				}
+				// Show first 80 chars of match
+				snippet := msg.Content
+				if len(snippet) > 80 {
+					snippet = snippet[:80] + "..."
+				}
+				fmt.Printf("  [%d] %s: %s\n", i, role, snippet)
+				matches++
+				if matches >= 5 {
+					break
+				}
+			}
+		}
+		if matches == 0 {
+			fmt.Println("No messages match that query.")
+		} else {
+			fmt.Printf("Found %d match(es). Use message index with /jump or context commands.\n", matches)
+		}
+
+	case "/spawn":
+		task := strings.TrimSpace(strings.TrimPrefix(line, parts[0]))
+		if task == "" {
+			fmt.Println("Usage: /spawn <task description>")
+			fmt.Println("")
+			fmt.Println("Spawns a subagent to handle a focused, independent task.")
+			fmt.Println("Example: /spawn optimize this code for performance")
+			return false
+		}
+		subPrompt := fmt.Sprintf(
+			"You are a focused subagent. Complete this task:\n\n%s\n\n"+
+				"Provide a complete, standalone solution. Do not ask for clarification.",
+			task)
+		subAgent := makeAgent(p, repoPath, *thinking, logger)
+		fmt.Printf("%sSpawning subagent for: %s%s\n\n", colorCyan, task, colorReset)
+		streamAndPrint(ctx, subAgent, subPrompt, repoPath)
+		fmt.Printf("\n%sSubagent completed.%s\n", colorCyan, colorReset)
+
 	default:
 		fmt.Printf("Unknown command: %s (try /help)\n", cmd)
 	}

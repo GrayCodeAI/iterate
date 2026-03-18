@@ -396,22 +396,20 @@ func readInput() (string, bool) {
 		case b[0] == 27 && n == 1:
 			// bare ESC — ignore
 
-	case b[0] == '\t': // Tab — autocomplete slash commands or file paths
-		current := string(buf)
-		var completion string
-		if strings.HasPrefix(current, "/") {
-			completion = tabComplete(current)
-		} else {
-			completion = completeFilePath(current)
-		}
-		if completion != "" && completion != current {
-			// Erase current input and print completion
-			for range buf {
-				fmt.Print("\b \b")
+		case b[0] == '\t': // Tab — autocomplete slash commands
+			current := string(buf)
+			if strings.HasPrefix(current, "/") {
+				completion := tabComplete(current)
+				if completion != "" && completion != current {
+					// Erase current input and print completion
+					for range buf {
+						fmt.Print("\b \b")
+					}
+					buf = []byte(completion)
+					fmt.Printf("%s", completion)
+				}
 			}
-			buf = []byte(completion)
-			fmt.Printf("%s", completion)
-		}
+
 		case b[0] == 127 || b[0] == 8: // backspace
 			if len(buf) > 0 {
 				// Handle multi-byte UTF-8 backspace
