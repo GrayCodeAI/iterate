@@ -8,9 +8,9 @@
   --text-bright: #f0f4ff;
   --text-dim: #4a5568;
   --cyan: #22d3ee;
-  --lime: #fbbf24;
+  --lime: #a3e635;
   --pink: #f472b6;
-  --yellow: #a3e635;
+  --yellow: #fbbf24;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
 }
 
@@ -45,7 +45,7 @@ a:hover {
 }
 
 strong {
-  color: var(--yellow);
+  color: var(--lime);
   font-weight: 600;
 }
 
@@ -54,7 +54,7 @@ code {
   padding: 0.15em 0.4em;
   font-size: 0.9em;
   border: 1px solid var(--border);
-  color: var(--lime);
+  color: var(--yellow);
 }
 
 /* ── nav ── */
@@ -78,13 +78,13 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.9rem;
-  color: var(--yellow);
+  color: var(--lime);
   letter-spacing: 0.08em;
 }
 
 .nav-name:hover {
   text-decoration: none;
-  color: var(--lime);
+  color: var(--yellow);
 }
 
 .nav-links {
@@ -122,7 +122,7 @@ main {
 .hero h1 {
   font-size: 3.8rem;
   font-weight: 700;
-  color: var(--yellow);
+  color: var(--lime);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -141,7 +141,7 @@ main {
 .day-count {
   margin-top: 1.2rem;
   font-size: 0.85rem;
-  color: var(--lime);
+  color: var(--yellow);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -183,7 +183,7 @@ section {
   top: 6px;
   bottom: 0;
   width: 1px;
-  background: linear-gradient(180deg, var(--cyan) 0%, var(--pink) 50%, var(--lime) 100%);
+  background: linear-gradient(180deg, var(--cyan) 0%, var(--pink) 50%, var(--yellow) 100%);
 }
 
 .timeline-empty {
@@ -203,7 +203,7 @@ section {
   top: 8px;
   width: 7px;
   height: 7px;
-  background: var(--yellow);
+  background: var(--lime);
   border-radius: 1px;
   transform: rotate(45deg);
 }
@@ -211,7 +211,7 @@ section {
 .entry-day {
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--yellow);
+  color: var(--lime);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -275,7 +275,7 @@ section {
 }
 
 .identity-content h2 {
-  color: var(--yellow);
+  color: var(--lime);
   font-size: 0.85rem;
   font-weight: 700;
   margin-top: 2.5rem;
@@ -314,18 +314,18 @@ section {
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--lime);
+  color: var(--yellow);
   font-weight: bold;
 }
 
 .identity-content strong {
-  color: var(--yellow);
+  color: var(--lime);
   font-weight: 600;
 }
 
 .identity-content code {
   background: var(--bg-raised);
-  color: var(--lime);
+  color: var(--yellow);
   border: 1px solid var(--border);
 }
 
