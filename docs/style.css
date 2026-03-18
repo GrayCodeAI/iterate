@@ -221,7 +221,7 @@ section {
 
 .mission {
   font-size: 1rem;
-  color: var(--text-bright);
+  color: var(--text);
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
