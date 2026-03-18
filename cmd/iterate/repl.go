@@ -128,7 +128,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 		return selectOllamaModel(currentThinking)
 	}
 
-	apiKey, ok := promptLine("API key (Enter to use env var):")
+	apiKey, ok := promptLine("API key (Enter to use env var, ESC to cancel):")
 	if !ok {
 		return nil, currentThinking
 	}
@@ -154,7 +154,7 @@ func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provi
 		currentURL = "http://localhost:11434/v1"
 	}
 
-	url, ok := promptLine(fmt.Sprintf("Ollama URL [%s]:", currentURL))
+	url, ok := promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
 	if !ok {
 		return nil, currentThinking
 	}
