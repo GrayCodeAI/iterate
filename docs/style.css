@@ -78,7 +78,7 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.9rem;
-  color: var(--cyan);
+  color: var(--yellow);
   letter-spacing: 0.08em;
 }
 
@@ -122,7 +122,7 @@ main {
 .hero h1 {
   font-size: 3.8rem;
   font-weight: 700;
-  color: var(--cyan);
+  color: var(--yellow);
   line-height: 1;
   letter-spacing: -0.02em;
 }
