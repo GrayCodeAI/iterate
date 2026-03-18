@@ -220,10 +220,10 @@ section {
 /* ── identity ── */
 
 .mission {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--text);
   line-height: 1.7;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   padding-left: 1rem;
   border-left: 2px solid var(--cyan);
 }
