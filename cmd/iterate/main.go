@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,9 +14,7 @@ import (
 
 	"github.com/GrayCodeAI/iterate/internal/community"
 	"github.com/GrayCodeAI/iterate/internal/evolution"
-	"github.com/GrayCodeAI/iterate/internal/session"
 	"github.com/GrayCodeAI/iterate/internal/social"
-	"github.com/GrayCodeAI/iterate/internal/web"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
@@ -25,8 +22,6 @@ import (
 func main() {
 	var (
 		repoPath    = flag.String("repo", ".", "Path to the repo iterate will evolve")
-		serve       = flag.Bool("serve", false, "Run the web dashboard server")
-		addr        = flag.String("addr", ":8080", "Web server address")
 		ghOwner     = flag.String("gh-owner", "", "GitHub repo owner")
 		ghRepo      = flag.String("gh-repo", "", "GitHub repo name")
 		issueMax    = flag.Int("issue-limit", 5, "Max community issues to include")
@@ -36,17 +31,11 @@ func main() {
 		model       = flag.String("model", "", "Model to use")
 		apiKey      = flag.String("api-key", "", "API key (or set ANTHROPIC_API_KEY, GEMINI_API_KEY, etc.)")
 		thinking    = flag.String("thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")
-
-		// Interactive REPL
-		chat = flag.Bool("chat", false, "Start interactive REPL (slash commands + free-form chat)")
-
-		// 3-phase evolution
-		phase = flag.String("phase", "", "Evolution phase: plan, implement, communicate, or \"\" (all)")
-
-		// Session management
-		saveSession  = flag.String("save-session", "", "Save agent messages to JSON file after run")
-		loadSession  = flag.String("load-session", "", "Load agent messages from JSON file before run")
-		compactFlag  = flag.Bool("compact", false, "Compact loaded session if it exceeds 80% of context budget before running")
+		chat        = flag.Bool("chat", false, "Start interactive REPL (slash commands + free-form chat)")
+		phase       = flag.String("phase", "", "Evolution phase: plan, implement, communicate, or \"\" (all)")
+		saveSession = flag.String("save-session", "", "Save agent messages to JSON file after run")
+		loadSession = flag.String("load-session", "", "Load agent messages from JSON file before run")
+		compactFlag = flag.Bool("compact", false, "Compact loaded session before running")
 	)
 	flag.Parse()
 
@@ -60,15 +49,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbPath := filepath.Join(absRepo, ".iterate", "sessions.db")
-	_ = os.MkdirAll(filepath.Dir(dbPath), 0o755)
-	store, err := session.NewStore(dbPath)
-	if err != nil {
-		logger.Error("open session store", "err", err)
-		os.Exit(1)
-	}
-
-	// Set model env var if provided
 	if *model != "" {
 		os.Setenv("ITERATE_MODEL", *model)
 	}
@@ -82,13 +62,11 @@ func main() {
 
 	ctx := context.Background()
 
-	// Interactive REPL mode.
 	if *chat {
 		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(*thinking), logger)
 		return
 	}
 
-	// Social-only mode (used by the 4h social workflow)
 	if *socialOnly {
 		if *ghOwner == "" || *ghRepo == "" {
 			logger.Error("--gh-owner and --gh-repo required for social mode")
@@ -104,18 +82,6 @@ func main() {
 		return
 	}
 
-	// Web dashboard
-	webServer := web.New(store, logger)
-	if *serve {
-		go func() {
-			logger.Info("web dashboard starting", "addr", *addr)
-			if err := http.ListenAndServe(*addr, webServer.Handler()); err != nil {
-				logger.Error("web server failed", "err", err)
-			}
-		}()
-	}
-
-	// Fetch community issues
 	var rawIssues map[community.IssueType][]community.Issue
 	var issues string
 	if *ghOwner != "" && *ghRepo != "" {
@@ -139,7 +105,6 @@ func main() {
 		}
 	}
 
-	// Load session messages if requested
 	var sessionMessages []iteragent.Message
 	if *loadSession != "" {
 		msgs, err := loadSessionFromFile(*loadSession)
@@ -151,21 +116,19 @@ func main() {
 		}
 	}
 
-	// Compact if needed (80% of 100k token budget)
 	if *compactFlag && len(sessionMessages) > 0 {
 		cfg := iteragent.DefaultContextConfig()
 		sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, cfg)
 		logger.Info("compacted session messages", "remaining", len(sessionMessages))
 	}
 
-	// Run evolution session, wiring live events to the web dashboard.
-	engine := evolution.New(absRepo, store, logger).
-		WithEventSink(webServer.EventBus()).
+	engine := evolution.New(absRepo, logger).
 		WithThinking(iteragent.ThinkingLevel(*thinking))
+
 	logger.Info("starting evolution session", "repo", absRepo)
 	fmt.Println(banner())
 
-	var sess *session.Session
+	var result *evolution.RunResult
 	switch *phase {
 	case "plan":
 		logger.Info("running plan phase")
@@ -192,23 +155,20 @@ func main() {
 		logger.Info("communicate phase complete")
 		return
 	default:
-		// "" — run all phases (original single-shot behaviour)
 		var runErr error
-		sess, runErr = engine.Run(ctx, p, issues)
+		result, runErr = engine.Run(ctx, p, issues)
 		if runErr != nil {
 			logger.Error("evolution session failed", "err", runErr)
 			os.Exit(1)
 		}
 	}
 
-	// Auto-save session messages to .iterate/last-session.json
 	autoSavePath := filepath.Join(absRepo, ".iterate", "last-session.json")
 	_ = os.MkdirAll(filepath.Dir(autoSavePath), 0o755)
 	if err := saveSessionToFile(autoSavePath, sessionMessages); err != nil {
 		logger.Warn("auto-save session failed", "err", err)
 	}
 
-	// Save session to explicit path if requested
 	if *saveSession != "" {
 		if err := saveSessionToFile(*saveSession, sessionMessages); err != nil {
 			logger.Warn("save session failed", "path", *saveSession, "err", err)
@@ -217,7 +177,6 @@ func main() {
 		}
 	}
 
-	// Post bot replies to issues that were addressed
 	if *replyIssues && *ghOwner != "" && *ghRepo != "" && len(rawIssues) > 0 {
 		issueNumbers := make([]int, 0)
 		for _, issues := range rawIssues {
@@ -235,16 +194,11 @@ func main() {
 
 	incrementDayCount(absRepo)
 
-	if sess != nil {
+	if result != nil {
 		logger.Info("session complete",
-			"status", sess.Status,
-			"duration", sess.FinishedAt.Sub(sess.StartedAt).Round(time.Second),
+			"status", result.Status,
+			"duration", result.FinishedAt.Sub(result.StartedAt).Round(time.Second),
 		)
-	}
-
-	if *serve {
-		logger.Info("web dashboard running, press Ctrl+C to stop", "addr", *addr)
-		select {}
 	}
 }
 
@@ -260,14 +214,13 @@ func banner() string {
   _  _            _
  (_)| |_ ___  _ _| |_  ___
  | ||  _/ -_)| '_/ _|/ -_)
- |_| \__\___||_| \__|\___|
+ |_| \__\___||_| \__|\__|
 
  self-evolving code agent
  ─────────────────────────
  `
 }
 
-// saveSessionToFile marshals messages as JSON and writes to path.
 func saveSessionToFile(path string, messages []iteragent.Message) error {
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	data, err := json.Marshal(messages)
@@ -277,7 +230,6 @@ func saveSessionToFile(path string, messages []iteragent.Message) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// loadSessionFromFile reads JSON from path and deserializes as []Message.
 func loadSessionFromFile(path string) ([]iteragent.Message, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

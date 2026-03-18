@@ -13,29 +13,32 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
-	"github.com/GrayCodeAI/iterate/internal/session"
 )
 
 // Engine runs one evolution session.
 type Engine struct {
 	repoPath      string
-	store         *session.Store
 	logger        *slog.Logger
 	eventSink     chan<- iteragent.Event
 	thinkingLevel iteragent.ThinkingLevel
 }
 
+// RunResult holds the outcome of a completed evolution run.
+type RunResult struct {
+	Status     string
+	StartedAt  time.Time
+	FinishedAt time.Time
+}
+
 // New creates a new evolution engine.
-func New(repoPath string, store *session.Store, logger *slog.Logger) *Engine {
+func New(repoPath string, logger *slog.Logger) *Engine {
 	return &Engine{
 		repoPath: repoPath,
-		store:    store,
 		logger:   logger,
 	}
 }
 
 // WithEventSink sets a channel that receives live agent events during evolution.
-// Used by the web dashboard to stream real-time activity to connected clients.
 func (e *Engine) WithEventSink(sink chan<- iteragent.Event) *Engine {
 	e.eventSink = sink
 	return e
@@ -48,10 +51,8 @@ func (e *Engine) WithThinking(level iteragent.ThinkingLevel) *Engine {
 }
 
 // forwardEvents drains the given event channel and forwards each event to eventSink.
-// It returns when the source channel is closed.
 func (e *Engine) forwardEvents(src <-chan iteragent.Event) {
 	if e.eventSink == nil {
-		// Drain the channel so the agent goroutine doesn't block.
 		for range src {
 		}
 		return
@@ -65,33 +66,22 @@ func (e *Engine) forwardEvents(src <-chan iteragent.Event) {
 }
 
 // Run executes one full evolution session.
-// It reads the repo, assesses it, implements improvements, tests, and commits or reverts.
-func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (*session.Session, error) {
-	sess := &session.Session{
+func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (*RunResult, error) {
+	result := &RunResult{
 		StartedAt: time.Now(),
-		Provider:  p.Name(),
 		Status:    "running",
 	}
 
-	// Save initial session state
-	if err := e.store.Save(sess); err != nil {
-		e.logger.Warn("failed to save initial session", "err", err)
-	}
-
-	// Build context for the agent
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
 
-	// Create agent with all tools - builder pattern like yoyo-evolve
 	tools := iteragent.DefaultTools(e.repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
-
 	a := e.newAgent(p, tools, systemPrompt, skills)
 
-	// Stream events to the web dashboard if a sink is configured.
 	eventCh := a.Prompt(ctx, userMessage)
 	var output string
 	var runErr error
@@ -111,49 +101,39 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	}
 	a.Finish()
 
-	sess.FinishedAt = time.Now()
-	sess.RawOutput = output
+	result.FinishedAt = time.Now()
 
 	if runErr != nil {
-		sess.Status = "error"
-		sess.Error = runErr.Error()
-		e.appendJournal(sess, false)
-		_ = e.store.Save(sess)
-		return sess, runErr
+		result.Status = "error"
+		e.appendJournal(result, output, p.Name(), false)
+		return result, runErr
 	}
 
-	// Run tests to verify changes
 	testResult, testErr := e.runTests(ctx)
-	sess.TestOutput = testResult
+	_ = testResult
 
 	if testErr != nil {
-		// Tests failed — revert all changes
 		e.logger.Info("tests failed, reverting changes")
-		sess.Status = "reverted"
+		result.Status = "reverted"
 		_ = e.revert(ctx)
-		e.appendJournal(sess, false)
+		e.appendJournal(result, output, p.Name(), false)
 	} else {
-		// Tests passed — commit
 		e.logger.Info("tests passed, committing changes")
-		sess.Status = "committed"
+		result.Status = "committed"
 		commitMsg := extractCommitMessage(output)
 		if err := e.commit(ctx, commitMsg); err != nil {
-			sess.Status = "commit_failed"
-			sess.Error = err.Error()
+			result.Status = "commit_failed"
 		} else {
-			// Write learning entry after successful commit
 			title := firstLine(commitMsg)
 			_ = e.appendLearningJSONL(title, "evolution", buildUserMessage(e.repoPath, "", issues), "")
 		}
-		e.appendJournal(sess, true)
+		e.appendJournal(result, output, p.Name(), true)
 	}
 
-	_ = e.store.Save(sess)
-	return sess, nil
+	return result, nil
 }
 
-// RunPlanPhase runs only the planning phase: reads source, JOURNAL.md, issues,
-// writes SESSION_PLAN.md and commits it.
+// RunPlanPhase runs only the planning phase.
 func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues string) error {
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
@@ -229,9 +209,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
 			task.Number, task.Description)
 
-		a := iteragent.New(p, tools, e.logger).
-			WithSystemPrompt(systemPrompt).
-			WithSkillSet(skills)
+		a := e.newAgent(p, tools, systemPrompt, skills)
 
 		var taskOutput string
 		var taskErr error
@@ -256,7 +234,6 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 			continue
 		}
 
-		// Write learning for each completed task
 		commitMsg := extractCommitMessage(taskOutput)
 		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
 	}
@@ -268,14 +245,11 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
-		// SESSION_PLAN.md missing is not fatal for communicate phase
 		e.logger.Warn("SESSION_PLAN.md not found, skipping communicate phase")
 		return nil
 	}
-	plan := string(planBytes)
 
-	// Parse Issue Responses section
-	responses := parseIssueResponses(plan)
+	responses := parseIssueResponses(string(planBytes))
 	if len(responses) == 0 {
 		e.logger.Info("no issue responses in SESSION_PLAN.md")
 		return nil
@@ -290,10 +264,7 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse the gh CLI: gh issue comment %d --repo . --body \"...\"\nKeep the comment brief and friendly.",
 			resp.IssueNum, resp.Status, resp.Reason, resp.IssueNum)
 
-		a := iteragent.New(p, tools, e.logger).
-			WithSystemPrompt(systemPrompt).
-			WithSkillSet(skills)
-
+		a := e.newAgent(p, tools, systemPrompt, skills)
 		e.forwardEvents(a.Prompt(ctx, userMsg))
 		a.Finish()
 	}
@@ -301,19 +272,16 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 }
 
 // WriteLearningsToMemory is the public entry point for the synthesize workflow.
-// It writes a generic learning entry for the current session.
 func (e *Engine) WriteLearningsToMemory(title, context, takeaway string) error {
 	return e.appendLearningJSONL(title, "evolution", context, takeaway)
 }
 
-// appendLearningJSONL appends a lesson entry to memory/learnings.jsonl.
 func (e *Engine) appendLearningJSONL(title, source, context, takeaway string) error {
 	memDir := filepath.Join(e.repoPath, "memory")
 	if err := os.MkdirAll(memDir, 0o755); err != nil {
 		return fmt.Errorf("create memory dir: %w", err)
 	}
 
-	// Read current day number
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
 
@@ -343,9 +311,10 @@ func (e *Engine) appendLearningJSONL(title, source, context, takeaway string) er
 	return err
 }
 
-// newAgent creates a configured agent with the engine's thinking level applied.
 func (e *Engine) newAgent(p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet) *iteragent.Agent {
-	a := e.newAgent(p, tools, systemPrompt, skills)
+	a := iteragent.New(p, tools, e.logger).
+		WithSystemPrompt(systemPrompt).
+		WithSkillSet(skills)
 	if e.thinkingLevel != "" && e.thinkingLevel != iteragent.ThinkingLevelOff {
 		a = a.WithThinkingLevel(e.thinkingLevel)
 	}
@@ -354,7 +323,6 @@ func (e *Engine) newAgent(p iteragent.Provider, tools []iteragent.Tool, systemPr
 
 func buildSystemPrompt(repoPath, identity string) string {
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
-
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
 	skillsPrompt := skills.FormatForPrompt()
 
@@ -380,14 +348,10 @@ Wrap tool calls in triple backtick blocks:
 
 func buildUserMessage(repoPath, journal, issues string) string {
 	var sb strings.Builder
-
 	sb.WriteString("## Your task\n\n")
 	sb.WriteString("Assess your codebase, find one meaningful improvement, implement it, test it, and commit it.\n\n")
-
-	// List files for context
 	sb.WriteString("Start by listing your files with list_files, then read relevant source files.\n\n")
 
-	// Recent journal context (last 500 chars)
 	if len(journal) > 0 {
 		recent := journal
 		if len(journal) > 500 {
@@ -398,7 +362,6 @@ func buildUserMessage(repoPath, journal, issues string) string {
 		sb.WriteString("\n\n")
 	}
 
-	// Community issues
 	if len(issues) > 0 {
 		sb.WriteString("## Community input\n\n")
 		sb.WriteString(issues)
@@ -429,29 +392,24 @@ func (e *Engine) commit(ctx context.Context, msg string) error {
 	return err
 }
 
-func (e *Engine) appendJournal(sess *session.Session, success bool) {
+func (e *Engine) appendJournal(result *RunResult, output, provider string, success bool) {
 	path := filepath.Join(e.repoPath, "JOURNAL.md")
 
-	// Read current day count from DAY_COUNT file.
 	dayCount := 0
 	if data, err := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT")); err == nil {
 		dayCount, _ = strconv.Atoi(strings.TrimSpace(string(data)))
 	}
 
-	// Build a concise title from the session output.
-	title := extractJournalTitle(sess.RawOutput, success)
-
-	// Build body: summary from agent output, stripped of raw tool calls.
-	body := buildJournalBody(sess)
+	title := extractJournalTitle(output, success)
+	body := buildJournalBody(output, provider, result.FinishedAt.Sub(result.StartedAt))
 
 	entry := fmt.Sprintf("\n## Day %d — %s — %s\n\n%s\n",
 		dayCount,
-		sess.StartedAt.Format("15:04"),
+		result.StartedAt.Format("15:04"),
 		title,
 		body,
 	)
 
-	// Prepend to keep newest entries at top (after the "# Journal" header).
 	existing, _ := os.ReadFile(path)
 	header := "# Journal\n"
 	rest := strings.TrimPrefix(string(existing), header)
@@ -462,11 +420,9 @@ func (e *Engine) appendJournal(sess *session.Session, success bool) {
 	}
 }
 
-// extractJournalTitle picks a short title from agent output.
 func extractJournalTitle(output string, success bool) string {
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
-		// Look for conventional commit prefixes.
 		for _, prefix := range []string{"feat:", "fix:", "refactor:", "chore:", "docs:", "test:"} {
 			if strings.HasPrefix(strings.ToLower(line), prefix) && len(line) < 80 {
 				return line
@@ -479,14 +435,11 @@ func extractJournalTitle(output string, success bool) string {
 	return "session (no changes committed)"
 }
 
-// buildJournalBody produces a clean body for the journal entry.
-func buildJournalBody(sess *session.Session) string {
-	duration := sess.FinishedAt.Sub(sess.StartedAt).Round(time.Second)
-	lines := []string{fmt.Sprintf("Provider: %s · Duration: %s", sess.Provider, duration)}
+func buildJournalBody(output, provider string, duration time.Duration) string {
+	lines := []string{fmt.Sprintf("Provider: %s · Duration: %s", provider, duration.Round(time.Second))}
 
-	// Include up to 3 lines of meaningful agent output (not tool calls).
 	count := 0
-	for _, line := range strings.Split(sess.RawOutput, "\n") {
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "{") || strings.HasPrefix(line, "[") {
 			continue
@@ -503,7 +456,6 @@ func buildJournalBody(sess *session.Session) string {
 }
 
 func extractCommitMessage(output string) string {
-	// Look for a line starting with "commit:" or "feat:" or "fix:" etc.
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		for _, prefix := range []string{"commit:", "feat:", "fix:", "refactor:", "chore:", "docs:"} {
@@ -530,14 +482,12 @@ func firstLine(s string) string {
 	return s
 }
 
-// planTask holds a single task parsed from SESSION_PLAN.md.
 type planTask struct {
 	Number      int
 	Title       string
 	Description string
 }
 
-// parseSessionPlanTasks extracts tasks from SESSION_PLAN.md content.
 func parseSessionPlanTasks(plan string) []planTask {
 	var tasks []planTask
 	scanner := bufio.NewScanner(strings.NewReader(plan))
@@ -548,14 +498,11 @@ func parseSessionPlanTasks(plan string) []planTask {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Detect "### Task N: title"
 		if strings.HasPrefix(line, "### Task ") {
-			// Save previous task
 			if current != nil {
 				current.Description = strings.TrimSpace(strings.Join(descLines, "\n"))
 				tasks = append(tasks, *current)
 			}
-			// Parse new task header
 			rest := strings.TrimPrefix(line, "### Task ")
 			var num int
 			var title string
@@ -571,7 +518,6 @@ func parseSessionPlanTasks(plan string) []planTask {
 			continue
 		}
 
-		// Stop collecting at Issue Responses section
 		if strings.HasPrefix(line, "### Issue Responses") || strings.HasPrefix(line, "### Issue responses") {
 			if current != nil {
 				current.Description = strings.TrimSpace(strings.Join(descLines, "\n"))
@@ -586,7 +532,6 @@ func parseSessionPlanTasks(plan string) []planTask {
 		}
 	}
 
-	// Save last task
 	if current != nil {
 		current.Description = strings.TrimSpace(strings.Join(descLines, "\n"))
 		tasks = append(tasks, *current)
@@ -595,14 +540,12 @@ func parseSessionPlanTasks(plan string) []planTask {
 	return tasks
 }
 
-// issueResponse holds a parsed issue response from SESSION_PLAN.md.
 type issueResponse struct {
 	IssueNum int
 	Status   string
 	Reason   string
 }
 
-// parseIssueResponses extracts Issue Responses lines from SESSION_PLAN.md.
 func parseIssueResponses(plan string) []issueResponse {
 	var responses []issueResponse
 	inSection := false
@@ -616,7 +559,6 @@ func parseIssueResponses(plan string) []issueResponse {
 			break
 		}
 		if inSection && strings.HasPrefix(line, "- #") {
-			// Format: - #N: status — reason
 			rest := strings.TrimPrefix(line, "- #")
 			var num int
 			fmt.Sscanf(rest, "%d", &num)
