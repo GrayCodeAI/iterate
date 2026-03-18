@@ -7,8 +7,8 @@
   --text: #9ca3af;
   --text-bright: #d1d5db;
   --text-dim: #4a5568;
-  --orange: #f97316;
-  --white: #ffffff;
+  --blue: #60a5fa;
+  --lime: #a3e635;
   --amber: #f59e0b;
   --red: #ef4444;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
@@ -35,7 +35,7 @@ body {
 }
 
 a {
-  color: var(--orange);
+  color: var(--blue);
   text-decoration: none;
 }
 
@@ -76,7 +76,7 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--orange);
+  color: var(--blue);
   letter-spacing: 0.05em;
 }
 
@@ -120,7 +120,7 @@ main {
 .hero h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--orange);
+  color: var(--blue);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -132,14 +132,14 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--orange);
+  color: var(--blue);
   font-weight: 300;
 }
 
 .day-count {
   margin-top: 1rem;
   font-size: 1rem;
-  color: var(--white);
+  color: var(--lime);
   font-weight: 500;
 }
 
@@ -200,13 +200,13 @@ section {
   top: 8px;
   width: 7px;
   height: 7px;
-  background: var(--white);
+  background: var(--lime);
 }
 
 .entry-day {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--white);
+  color: var(--lime);
   letter-spacing: 0.05em;
 }
 
@@ -233,7 +233,7 @@ section {
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--orange);
+  border-left: 2px solid var(--blue);
 }
 
 .identity-text {
@@ -291,7 +291,7 @@ footer a {
 }
 
 footer a:hover {
-  color: var(--orange);
+  color: var(--blue);
 }
 
 
