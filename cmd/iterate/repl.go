@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"log/slog"
@@ -199,15 +201,41 @@ Available commands:
 	return false
 }
 
+// spinner runs a spinner in the terminal until stop() is called.
+func spinner(stop <-chan struct{}) {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	i := 0
+	for {
+		select {
+		case <-stop:
+			fmt.Print("\r\033[K")
+			return
+		default:
+			fmt.Printf("\r%s%s%s thinking…", colorLime, frames[i%len(frames)], colorReset)
+			i++
+			time.Sleep(80 * time.Millisecond)
+		}
+	}
+}
+
 // streamAndPrint runs the agent and prints the streamed response.
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	events := a.Prompt(ctx, prompt)
 	var lastContent string
 	inProgress := false
 
+	stopSpinner := make(chan struct{})
+	var spinnerOnce sync.Once
+	stopOnce := func() {
+		spinnerOnce.Do(func() { close(stopSpinner) })
+	}
+	go spinner(stopSpinner)
+	defer stopOnce()
+
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
 		case iteragent.EventMessageUpdate:
+			stopOnce()
 			if !inProgress {
 				inProgress = true
 			}
@@ -219,6 +247,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 			lastContent = e.Content
 
 		case iteragent.EventToolExecutionStart:
+			stopOnce()
 			fmt.Printf("\r\033[K%s⚙ %s%s", colorYellow, e.ToolName, colorReset)
 
 		case iteragent.EventToolExecutionEnd:
