@@ -26,16 +26,39 @@ def md_to_html(text):
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
     text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
-    # Lists
-    text = re.sub(r"^- (.+)$", r"<li>\1</li>", text, flags=re.MULTILINE)
-    text = re.sub(r"(<li>.+</li>)", r"<ul>\1</ul>", text, flags=re.DOTALL)
-    text = re.sub(r"</ul>\n<ul>", "", text)
+
+    # Separate rules from content
+    lines = text.split("\n")
+    rule_lines = []
+    content_lines = []
+
+    for line in lines:
+        if re.match(r"^\d{2}\.\s", line):
+            # Strip the number prefix and add to rules
+            rule_text = re.sub(r"^\d{2}\.\s", "", line)
+            rule_lines.append(rule_text)
+        else:
+            content_lines.append(line)
+
+    # Build paragraphs from non-rule content
+    content = "\n".join(content_lines)
     # Paragraphs
-    text = re.sub(r"\n\n+", "</p><p>", text)
-    text = f"<p>{text}</p>"
+    content = re.sub(r"\n\n+", "</p><p>", content)
+    content = f"<p>{content}</p>"
     # Add mission class to first paragraph
-    text = text.replace("<p>", '<p class="mission">', 1)
-    return text
+    content = content.replace("<p>", '<p class="mission">', 1)
+    # Add identity-text class to other paragraphs
+    content = re.sub(r'</p><p>', '</p><p class="identity-text">', content)
+
+    # Build ordered list from rules
+    rules_html = ""
+    if rule_lines:
+        rules_html = '<ol class="rules">\n'
+        for rule in rule_lines:
+            rules_html += f"    <li>{rule}</li>\n"
+        rules_html += "  </ol>"
+
+    return content + "\n  " + rules_html if rules_html else content
 
 def md_inline(text):
     text = html.escape(text)
