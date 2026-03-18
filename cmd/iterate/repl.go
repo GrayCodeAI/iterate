@@ -18,6 +18,33 @@ import (
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
+// fetchOllamaModels fetches the list of model names from an Ollama /api/tags endpoint.
+func fetchOllamaModels(tagsURL string) ([]string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(tagsURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	names := make([]string, len(result.Models))
+	for i, m := range result.Models {
+		names[i] = m.Name
+	}
+	return names, nil
+}
+
 const (
 	colorReset  = "\033[0m"
 	colorLime   = "\033[38;5;154m"
@@ -56,7 +83,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 
 		// /model handled here so it has scanner access and can swap provider+agent.
 		if line == "/model" || strings.HasPrefix(line, "/model ") {
-			newP, newThinking := selectModel(scanner, thinking)
+			newP, newThinking := selectModel(thinking)
 			if newP != nil {
 				p = newP
 				thinking = newThinking
@@ -88,51 +115,23 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel) {
 }
 
 // selectModel shows an interactive provider+model picker. Returns new provider or nil on cancel.
-func selectModel(scanner *bufio.Scanner, currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
+func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
 	providers := []string{"anthropic", "openai", "gemini", "groq", "ollama"}
 
 	fmt.Println()
-	fmt.Printf("%sSelect provider:%s\n", colorYellow, colorReset)
-	for i, name := range providers {
-		fmt.Printf("  %s%d.%s %s\n", colorDim, i+1, colorReset, name)
-	}
-	fmt.Printf("%s❯%s ", colorCyan, colorReset)
-	if !scanner.Scan() {
-		return nil, currentThinking
-	}
-	choice := strings.TrimSpace(scanner.Text())
-	if choice == "" {
-		return nil, currentThinking
-	}
-
-	var providerName string
-	// Accept number or name
-	switch choice {
-	case "1", "anthropic":
-		providerName = "anthropic"
-	case "2", "openai":
-		providerName = "openai"
-	case "3", "gemini":
-		providerName = "gemini"
-	case "4", "groq":
-		providerName = "groq"
-	case "5", "ollama":
-		providerName = "ollama"
-	default:
-		fmt.Printf("%sunknown option%s\n\n", colorRed, colorReset)
+	providerName, ok := selectItem("Select provider", providers)
+	if !ok {
 		return nil, currentThinking
 	}
 
 	if providerName == "ollama" {
-		return selectOllamaModel(scanner, currentThinking)
+		return selectOllamaModel(currentThinking)
 	}
 
-	// For non-ollama providers, just prompt for API key if needed
-	fmt.Printf("%sAPI key (or press Enter to use env var):%s ", colorDim, colorReset)
-	if !scanner.Scan() {
+	apiKey, ok := promptLine("API key (Enter to use env var):")
+	if !ok {
 		return nil, currentThinking
 	}
-	apiKey := strings.TrimSpace(scanner.Text())
 
 	var newP iteragent.Provider
 	var err error
@@ -149,106 +148,45 @@ func selectModel(scanner *bufio.Scanner, currentThinking iteragent.ThinkingLevel
 }
 
 // selectOllamaModel prompts for Ollama URL, fetches models, and lets user pick.
-func selectOllamaModel(scanner *bufio.Scanner, currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
+func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
 	currentURL := os.Getenv("OLLAMA_BASE_URL")
 	if currentURL == "" {
 		currentURL = "http://localhost:11434/v1"
 	}
 
-	fmt.Printf("%sOllama URL [%s]:%s ", colorDim, currentURL, colorReset)
-	if !scanner.Scan() {
+	url, ok := promptLine(fmt.Sprintf("Ollama URL [%s]:", currentURL))
+	if !ok {
 		return nil, currentThinking
 	}
-	url := strings.TrimSpace(scanner.Text())
 	if url == "" {
 		url = currentURL
 	}
 	os.Setenv("OLLAMA_BASE_URL", url)
 
-	// Fetch model list from Ollama
 	tagsURL := strings.TrimSuffix(strings.TrimSuffix(url, "/v1"), "/") + "/api/tags"
-	fmt.Printf("%sfetching models from %s…%s\n", colorDim, tagsURL, colorReset)
+	fmt.Printf("%sfetching models…%s\n", colorDim, colorReset)
 
 	models, err := fetchOllamaModels(tagsURL)
 	if err != nil || len(models) == 0 {
-		// Fall back to manual entry
-		fmt.Printf("%scould not fetch models, enter model name:%s ", colorDim, colorReset)
-		if !scanner.Scan() {
+		modelName, ok := promptLine("Enter model name:")
+		if !ok || modelName == "" {
 			return nil, currentThinking
 		}
-		model := strings.TrimSpace(scanner.Text())
-		if model == "" {
+		os.Setenv("ITERATE_MODEL", modelName)
+	} else {
+		modelName, ok := selectItem("Select model", models)
+		if !ok {
 			return nil, currentThinking
 		}
-		os.Setenv("ITERATE_MODEL", model)
-		p, err := iteragent.NewProvider("ollama")
-		if err != nil {
-			fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
-			return nil, currentThinking
-		}
-		return p, currentThinking
+		os.Setenv("ITERATE_MODEL", modelName)
 	}
 
-	fmt.Printf("%sSelect model:%s\n", colorYellow, colorReset)
-	for i, m := range models {
-		fmt.Printf("  %s%d.%s %s\n", colorDim, i+1, colorReset, m)
-	}
-	fmt.Printf("%s❯%s ", colorCyan, colorReset)
-	if !scanner.Scan() {
-		return nil, currentThinking
-	}
-	pick := strings.TrimSpace(scanner.Text())
-
-	var modelName string
-	// Accept number or direct name
-	for i, m := range models {
-		if pick == fmt.Sprintf("%d", i+1) || pick == m {
-			modelName = m
-			break
-		}
-	}
-	if modelName == "" {
-		// treat as literal model name
-		modelName = pick
-	}
-	if modelName == "" {
-		return nil, currentThinking
-	}
-
-	os.Setenv("ITERATE_MODEL", modelName)
 	p, err := iteragent.NewProvider("ollama")
 	if err != nil {
 		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
 		return nil, currentThinking
 	}
 	return p, currentThinking
-}
-
-// fetchOllamaModels fetches the list of model names from an Ollama /api/tags endpoint.
-func fetchOllamaModels(tagsURL string) ([]string, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(tagsURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var result struct {
-		Models []struct {
-			Name string `json:"name"`
-		} `json:"models"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-	names := make([]string, len(result.Models))
-	for i, m := range result.Models {
-		names[i] = m.Name
-	}
-	return names, nil
 }
 
 // handleCommand processes a slash command. Returns true if the REPL should exit.

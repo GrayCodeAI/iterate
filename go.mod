@@ -1,6 +1,6 @@
 module github.com/GrayCodeAI/iterate
 
-go 1.22
+go 1.25.0
 
 require (
 	github.com/GrayCodeAI/iteragent v1.0.10
@@ -8,6 +8,10 @@ require (
 	golang.org/x/oauth2 v0.20.0
 )
 
-require github.com/google/go-querystring v1.1.0 // indirect
+require (
+	github.com/google/go-querystring v1.1.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/term v0.41.0 // indirect
+)
 
 replace github.com/GrayCodeAI/iteragent => ../iteragent
