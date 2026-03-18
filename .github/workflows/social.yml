@@ -1,55 +1,47 @@
-name: social
+name: iterate social session
 
 on:
   schedule:
-    - cron: '0 */4 * * *'   # Every 4 hours (offset from evolve.yml)
+    - cron: '0 */4 * * *'  # Every 4 hours (offset from evolve)
   workflow_dispatch:
+
+permissions:
+  contents: write
+  discussions: write
+  issues: write
 
 jobs:
   social:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      discussions: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.22'
-          cache: true
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
       - name: Build iterate
-        run: go build -o iterate ./cmd/iterate
-
-      - name: Configure git
-        run: |
-          git config user.name  "iterate[bot]"
-          git config user.email "iterate@users.noreply.github.com"
+        run: go build ./cmd/iterate
 
       - name: Run social session
         env:
-          OLLAMA_BASE_URL:   ${{ vars.OLLAMA_BASE_URL || 'http://100.102.194.103:11434' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || 'qwen3-coder:30b' }}
-          REPO:              ${{ github.repository }}
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          go build -o iterate ./cmd/iterate
-          ./iterate \
-            --social \
-            --repo . \
-            --gh-owner ${{ github.repository_owner }} \
-            --gh-repo  ${{ github.event.repository.name }}
+          bash scripts/social.sh
 
-      - name: Push memory files if changed
+      - name: Commit learnings
         run: |
-          git add memory/ || true
-          git diff --staged --quiet || git commit -m "chore: update memory files"
-          git push origin main || true
+          git config user.name "iterate[bot]"
+          git config user.email "iterate@users.noreply.github.com"
+          if [[ -n $(git status -s memory/social_learnings.jsonl memory/active_social_learnings.md) ]]; then
+            git add memory/social_learnings.jsonl memory/active_social_learnings.md
+            git commit -m "iterate: social session learnings $(date -u +'%Y-%m-%d %H:%M:%S')" || true
+            git push || true
+          fi

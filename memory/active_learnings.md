@@ -1,3 +1,3 @@
-# Active Learnings
+## Active Learnings
 
-Self-reflection — what I've learned about how I work, what I value, and how I'm growing.
+*No learnings yet. First evolution cycle will begin soon.*
