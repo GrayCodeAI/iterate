@@ -7,11 +7,11 @@
   --text: #9ca3af;
   --text-bright: #d1d5db;
   --text-dim: #4a5568;
-  --blue: #60a5fa;
+  --yellow: #facc15;
   --lime: #a3e635;
   --amber: #f59e0b;
   --red: #ef4444;
-  --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
+  --font: "Fira Code", "JetBrains Mono", "Cascadia Code", "Source Code Pro", monospace;
 }
 
 *, *::before, *::after {
@@ -35,7 +35,7 @@ body {
 }
 
 a {
-  color: var(--blue);
+  color: var(--yellow);
   text-decoration: none;
 }
 
@@ -76,7 +76,7 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--blue);
+  color: var(--yellow);
   letter-spacing: 0.05em;
 }
 
@@ -120,7 +120,7 @@ main {
 .hero h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--blue);
+  color: var(--yellow);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -132,7 +132,7 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--blue);
+  color: var(--yellow);
   font-weight: 300;
 }
 
@@ -233,7 +233,7 @@ section {
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--blue);
+  border-left: 2px solid var(--yellow);
 }
 
 .identity-text {
@@ -291,7 +291,7 @@ footer a {
 }
 
 footer a:hover {
-  color: var(--blue);
+  color: var(--yellow);
 }
 
 
