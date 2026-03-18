@@ -225,71 +225,42 @@ type ollamaHost struct {
 	url  string
 }
 
-// discoverOllamaHosts scans Tailscale peers for running Ollama instances.
+// knownHosts are the fixed Tailscale machines to check for Ollama.
+var knownHosts = []ollamaHost{
+	{name: "agx-01",  url: "http://100.102.194.103:11434/v1"},
+	{name: "agx-02",  url: "http://100.87.35.70:11434/v1"},
+	{name: "gb10-01", url: "http://100.93.184.1:11434/v1"},
+	{name: "gb10-02", url: "http://100.87.126.2:11434/v1"},
+	{name: "vps-1",   url: "http://100.79.60.48:11434/v1"},
+}
+
+// discoverOllamaHosts checks known Tailscale machines for running Ollama.
 func discoverOllamaHosts() []ollamaHost {
-	out, err := exec.Command("tailscale", "status", "--json").Output()
-	if err != nil {
-		return nil
-	}
-	// Parse IPs from tailscale status --json
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(out, &raw); err != nil {
-		return nil
-	}
-
-	type peer struct {
-		HostName     string   `json:"HostName"`
-		TailscaleIPs []string `json:"TailscaleIPs"`
-		Online       bool     `json:"Online"`
-	}
-	var peers map[string]peer
-	if err := json.Unmarshal(raw["Peer"], &peers); err != nil {
-		return nil
-	}
-
-	// Also add self
-	var self peer
-	if selfRaw, ok := raw["Self"]; ok {
-		json.Unmarshal(selfRaw, &self)
-	}
-	allPeers := make(map[string]peer)
-	for k, v := range peers {
-		allPeers[k] = v
-	}
-	if self.HostName != "" {
-		allPeers["self"] = self
-	}
-
 	client := &http.Client{Timeout: 2 * time.Second}
 	var mu sync.Mutex
 	var hosts []ollamaHost
 	var wg sync.WaitGroup
 
-	for _, p := range allPeers {
-		if len(p.TailscaleIPs) == 0 {
-			continue
-		}
-		ip := p.TailscaleIPs[0]
-		name := p.HostName
+	for _, h := range knownHosts {
+		h := h
 		wg.Add(1)
-		go func(name, ip string) {
+		go func() {
 			defer wg.Done()
-			url := fmt.Sprintf("http://%s:11434", ip)
-			resp, err := client.Get(url + "/")
+			baseURL := strings.TrimSuffix(h.url, "/v1")
+			resp, err := client.Get(baseURL + "/")
 			if err != nil {
 				return
 			}
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
 				mu.Lock()
-				hosts = append(hosts, ollamaHost{name: name, url: url + "/v1"})
+				hosts = append(hosts, h)
 				mu.Unlock()
 			}
-		}(name, ip)
+		}()
 	}
 	wg.Wait()
 
-	// Sort by name
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].name < hosts[j].name })
 	return hosts
 }
