@@ -33,27 +33,26 @@ func selectItem(title string, items []string) (string, bool) {
 
 	drawMenu := func(first bool) {
 		if !first {
-			// Move up to overwrite previous render
-			lines := height + 1 // title + items
+			lines := height + 1
 			if len(items) > maxVisible {
-				lines++ // scroll hint
+				lines++
 			}
 			fmt.Printf("\033[%dA\033[J", lines)
 		}
 
-		fmt.Printf("%s%s%s\n", colorYellow+colorBold, title, colorReset)
+		fmt.Printf("%s%s%s\r\n", colorYellow+colorBold, title, colorReset)
 
 		for i := offset; i < offset+height; i++ {
 			if i == cursor {
-				fmt.Printf(" %s›%s %s%s%s\n", colorLime+colorBold, colorReset, colorBold, items[i], colorReset)
+				fmt.Printf(" %s›%s %s%s%s\r\n", colorLime+colorBold, colorReset, colorBold, items[i], colorReset)
 			} else {
-				fmt.Printf("   %s%s%s\n", colorDim, items[i], colorReset)
+				fmt.Printf("   %s%s%s\r\n", colorDim, items[i], colorReset)
 			}
 		}
 
 		if len(items) > maxVisible {
 			showing := offset + height
-			fmt.Printf(" %s↑↓ scroll · %d/%d%s\n", colorDim, showing, len(items), colorReset)
+			fmt.Printf(" %s↑↓ scroll · %d/%d%s\r\n", colorDim, showing, len(items), colorReset)
 		}
 	}
 
@@ -68,16 +67,15 @@ func selectItem(title string, items []string) (string, bool) {
 
 		switch {
 		case buf[0] == '\r' || buf[0] == '\n':
-			// Clear menu and print selection
 			lines := height + 1
 			if len(items) > maxVisible {
 				lines++
 			}
 			fmt.Printf("\033[%dA\033[J", lines)
-			fmt.Printf(" %s›%s %s\n\n", colorLime+colorBold, colorReset, items[cursor])
+			fmt.Printf(" %s›%s %s\r\n\r\n", colorLime+colorBold, colorReset, items[cursor])
 			return items[cursor], true
 
-		case buf[0] == 3 || buf[0] == 27 && n == 1: // Ctrl+C or bare ESC
+		case buf[0] == 3 || (buf[0] == 27 && n == 1): // Ctrl+C or bare ESC
 			lines := height + 1
 			if len(items) > maxVisible {
 				lines++
@@ -127,10 +125,10 @@ func promptLine(prompt string) (string, bool) {
 		}
 		switch b[0] {
 		case '\r', '\n':
-			fmt.Println()
+			fmt.Print("\r\n")
 			return string(buf), true
 		case 3: // Ctrl+C
-			fmt.Println()
+			fmt.Print("\r\n")
 			return "", false
 		case 127, 8: // backspace
 			if len(buf) > 0 {
