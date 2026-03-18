@@ -7,9 +7,8 @@
   --text: #9ca3af;
   --text-bright: #d1d5db;
   --text-dim: #4a5568;
-  --cyan: #06b6d4;
-  --lime: #f59e0b;
-  --accent: #a78bfa;
+  --cyan: #22d3ee;
+  --lime: #a3e635;
   --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
 }
 
@@ -74,13 +73,13 @@ nav {
 .nav-name {
   font-weight: 700;
   font-size: 0.85rem;
-  color: var(--accent);
+  color: var(--cyan);
   letter-spacing: 0.05em;
 }
 
 .nav-name:hover {
   text-decoration: none;
-  color: var(--lime);
+  opacity: 0.8;
 }
 
 .nav-links {
@@ -95,7 +94,7 @@ nav {
 }
 
 .nav-links a:hover {
-  color: var(--cyan);
+  color: var(--text);
   text-decoration: none;
 }
 
@@ -116,7 +115,7 @@ main {
 .hero h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--cyan);
   line-height: 1;
   letter-spacing: -0.02em;
 }
@@ -128,7 +127,7 @@ main {
 
 .cursor {
   animation: blink 1.2s step-end infinite;
-  color: var(--lime);
+  color: var(--cyan);
   font-weight: 300;
 }
 
@@ -226,7 +225,7 @@ section {
   line-height: 1.8;
   margin-bottom: 1.5rem;
   padding-left: 1rem;
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--cyan);
 }
 
 .identity-text {
@@ -263,7 +262,7 @@ section {
 }
 
 .identity-content h2 {
-  color: var(--cyan);
+  color: var(--lime);
   font-size: 1rem;
   font-weight: 500;
   margin-top: 2rem;
@@ -300,7 +299,7 @@ section {
   content: '→';
   position: absolute;
   left: 0;
-  color: var(--lime);
+  color: var(--cyan);
   font-weight: bold;
 }
 
@@ -311,7 +310,7 @@ section {
 
 .identity-content code {
   background: var(--bg-raised);
-  color: var(--lime);
+  color: var(--cyan);
   border: 1px solid var(--border);
 }
 
@@ -337,7 +336,7 @@ footer a {
 }
 
 footer a:hover {
-  color: var(--lime);
+  color: var(--cyan);
 }
 
 /* ── responsive ── */
