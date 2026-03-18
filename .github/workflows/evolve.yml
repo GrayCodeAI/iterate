@@ -29,7 +29,10 @@ jobs:
           go-version: '1.22'
 
       - name: Setup iteragent path
-        run: cd /home/runner/work && ln -s iterate/iteragent-pkg iteragent
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir -p ..
+          cp -r iteragent-pkg ../iteragent
 
       - name: Build iterate
         run: go build ./cmd/iterate
