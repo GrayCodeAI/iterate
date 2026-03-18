@@ -201,14 +201,15 @@ Available commands:
 	return false
 }
 
-// spinner runs a spinner in the terminal until stop() is called.
-func spinner(stop <-chan struct{}) {
+// spinner runs a spinner in the terminal until stop() is called, signals done when exited.
+func spinner(stop <-chan struct{}, done chan<- struct{}) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	i := 0
 	for {
 		select {
 		case <-stop:
 			fmt.Print("\r\033[K")
+			close(done)
 			return
 		default:
 			fmt.Printf("\r%s%s%s thinking…", colorLime, frames[i%len(frames)], colorReset)
@@ -225,11 +226,15 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	inProgress := false
 
 	stopSpinner := make(chan struct{})
+	spinnerDone := make(chan struct{})
 	var spinnerOnce sync.Once
 	stopOnce := func() {
-		spinnerOnce.Do(func() { close(stopSpinner) })
+		spinnerOnce.Do(func() {
+			close(stopSpinner)
+			<-spinnerDone // wait for spinner to fully exit
+		})
 	}
-	go spinner(stopSpinner)
+	go spinner(stopSpinner, spinnerDone)
 	defer stopOnce()
 
 	for e := range events {
