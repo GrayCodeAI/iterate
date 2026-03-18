@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -71,13 +70,11 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 
 	printHeader(p, thinking)
 
-	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Printf("%s❯%s ", colorLime, colorReset)
-		if !scanner.Scan() {
+		line, ok := readInput()
+		if !ok {
 			break
 		}
-		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
@@ -420,7 +417,6 @@ func spinner(stop <-chan struct{}, done chan<- struct{}) {
 // streamAndPrint runs the agent and prints the streamed response.
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	events := a.Prompt(ctx, prompt)
-	var lastContent string
 	inProgress := false
 	start := time.Now()
 
@@ -436,15 +432,29 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	go spinner(stopSpinner, spinnerDone)
 	defer stopOnce()
 
+	var prevLen int
+
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
 		case iteragent.EventMessageUpdate:
 			stopOnce()
-			inProgress = true
-			lastContent = e.Content
-
+			if !inProgress {
+				inProgress = true
+				fmt.Print("\r\033[K") // clear spinner line
+			}
+			// Print only the new tokens since last update
+			if len(e.Content) > prevLen {
+				newTokens := e.Content[prevLen:]
+				fmt.Printf("%s%s%s", colorBold+"\033[97m", newTokens, colorReset)
+				prevLen = len(e.Content)
+			}
 		case iteragent.EventToolExecutionStart:
 			stopOnce()
+			if inProgress {
+				fmt.Println() // newline after streamed content
+				inProgress = false
+				prevLen = 0
+			}
 			fmt.Printf("\r\033[K%s⚙ %s%s", colorYellow, e.ToolName, colorReset)
 
 		case iteragent.EventToolExecutionEnd:
@@ -457,9 +467,6 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 		case iteragent.EventContextCompacted:
 			fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
 
-		case iteragent.EventMessageEnd:
-			lastContent = e.Content
-
 		case iteragent.EventError:
 			fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
 		}
@@ -467,12 +474,9 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string) {
 	a.Finish()
 
 	if inProgress {
-		fmt.Print("\r\033[K")
+		fmt.Println() // end streaming line
 	}
 	elapsed := time.Since(start).Round(time.Millisecond)
-	if lastContent != "" {
-		fmt.Printf("%s%s%s\n", colorBold, lastContent, colorReset)
-	}
 	fmt.Printf("%s%s%s\n\n", colorDim, elapsed, colorReset)
 }
 
