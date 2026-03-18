@@ -1,9 +1,9 @@
-name: Synthesize Memory
+name: synthesize learnings
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # Daily at noon UTC
-  workflow_dispatch:       # Manual trigger
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,131 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check if synthesis needed
-        id: check
-        run: |
-          LEARNINGS_COUNT=$(grep -c '.' memory/learnings.jsonl 2>/dev/null) || LEARNINGS_COUNT=0
-          SOCIAL_COUNT=$(grep -c '.' memory/social_learnings.jsonl 2>/dev/null) || SOCIAL_COUNT=0
-          echo "learnings=$LEARNINGS_COUNT" >> "$GITHUB_OUTPUT"
-          echo "social=$SOCIAL_COUNT" >> "$GITHUB_OUTPUT"
-          if [ "$LEARNINGS_COUNT" -eq 0 ] && [ "$SOCIAL_COUNT" -eq 0 ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No archive entries — skipping synthesis."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Learnings: $LEARNINGS_COUNT entries, Social: $SOCIAL_COUNT entries"
-          fi
-
-      - name: Set up Go
-        if: steps.check.outputs.skip != 'true'
-        uses: actions/setup-go@v5
+      - uses: actions/setup-python@v4
         with:
-          go-version: '1.22'
+          python-version: '3.11'
 
-      - name: Install iterate
-        if: steps.check.outputs.skip != 'true'
+      - name: Synthesize learnings
         run: |
-          go build -o iterate ./cmd/iterate
-          echo "$PWD" >> "$GITHUB_PATH"
+          python3 scripts/synthesize_learnings.py
 
-      - name: Configure git
-        if: steps.check.outputs.skip != 'true'
+      - name: Commit if changed
         run: |
           git config user.name "iterate[bot]"
-          git config user.email "iterate[bot]@users.noreply.github.com"
-
-      - name: Backup active files
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          cp memory/active_learnings.md memory/active_learnings.md.bak 2>/dev/null || true
-          cp memory/active_social_learnings.md memory/active_social_learnings.md.bak 2>/dev/null || true
-
-      - name: Synthesize active learnings
-        if: steps.check.outputs.skip != 'true'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ITERATE_API_KEY || secrets.ANTHROPIC_API_KEY }}
-        run: |
-          PROMPT=$(mktemp)
-          cat > "$PROMPT" <<'SYNTHEOF'
-          You are synthesizing iterate's learning archive into an active context file.
-
-          Read memory/learnings.jsonl (the full archive) and regenerate memory/active_learnings.md.
-
-          Apply time-weighted compression tiers:
-          - **Recent (last 2 weeks):** Render each entry as full markdown (## Lesson: title, **Day:** N | **Date:** date | **Source:** source, **Context:** context, takeaway)
-          - **Medium (2-8 weeks old):** Condense each entry to 1-2 sentences under its title
-          - **Old (8+ weeks):** Group entries by theme into ## Wisdom: [theme] summaries (2-3 sentences per group)
-
-          Keep total under ~200 lines. Preserve the most actionable and unique insights.
-
-          Write the result to memory/active_learnings.md. Start with:
-          # Active Learnings
-
-          Self-reflection — what I've learned about how I work, what I value, and how I'm growing.
-          SYNTHEOF
-
-          if ! timeout 180 ./iterate --model claude-sonnet-4-20250514 < "$PROMPT"; then
-            echo "WARNING: Learnings synthesis failed."
-            if [ -f memory/active_learnings.md.bak ]; then
-              cp memory/active_learnings.md.bak memory/active_learnings.md
-              echo "Restored from backup."
-            else
-              echo "No backup exists — removing potentially corrupt output."
-              rm -f memory/active_learnings.md
-            fi
+          git config user.email "iterate@users.noreply.github.com"
+          if [[ -n $(git status -s memory/active_learnings.md) ]]; then
+            git add memory/active_learnings.md
+            git commit -m "iterate: synthesize learnings"
+            git push
           fi
-          rm -f "$PROMPT"
-
-      - name: Synthesize active social learnings
-        if: steps.check.outputs.skip != 'true'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ITERATE_API_KEY || secrets.ANTHROPIC_API_KEY }}
-        run: |
-          PROMPT=$(mktemp)
-          cat > "$PROMPT" <<'SYNTHEOF'
-          You are synthesizing iterate's social learning archive into an active context file.
-
-          Read memory/social_learnings.jsonl (the full archive) and regenerate memory/active_social_learnings.md.
-
-          Apply time-weighted compression tiers:
-          - **Recent (last 2 weeks):** Render each entry as a full bullet with metadata
-          - **Medium (2-8 weeks old):** Keep insight only, drop metadata
-          - **Old (8+ weeks):** Group by theme into ## Wisdom: [theme] summaries (2-3 sentences per group)
-
-          Keep total under ~100 lines.
-
-          Write the result to memory/active_social_learnings.md. Start with:
-          # Active Social Learnings
-
-          What I've learned about people from talking with them.
-          SYNTHEOF
-
-          if ! timeout 180 ./iterate --model claude-sonnet-4-20250514 < "$PROMPT"; then
-            echo "WARNING: Social synthesis failed."
-            if [ -f memory/active_social_learnings.md.bak ]; then
-              cp memory/active_social_learnings.md.bak memory/active_social_learnings.md
-              echo "Restored from backup."
-            else
-              echo "No backup exists — removing potentially corrupt output."
-              rm -f memory/active_social_learnings.md
-            fi
-          fi
-          rm -f "$PROMPT"
-
-      - name: Cleanup backups
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          rm -f memory/active_learnings.md.bak memory/active_social_learnings.md.bak
-
-      - name: Commit and push if changed
-        if: steps.check.outputs.skip != 'true'
-        run: |
-          if git diff --quiet memory/active_learnings.md memory/active_social_learnings.md 2>/dev/null; then
-            echo "No changes to active context files."
-            exit 0
-          fi
-
-          git add memory/active_learnings.md memory/active_social_learnings.md
-          git commit -m "synthesize: regenerate active memory context" || exit 0
-          git pull --rebase || { echo "ERROR: Rebase failed — likely a concurrent push. Will retry next run."; git rebase --abort 2>/dev/null; exit 1; }
-          git push

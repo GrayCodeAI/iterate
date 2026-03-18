@@ -1,120 +1,43 @@
-name: Evolution
+name: iterate evolution
 
 on:
   schedule:
-    - cron: '0 */4 * * *'   # every 4 hours
+    - cron: '0 */8 * * *'  # Every 8 hours
   workflow_dispatch:
 
 permissions:
   contents: write
   issues: write
-  pages: write
-  id-token: write
+  pull-requests: read
 
 jobs:
   evolve:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
-
     steps:
-      - name: Checkout iterate
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout iteragent
-        uses: actions/checkout@v4
-        with:
-          repository: GrayCodeAI/iteragent
-          path: ../iteragent
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.22'
-          cache: true
 
-      - name: Configure git
+      - name: Build iterate
+        run: go build ./cmd/iterate
+
+      - name: Run evolution loop
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name  "iterate[bot]"
+          bash scripts/evolve.sh
+
+      - name: Push changes
+        run: |
+          git config user.name "iterate[bot]"
           git config user.email "iterate@users.noreply.github.com"
-
-      - name: Run evolution session
-        id: attempt1
-        continue-on-error: true
-        env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'anthropic' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || '' }}
-          ITERATE_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          REPO:              ${{ github.repository }}
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
-          GH_PAT:            ${{ secrets.GH_PAT }}
-          FORCE_RUN:         ${{ github.event_name == 'workflow_dispatch' && 'true' || '' }}
-        run: |
-          chmod +x scripts/evolve.sh
-          ./scripts/evolve.sh
-
-      - name: Retry after 15min
-        id: attempt2
-        if: steps.attempt1.outcome == 'failure'
-        continue-on-error: true
-        env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'anthropic' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || '' }}
-          ITERATE_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          REPO:              ${{ github.repository }}
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
-          GH_PAT:            ${{ secrets.GH_PAT }}
-        run: |
-          echo "Waiting 15 minutes before retry..."
-          sleep 900
-          ./scripts/evolve.sh
-
-      - name: Retry after 45min
-        if: steps.attempt1.outcome == 'failure' && steps.attempt2.outcome == 'failure'
-        env:
-          ITERATE_PROVIDER:  ${{ vars.ITERATE_PROVIDER || 'anthropic' }}
-          ITERATE_MODEL:     ${{ vars.ITERATE_MODEL || '' }}
-          ITERATE_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          REPO:              ${{ github.repository }}
-          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
-          GH_PAT:            ${{ secrets.GH_PAT }}
-        run: |
-          echo "Waiting 45 minutes before retry..."
-          sleep 2700
-          ./scripts/evolve.sh
-
-      - name: Build website
-        run: python3 scripts/build_site.py
-
-      - name: go vet
-        if: always()
-        run: go vet ./... 2>&1 || true
-
-      - name: Upload pages artifact
-        if: always()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
-
-      - name: Push remaining changes
-        if: always()
-        run: |
-          git add -A
-          git diff --staged --quiet || git push origin main || true
-
-  deploy-pages:
-    needs: evolve
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          if [[ -n $(git status -s) ]]; then
+            git add -A
+            git commit -m "iterate: auto-evolution session $(date -u +'%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
