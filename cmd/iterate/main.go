@@ -50,6 +50,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load persisted config (overridden by explicit flags)
+	cfg := loadConfig()
+	if *provider == "gemini" && cfg.Provider != "" && cfg.Provider != "gemini" {
+		*provider = cfg.Provider
+	}
+	if *model == "" && cfg.Model != "" {
+		*model = cfg.Model
+	}
+	if cfg.OllamaBaseURL != "" && os.Getenv("OLLAMA_BASE_URL") == "" {
+		os.Setenv("OLLAMA_BASE_URL", cfg.OllamaBaseURL)
+	}
+
 	if *model != "" {
 		os.Setenv("ITERATE_MODEL", *model)
 	}

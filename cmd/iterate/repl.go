@@ -90,6 +90,11 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 				thinking = newThinking
 				a = makeAgent(p, repoPath, thinking, logger)
 				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
+				saveConfig(iterConfig{
+					Provider:      os.Getenv("ITERATE_PROVIDER"),
+					Model:         os.Getenv("ITERATE_MODEL"),
+					OllamaBaseURL: os.Getenv("OLLAMA_BASE_URL"),
+				})
 			}
 			continue
 		}
@@ -126,6 +131,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 	}
 
 	if providerName == "ollama" {
+		os.Setenv("ITERATE_PROVIDER", "ollama")
 		return selectOllamaModel(currentThinking)
 	}
 
@@ -145,6 +151,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
 		return nil, currentThinking
 	}
+	os.Setenv("ITERATE_PROVIDER", providerName)
 	return newP, currentThinking
 }
 
