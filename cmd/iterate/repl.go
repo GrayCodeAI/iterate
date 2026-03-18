@@ -488,22 +488,13 @@ func runShell(repoPath string, name string, args ...string) {
 }
 
 func replSystemPrompt(repoPath string) string {
-	identity, _ := os.ReadFile(filepath.Join(repoPath, "IDENTITY.md"))
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
 
-	base := "You are iterate, a self-evolving coding agent written in Go.\n"
-	if len(identity) > 0 {
-		base += "\n## Identity\n" + string(identity)
-	}
+	base := "You are iterate, a self-evolving Go coding agent in an interactive REPL.\n"
+	base += "Help the user with coding tasks, answer questions, and use tools when needed.\n"
+	base += "Keep responses concise and direct. Do not add journals, logs, or internal monologue.\n"
 	if len(personality) > 0 {
 		base += "\n## Personality\n" + string(personality)
 	}
-	base += `
-
-## Tool call format
-Wrap tool calls in triple backtick blocks:
-` + "```" + `tool
-{"tool":"tool_name","args":{"key":"value"}}
-` + "```"
 	return base
 }
