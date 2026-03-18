@@ -7,9 +7,13 @@ import (
 )
 
 type iterConfig struct {
-	Provider      string `json:"provider"`
-	Model         string `json:"model"`
-	OllamaBaseURL string `json:"ollama_base_url,omitempty"`
+	Provider      string   `json:"provider"`
+	Model         string   `json:"model"`
+	OllamaBaseURL string   `json:"ollama_base_url,omitempty"`
+	SafeMode      bool     `json:"safe_mode,omitempty"`
+	DeniedTools   []string `json:"denied_tools,omitempty"`
+	Theme         string   `json:"theme,omitempty"`
+	Notify        bool     `json:"notify,omitempty"`
 }
 
 func configPath() string {
