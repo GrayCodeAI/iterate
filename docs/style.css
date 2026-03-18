@@ -246,7 +246,7 @@ section {
   counter-increment: rules;
   position: relative;
   padding-left: 2.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.2rem;
   font-size: 0.95rem;
   line-height: 1.8;
   color: #ffffff;
@@ -278,7 +278,7 @@ section {
   color: #ffffff;
   font-size: 0.95rem;
   line-height: 1.8;
-  margin-bottom: 1rem;
+  margin-bottom: 1.3rem;
 }
 
 .identity-content ul {
