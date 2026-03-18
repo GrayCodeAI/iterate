@@ -17,51 +17,64 @@ def read_file(name):
 
 
 def md_to_html(text):
-    """Convert markdown to HTML (inline and block)."""
-    text = html.escape(text)
-    # Headers
-    text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text, flags=re.MULTILINE)
-    text = re.sub(r"^### (.+)$", r"<h3>\1</h3>", text, flags=re.MULTILINE)
-    # Inline formatting
-    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-    text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
-
-    # Split into paragraphs
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-
-    # Philosophy line marks the start of rules
-    philosophy_idx = -1
-    for i, p in enumerate(paragraphs):
-        if "I am not a product" in p:
-            philosophy_idx = i
-            break
-
-    # Content paragraphs (before rules) and rules (after philosophy)
-    if philosophy_idx >= 0:
-        content_paras = paragraphs[:philosophy_idx+1]
-        rule_paras = paragraphs[philosophy_idx+1:]
-    else:
-        content_paras = paragraphs
-        rule_paras = []
-
-    # Build content HTML
+    """Convert markdown to HTML with identity structure."""
+    lines = text.split("\n")
     content_html = ""
-    for i, para in enumerate(content_paras):
-        if i == 0:
-            content_html += f'<p class="mission">{para}</p>'
-        else:
-            content_html += f'<p class="identity-text">{para}</p>'
-
-    # Build rules HTML
     rules_html = ""
-    if rule_paras:
-        rules_html = '<ol class="rules">\n'
-        for rule in rule_paras:
-            rules_html += f"    <li>{rule}</li>\n"
+    in_rules = False
+
+    mission_found = False
+
+    for i, line in enumerate(lines):
+        line = line.strip()
+
+        # Skip empty lines
+        if not line:
+            continue
+
+        # Detect section headers
+        if line.startswith("## "):
+            section = line[3:].strip()
+            if section.lower() == "my rules":
+                in_rules = True
+            continue
+
+        if line.startswith("# "):
+            # Skip main header
+            continue
+
+        # Process content
+        if not in_rules:
+            # Process mission/identity paragraphs
+            escaped = html.escape(line)
+            # Inline formatting
+            escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+            escaped = re.sub(r"`(.+?)`", r"<code>\1</code>", escaped)
+            escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
+
+            if not mission_found:
+                content_html += f'<p class="mission">{escaped}</p>\n'
+                mission_found = True
+            else:
+                content_html += f'<p class="identity-text">{escaped}</p>\n'
+        else:
+            # Process rules (numbered list items)
+            match = re.match(r"^(\d+)\.\s(.+)$", line)
+            if match:
+                rule_text = html.escape(match.group(2))
+                # Inline formatting
+                rule_text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", rule_text)
+                rule_text = re.sub(r"`(.+?)`", r"<code>\1</code>", rule_text)
+                rule_text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', rule_text)
+
+                if not rules_html:
+                    rules_html = '<ol class="rules">\n'
+                rules_html += f"    <li>{rule_text}</li>\n"
+
+    if rules_html:
         rules_html += "  </ol>"
 
-    return content_html + "\n  " + rules_html if rules_html else content_html
+    return content_html + rules_html
 
 def md_inline(text):
     text = html.escape(text)
