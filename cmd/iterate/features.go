@@ -94,6 +94,17 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 				}
 			}
 
+			// Directory restrictions: check AllowDirs/DenyDirs for file tools.
+			if t.Name == "write_file" || t.Name == "edit_file" || t.Name == "read_file" {
+				if p, ok := args["path"]; ok {
+					if checkDirPermission(cfg, p) {
+						msg := fmt.Sprintf("Access denied: %s is outside allowed directories.", p)
+						logAudit(t.Name, auditArgs, "DENIED (dir restriction)")
+						return msg, nil
+					}
+				}
+			}
+
 			if safeMode && deniedTools[t.Name] {
 				// Glob-based auto-allow/deny for bash commands.
 				if t.Name == "bash" {
@@ -956,8 +967,9 @@ func readOnlyTools(tools []iteragent.Tool) []iteragent.Tool {
 // ---------------------------------------------------------------------------
 
 type runtimeConfig struct {
-	Temperature *float32
-	MaxTokens   *int
+	Temperature  *float32
+	MaxTokens    *int
+	CacheEnabled *bool
 }
 
 var rtConfig runtimeConfig

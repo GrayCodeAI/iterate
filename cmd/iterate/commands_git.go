@@ -21,6 +21,7 @@ const (
 	prSubList     prSubcommand = iota
 	prSubView
 	prSubDiff
+	prSubReview // AI code review using PR diff
 	prSubComment
 	prSubCheckout
 	prSubCreate
@@ -54,6 +55,12 @@ func parsePRArgs(args string) parsedPR {
 			num = parts[1]
 		}
 		return parsedPR{sub: prSubDiff, number: num}
+	case "review":
+		num := ""
+		if len(parts) > 1 {
+			num = parts[1]
+		}
+		return parsedPR{sub: prSubReview, number: num}
 	case "comment":
 		num, body := "", ""
 		if len(parts) > 1 {
@@ -135,6 +142,26 @@ func handlePR(ctx context.Context, line string, a *iteragent.Agent, repoPath str
 		}
 		fmt.Printf("%s── PR #%s diff ────────────────────%s\n%s%s──────────────────────────────────%s\n\n",
 			colorDim, parsed.number, colorReset, diff, colorDim, colorReset)
+
+	case prSubReview:
+		if parsed.number == "" {
+			var ok bool
+			parsed.number, ok = promptLine("PR number:")
+			if !ok || parsed.number == "" {
+				return
+			}
+		}
+		out, err := exec.Command("gh", "pr", "diff", parsed.number).Output()
+		if err != nil {
+			fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
+			return
+		}
+		diff := string(out)
+		if len(diff) > 8000 {
+			diff = diff[:8000] + "\n…[truncated]"
+		}
+		prompt := buildPRReviewPrompt(parsed.number, diff)
+		streamAndPrint(ctx, a, prompt, repoPath)
 
 	case prSubComment:
 		if parsed.number == "" {
@@ -243,6 +270,7 @@ func handlePR(ctx context.Context, line string, a *iteragent.Agent, repoPath str
   /pr list              — list open PRs
   /pr view [N]          — view PR details
   /pr diff [N]          — show PR diff
+  /pr review [N]        — AI code review of PR diff
   /pr comment N <text>  — post a comment
   /pr checkout [N]      — checkout PR branch
   /pr create [--draft]  — create a new PR
@@ -276,4 +304,11 @@ func showGitDiffEnhanced(repoPath string) {
 	}
 	fmt.Print(string(diffOut))
 	fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
+}
+
+// buildPRReviewPrompt constructs the AI review prompt for the given PR number and diff.
+func buildPRReviewPrompt(number, diff string) string {
+	return fmt.Sprintf(
+		"Review PR #%s. Focus on: correctness, edge cases, security, performance, and style.\n\n```diff\n%s\n```",
+		number, diff)
 }

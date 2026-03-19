@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 )
