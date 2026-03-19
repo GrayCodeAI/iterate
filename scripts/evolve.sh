@@ -30,6 +30,28 @@ if command -v gh &>/dev/null; then
   fi
 fi
 
+# Strip any placeholder journal entries for today so agent writes a real one
+BIRTH_DATE="2026-03-18"
+if date -j &>/dev/null 2>&1; then
+  _DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+else
+  _DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+fi
+if grep -q "^## Day $_DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
+  python3 - <<PYEOF
+import re
+with open('JOURNAL.md', 'r') as f:
+    content = f.read()
+# Remove placeholder Day N entry (shell-written fallback)
+pattern = r'^## Day ${_DAY}[^\n]*\n\nEvolution session completed\.\n\n'
+cleaned = re.sub(pattern, '', content, flags=re.MULTILINE)
+if cleaned != content:
+    with open('JOURNAL.md', 'w') as f:
+        f.write(cleaned)
+    print('[evolve.sh] Removed placeholder Day ${_DAY} entry — agent will write real one')
+PYEOF
+fi
+
 # Build the binary
 log "Building iterate..."
 go build -o ./iterate ./cmd/iterate
