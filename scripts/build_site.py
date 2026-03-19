@@ -136,9 +136,11 @@ def parse_journal(content):
             day = int(m2.group(1))
             timestamp = m2.group(2).strip()
             body = "\n".join(lines[1:]).strip()
-            first_line = body.split("\n")[0].strip() if body else ""
+            body_lines = body.split("\n")
+            first_line = body_lines[0].strip() if body_lines else ""
             if first_line and first_line != "Auto-evolution session completed.":
                 title = first_line
+                body = "\n".join(body_lines[1:]).strip()
             else:
                 title = "Auto-evolution"
                 body = ""
