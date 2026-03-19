@@ -300,46 +300,65 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 		a.Finish()
 	}
 
-	// Step 2 — agent writes its own journal entry and reflects on learnings
+	// Step 2 — agent writes its own journal entry
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day := strings.TrimSpace(string(dayBytes))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
-	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
 
-	journalMsg := fmt.Sprintf(`You just finished Day %s of your evolution. Now do two things:
+	journalMsg := fmt.Sprintf(`STOP. Before anything else: write your Day %s journal entry. This is mandatory.
 
-**1. Write your journal entry.**
-Read git log --oneline -10 to see what you actually did this session.
-Then insert a new entry at the TOP of JOURNAL.md (right after the first line "# iterate Evolution Journal").
+Step 1: Run this command and read the output:
+bash: git log --oneline -10
 
-Format exactly:
-## Day %s — [HH:MM UTC] — [short honest title of what you actually did]
+Step 2: Write the journal entry to JOURNAL.md.
+Open JOURNAL.md and insert your entry at the TOP, right after the line "# iterate Evolution Journal".
 
-[2-4 sentences: what you tried, what worked, what didn't, what's next]
+The entry MUST use this exact format:
+## Day %s — HH:MM — Title
+
+Body: 2-4 honest sentences about what you did, what worked, what failed, what's next.
 
 Rules:
-- Be specific. "Fixed nil pointer in /diff command" not "improved error handling"
-- Be honest. If nothing changed, say so.
-- End with what's next.
+- HH:MM = current UTC time
+- Title = what you actually did (specific, not "auto-evolution")
+- Body = honest. If nothing shipped, say so and why.
 
-**2. Reflect and write a learning (only if genuinely novel).**
-Read memory/active_learnings.md first to avoid duplicates.
-Ask yourself: did this session teach me something that would change how I act next time?
-If yes, append ONE line to memory/learnings.jsonl using python3.
-
-## Recent journal (for context and to match voice):
+Current JOURNAL.md content:
 %s
 
-## What you already know:
-%s`,
+Write the journal entry NOW. Do not write learnings or do anything else first.`,
 		day, day,
-		truncate(string(journal), 600),
-		truncate(string(learnings), 400),
+		truncate(string(journal), 500),
 	)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	e.forwardEvents(a.Prompt(ctx, journalMsg))
 	a.Finish()
+
+	// Step 3 — separate agent call for learnings (only if journal was written)
+	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
+	learningsMsg := fmt.Sprintf(`Did this session teach you something genuinely new that would change how you act next time?
+
+Read memory/active_learnings.md first to avoid duplicates.
+If yes, append ONE entry to memory/learnings.jsonl using python3:
+
+python3 -c "
+import json, datetime
+entry = {'type':'lesson','day':%s,'ts':datetime.datetime.utcnow().strftime('%%Y-%%m-%%dT%%H:%%M:%%SZ'),'source':'evolution','title':'[title]','context':'[what you tried]','takeaway':'[the lesson]'}
+open('memory/learnings.jsonl','a').write(json.dumps(entry)+'\n')
+"
+
+If nothing genuinely new was learned, do nothing.
+
+## What you already know:
+%s`,
+		day,
+		truncate(string(learnings), 400),
+	)
+
+	a2 := e.newAgent(p, tools, systemPrompt, skills)
+	e.forwardEvents(a2.Prompt(ctx, learningsMsg))
+	a2.Finish()
 
 	return nil
 }
