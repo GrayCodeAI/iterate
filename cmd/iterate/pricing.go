@@ -126,40 +126,73 @@ func lookupPricing(model string) (ModelPricing, bool) {
 	return ModelPricing{}, false
 }
 
-// formatCostTable returns a detailed cost breakdown string.
-func formatCostTable(inputTokens, outputTokens, cacheWrite, cacheRead int, model string) string {
+// CostEstimate holds the calculated costs for a request.
+type CostEstimate struct {
+	InputCost      float64
+	OutputCost     float64
+	CacheWriteCost float64
+	CacheReadCost  float64
+	Total          float64
+	Model          string
+	Found          bool
+}
+
+// estimateCost calculates the estimated cost for a request without formatting.
+func estimateCost(inputTokens, outputTokens, cacheWrite, cacheRead int, model string) CostEstimate {
 	p, ok := lookupPricing(model)
 	if !ok {
-		return fmt.Sprintf(
-			"  Model:   %s\n  Input:   ~%d tokens\n  Output:  ~%d tokens\n  (no pricing data for this model)\n",
-			model, inputTokens, outputTokens)
+		return CostEstimate{
+			Model: model,
+			Found: false,
+		}
 	}
 
 	inputCost := float64(inputTokens) / 1e6 * p.InputPerMTok
 	outputCost := float64(outputTokens) / 1e6 * p.OutputPerMTok
 	cacheWriteCost := float64(cacheWrite) / 1e6 * p.CacheWritePerMTok
 	cacheReadCost := float64(cacheRead) / 1e6 * p.CacheReadPerMTok
-	total := inputCost + outputCost + cacheWriteCost + cacheReadCost
+
+	return CostEstimate{
+		InputCost:      inputCost,
+		OutputCost:     outputCost,
+		CacheWriteCost: cacheWriteCost,
+		CacheReadCost:  cacheReadCost,
+		Total:          inputCost + outputCost + cacheWriteCost + cacheReadCost,
+		Model:          model,
+		Found:          true,
+	}
+}
+
+// formatCostTable returns a detailed cost breakdown string.
+func formatCostTable(inputTokens, outputTokens, cacheWrite, cacheRead int, model string) string {
+	estimate := estimateCost(inputTokens, outputTokens, cacheWrite, cacheRead, model)
+	if !estimate.Found {
+		return fmt.Sprintf(
+			"  Model:   %s\n  Input:   ~%d tokens\n  Output:  ~%d tokens\n  (no pricing data for this model)\n",
+			model, inputTokens, outputTokens)
+	}
+
+	p, _ := lookupPricing(model)
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("  Model:   %s\n", model))
 	sb.WriteString(fmt.Sprintf("  Input:   %7d tokens  ($%.3f/MTok) → $%.5f\n",
-		inputTokens, p.InputPerMTok, inputCost))
+		inputTokens, p.InputPerMTok, estimate.InputCost))
 	sb.WriteString(fmt.Sprintf("  Output:  %7d tokens  ($%.3f/MTok) → $%.5f\n",
-		outputTokens, p.OutputPerMTok, outputCost))
+		outputTokens, p.OutputPerMTok, estimate.OutputCost))
 	if cacheWrite > 0 {
 		sb.WriteString(fmt.Sprintf("  Cache W: %7d tokens  ($%.3f/MTok) → $%.5f\n",
-			cacheWrite, p.CacheWritePerMTok, cacheWriteCost))
+			cacheWrite, p.CacheWritePerMTok, estimate.CacheWriteCost))
 	}
 	if cacheRead > 0 {
 		sb.WriteString(fmt.Sprintf("  Cache R: %7d tokens  ($%.4f/MTok) → $%.5f\n",
-			cacheRead, p.CacheReadPerMTok, cacheReadCost))
+			cacheRead, p.CacheReadPerMTok, estimate.CacheReadCost))
 	}
 	sb.WriteString("  ─────────────────────────────────────────────────\n")
-	if total < 0.001 {
-		sb.WriteString(fmt.Sprintf("  Total:   $%.6f\n", total))
+	if estimate.Total < 0.001 {
+		sb.WriteString(fmt.Sprintf("  Total:   $%.6f\n", estimate.Total))
 	} else {
-		sb.WriteString(fmt.Sprintf("  Total:   $%.4f\n", total))
+		sb.WriteString(fmt.Sprintf("  Total:   $%.4f\n", estimate.Total))
 	}
 	return sb.String()
 }
