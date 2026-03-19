@@ -59,6 +59,15 @@ var (
 // sessionTokens tracks approximate tokens used this session.
 var sessionTokens int
 
+// Detailed session token counters (from Usage metadata when available).
+var sessionInputTokens int
+var sessionOutputTokens int
+var sessionCacheRead int
+var sessionCacheWrite int
+
+// iterateVersion is the current version string.
+const iterateVersion = "dev"
+
 func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) *iteragent.Agent {
 	base := iteragent.DefaultTools(repoPath)
 	switch currentMode {
@@ -120,7 +129,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 			continue
 		}
 
-		// /model handled here so it has scanner access and can swap provider+agent.
+		// /model and /provider handled here so they can swap provider+agent.
 		if line == "/model" || strings.HasPrefix(line, "/model ") {
 			newP, newThinking := selectModel(thinking)
 			if newP != nil {
@@ -133,6 +142,35 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 					Model:         os.Getenv("ITERATE_MODEL"),
 					OllamaBaseURL: os.Getenv("OLLAMA_BASE_URL"),
 				})
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "/provider") {
+			parts := strings.Fields(line)
+			if len(parts) == 1 {
+				fmt.Printf("Current provider: %s%s%s\n", colorLime, p.Name(), colorReset)
+				fmt.Println("Usage: /provider <name>  (anthropic, openai, gemini, groq, ollama, …)")
+			} else {
+				providerName := parts[1]
+				apiKey := ""
+				if len(parts) >= 3 {
+					apiKey = parts[2]
+				}
+				var err error
+				var newP iteragent.Provider
+				if apiKey != "" {
+					newP, err = iteragent.NewProvider(providerName, apiKey)
+				} else {
+					newP, err = iteragent.NewProvider(providerName)
+				}
+				if err != nil {
+					fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+				} else {
+					p = newP
+					os.Setenv("ITERATE_PROVIDER", providerName)
+					a = makeAgent(p, repoPath, thinking, logger)
+					fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
+				}
 			}
 			continue
 		}
@@ -477,17 +515,25 @@ Available commands:
 		fmt.Printf("Thinking set to %s.\n", *thinking)
 
 	case "/diff":
-		showGitDiff(repoPath)
+		showGitDiffEnhanced(repoPath)
 
 	case "/cost":
-		fmt.Printf("%sSession token usage (approx):%s\n", colorDim, colorReset)
-		fmt.Printf("  Output tokens: ~%d\n", sessionTokens)
-		safe := "off"
-		if safeMode {
-			safe = "on"
+		model := p.Name()
+		fmt.Printf("%s── Cost estimate ───────────────────%s\n", colorDim, colorReset)
+		fmt.Print(formatCostTable(sessionInputTokens, sessionOutputTokens, sessionCacheWrite, sessionCacheRead, model))
+		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
+
+	case "/tokens":
+		const windowSize = 200000
+		fmt.Printf("%s── Token usage ─────────────────────%s\n", colorDim, colorReset)
+		fmt.Printf("  %s\n", contextBar(a.Messages, windowSize))
+		fmt.Printf("  Session input:  ~%d tokens\n", sessionInputTokens)
+		fmt.Printf("  Session output: ~%d tokens\n", sessionOutputTokens)
+		if sessionCacheRead > 0 || sessionCacheWrite > 0 {
+			fmt.Printf("  Cache read:     ~%d tokens\n", sessionCacheRead)
+			fmt.Printf("  Cache write:    ~%d tokens\n", sessionCacheWrite)
 		}
-		fmt.Printf("  Safe mode: %s\n", safe)
-		fmt.Printf("  %sNote: run /compact to reduce context size%s\n\n", colorDim, colorReset)
+		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
 
 	case "/safe":
 		safeMode = true
@@ -659,28 +705,7 @@ Available commands:
 		streamAndPrint(ctx, a, msg, repoPath)
 
 	case "/pr":
-		// Gather info and create PR via gh cli
-		branchOut, _ := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output()
-		branch := strings.TrimSpace(string(branchOut))
-		if branch == "" || branch == "main" || branch == "master" {
-			fmt.Printf("%sCreate a feature branch first. Current branch: %s%s\n", colorRed, branch, colorReset)
-			return false
-		}
-		title, ok := promptLine("PR title:")
-		if !ok || title == "" {
-			fmt.Println("Cancelled.")
-			return false
-		}
-		body, ok := promptLine("PR body (or Enter for auto):")
-		if !ok {
-			fmt.Println("Cancelled.")
-			return false
-		}
-		if body == "" {
-			body = fmt.Sprintf("Created by iterate from branch `%s`.", branch)
-		}
-		runShell(repoPath, "git", "push", "-u", "origin", branch)
-		runShell(repoPath, "gh", "pr", "create", "--title", title, "--body", body)
+		handlePR(ctx, line, a, repoPath)
 
 	case "/web":
 		if len(parts) < 2 {
@@ -1204,10 +1229,16 @@ Available commands:
 
 	// ── Doctor & coverage ────────────────────────────────────────────────
 
-	case "/doctor":
-		fmt.Printf("%sRunning project health checks…%s\n", colorDim, colorReset)
-		results := runDoctor(repoPath)
-		fmt.Printf("%s── Doctor ──────────────────────────%s\n", colorDim, colorReset)
+	case "/doctor", "/health":
+		pt := detectProjectType(repoPath)
+		fmt.Printf("%sRunning health checks for %s project…%s\n", colorDim, pt.String(), colorReset)
+		var results []healthResult
+		if pt == projectTypeGo || pt == projectTypeUnknown {
+			results = runDoctor(repoPath)
+		} else {
+			results = runProjectHealthChecks(repoPath, pt)
+		}
+		fmt.Printf("%s── Health ──────────────────────────%s\n", colorDim, colorReset)
 		allOk := true
 		for _, r := range results {
 			status := colorLime + "✓" + colorReset
@@ -1221,7 +1252,7 @@ Available commands:
 		if allOk {
 			fmt.Printf("%s✓ all checks pass%s\n\n", colorLime, colorReset)
 		} else {
-			fmt.Printf("%s✗ some checks failed%s\n\n", colorRed, colorReset)
+			fmt.Printf("%s✗ some checks failed — use /fix to auto-repair%s\n\n", colorRed, colorReset)
 		}
 
 	case "/coverage":
@@ -1719,17 +1750,17 @@ Available commands:
 	case "/fix":
 		errText := strings.TrimSpace(strings.TrimPrefix(line, parts[0]))
 		if errText == "" {
-			// Run build and capture error
-			cmd := exec.Command("go", "build", "./...")
-			cmd.Dir = repoPath
-			out, _ := cmd.CombinedOutput()
-			errText = strings.TrimSpace(string(out))
+			// Detect project type and run the right build command
+			pt := detectProjectType(repoPath)
+			prompt := buildFixPromptForProject(repoPath, pt)
+			if prompt == "" {
+				fmt.Printf("%sNo errors found — build is clean.%s\n\n", colorLime, colorReset)
+				return false
+			}
+			streamAndPrint(ctx, a, prompt, repoPath)
+		} else {
+			streamAndPrint(ctx, a, buildFixPrompt(errText), repoPath)
 		}
-		if errText == "" {
-			fmt.Printf("%sNo errors found — build is clean.%s\n\n", colorLime, colorReset)
-			return false
-		}
-		streamAndPrint(ctx, a, buildFixPrompt(errText), repoPath)
 
 	case "/explain-error":
 		errText := strings.TrimSpace(strings.TrimPrefix(line, parts[0]))
@@ -2125,6 +2156,147 @@ Available commands:
 		streamAndPrint(ctx, subAgent, subPrompt, repoPath)
 		fmt.Printf("\n%sSubagent completed.%s\n", colorCyan, colorReset)
 
+	// ── Project tooling ───────────────────────────────────────────────────
+
+	case "/tree":
+		maxDepth := 4
+		if len(parts) >= 2 {
+			fmt.Sscanf(parts[1], "%d", &maxDepth)
+		}
+		fmt.Printf("%sProject tree (git ls-files):%s\n", colorDim, colorReset)
+		tree := buildProjectTree(repoPath, maxDepth)
+		if tree == "" {
+			fmt.Println("  (no files found)")
+		} else {
+			fmt.Println(tree)
+		}
+		fmt.Println()
+
+	case "/index":
+		fmt.Printf("%sBuilding project index…%s\n", colorDim, colorReset)
+		entries := buildProjectIndex(repoPath)
+		if len(entries) == 0 {
+			fmt.Println("No files found.")
+			return false
+		}
+		fmt.Printf("%s── Project Index (%d files) ─────────%s\n", colorDim, len(entries), colorReset)
+		fmt.Print(formatProjectIndex(entries))
+		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
+
+	case "/pkgdoc":
+		if len(parts) < 2 {
+			fmt.Println("Usage: /pkgdoc <package>  e.g. /pkgdoc encoding/json")
+			return false
+		}
+		pkg := strings.Join(parts[1:], "/")
+		fmt.Printf("%sfetching pkg.go.dev/%s…%s\n", colorDim, pkg, colorReset)
+		doc, err := fetchGoPkgDoc(pkg)
+		if err != nil {
+			fmt.Printf("%serror: %s%s\n", colorRed, err, colorReset)
+			return false
+		}
+		fmt.Printf("%s── pkg.go.dev/%s ────────────────────%s\n%s\n%s──────────────────────────────────%s\n\n",
+			colorDim, pkg, colorReset, doc, colorDim, colorReset)
+
+	// ── Provider & version ────────────────────────────────────────────────
+
+	case "/version":
+		fmt.Printf("iterate  version %s\n", iterateVersion)
+		fmt.Printf("iteragent (SDK embedded)\n")
+		fmt.Printf("provider: %s\n\n", p.Name())
+
+	// ── In-memory conversation marks ──────────────────────────────────────
+
+	case "/mark":
+		name := fmt.Sprintf("mark-%d", len(conversationMarks)+1)
+		if len(parts) >= 2 {
+			name = strings.Join(parts[1:], " ")
+		}
+		conversationMarks[name] = len(a.Messages)
+		fmt.Printf("%s✓ marked position %d as %q%s\n\n", colorLime, len(a.Messages), name, colorReset)
+
+	case "/marks":
+		if len(conversationMarks) == 0 {
+			fmt.Println("No marks. Use /mark [name] to set one.")
+			return false
+		}
+		fmt.Printf("%s── Marks ───────────────────────────%s\n", colorDim, colorReset)
+		for name, idx := range conversationMarks {
+			fmt.Printf("  %-20s → message %d\n", name, idx)
+		}
+		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
+
+	case "/jump":
+		if len(parts) < 2 {
+			fmt.Println("Usage: /jump <mark-name>")
+			// Show available marks
+			for name := range conversationMarks {
+				fmt.Printf("  %s\n", name)
+			}
+			return false
+		}
+		name := strings.Join(parts[1:], " ")
+		idx, ok := conversationMarks[name]
+		if !ok {
+			fmt.Printf("Mark %q not found. Use /marks to list.\n", name)
+			return false
+		}
+		if idx > len(a.Messages) {
+			idx = len(a.Messages)
+		}
+		a.Messages = a.Messages[:idx]
+		fmt.Printf("%s✓ jumped to mark %q (message %d)%s\n\n", colorLime, name, idx, colorReset)
+
+	// ── Per-project memory (/remember, /forget override) ──────────────────
+
+	case "/remember":
+		note := strings.TrimSpace(strings.TrimPrefix(line, parts[0]))
+		if note == "" {
+			fmt.Println("Usage: /remember <note>")
+			return false
+		}
+		if err := addProjectMemoryNote(repoPath, note); err != nil {
+			fmt.Printf("%serror: %s%s\n", colorRed, err, colorReset)
+		} else {
+			fmt.Printf("%s✓ note saved to .iterate/memory.json%s\n\n", colorLime, colorReset)
+		}
+
+	// ── /git passthrough ──────────────────────────────────────────────────
+
+	case "/git":
+		if len(parts) < 2 {
+			runShell(repoPath, "git", "status")
+			return false
+		}
+		gitArgs := parts[1:]
+		runShell(repoPath, "git", gitArgs...)
+
+	// ── Session changes ───────────────────────────────────────────────────
+
+	case "/changes":
+		fmt.Printf("%s── File changes this session ────────%s\n", colorDim, colorReset)
+		fmt.Println(sessionChanges.format())
+		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
+
+	// ── ITERATE.md init ───────────────────────────────────────────────────
+
+	case "/iterate-init":
+		iterateMDPath := filepath.Join(repoPath, "ITERATE.md")
+		if _, err := os.Stat(iterateMDPath); err == nil {
+			fmt.Printf("%sITERATE.md already exists. Overwrite? (y/N): %s", colorYellow, colorReset)
+			confirm, _ := promptLine("")
+			if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
+				fmt.Println("Cancelled.")
+				return false
+			}
+		}
+		content := generateIterateMD(repoPath)
+		if err := os.WriteFile(iterateMDPath, []byte(content), 0o644); err != nil {
+			fmt.Printf("%serror: %s%s\n", colorRed, err, colorReset)
+		} else {
+			fmt.Printf("%s✓ ITERATE.md generated — edit it to add project-specific context%s\n\n", colorLime, colorReset)
+		}
+
 	default:
 		fmt.Printf("Unknown command: %s (try /help)\n", cmd)
 	}
@@ -2232,13 +2404,29 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	}
 	maybeNotify()
 	elapsed := time.Since(start).Round(time.Millisecond)
-	approxTokens := len(fullContent) / 4
-	sessionTokens += approxTokens
-	if approxTokens > 0 {
-		fmt.Printf("%s%s · ~%d tokens%s\n\n", colorDim, elapsed, approxTokens, colorReset)
-	} else {
-		fmt.Printf("%s%s%s\n\n", colorDim, elapsed, colorReset)
+
+	// Try to get accurate usage from the last assistant message.
+	usageStr := ""
+	if len(a.Messages) > 0 {
+		last := a.Messages[len(a.Messages)-1]
+		if last.Usage != nil {
+			sessionInputTokens += last.Usage.InputTokens
+			sessionOutputTokens += last.Usage.OutputTokens
+			sessionCacheRead += last.Usage.CacheRead
+			sessionCacheWrite += last.Usage.CacheWrite
+			sessionTokens += last.Usage.TotalTokens
+			usageStr = fmt.Sprintf(" · %d in / %d out tokens", last.Usage.InputTokens, last.Usage.OutputTokens)
+		}
 	}
+	if usageStr == "" {
+		approxTokens := len(fullContent) / 4
+		sessionTokens += approxTokens
+		sessionOutputTokens += approxTokens
+		if approxTokens > 0 {
+			usageStr = fmt.Sprintf(" · ~%d tokens", approxTokens)
+		}
+	}
+	fmt.Printf("%s%s%s%s\n\n", colorDim, elapsed, usageStr, colorReset)
 }
 
 // showGitDiff runs git diff and prints colored output if there are changes.
@@ -2288,6 +2476,21 @@ func replSystemPrompt(repoPath string) string {
 	base += "Keep responses concise and direct. Do not add journals, logs, or internal monologue.\n"
 	if len(personality) > 0 {
 		base += "\n## Personality\n" + string(personality)
+	}
+
+	// Inject project memory notes (per-project .iterate/memory.json)
+	if mem := loadProjectMemory(repoPath); len(mem.Entries) > 0 {
+		base += "\n" + formatProjectMemoryForPrompt(mem)
+	}
+
+	// Inject active learnings (evolution memory)
+	if learnings := readActiveLearnings(repoPath); learnings != "" {
+		base += "\n## Active Learnings\n" + learnings + "\n"
+	}
+
+	// Inject ITERATE.md if present
+	if iterateMD, err := os.ReadFile(filepath.Join(repoPath, "ITERATE.md")); err == nil {
+		base += "\n## Project Context (ITERATE.md)\n" + string(iterateMD)
 	}
 
 	if index := buildRepoIndex(repoPath); index != "" {

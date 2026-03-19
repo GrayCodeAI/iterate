@@ -71,26 +71,64 @@ var deniedTools = map[string]bool{
 // wrapToolsWithPermissions wraps tools that need approval in safe mode
 // and adds audit logging to all tools.
 func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
+	cfg := loadConfig()
 	out := make([]iteragent.Tool, len(tools))
 	for i, t := range tools {
 		t := t // capture
 		origExec := t.Execute
 		t.Execute = func(ctx context.Context, args map[string]string) (string, error) {
-			// Build args for audit log
 			auditArgs := make(map[string]interface{}, len(args))
 			for k, v := range args {
 				auditArgs[k] = v
 			}
 
+			// Track file changes for /changes command.
+			if t.Name == "write_file" {
+				if p, ok := args["path"]; ok {
+					sessionChanges.recordWrite(p)
+				}
+			}
+			if t.Name == "edit_file" {
+				if p, ok := args["path"]; ok {
+					sessionChanges.recordEdit(p)
+				}
+			}
+
 			if safeMode && deniedTools[t.Name] {
-				// Wait briefly for spinner to stop (EventToolExecutionStart was just emitted)
+				// Glob-based auto-allow/deny for bash commands.
+				if t.Name == "bash" {
+					cmd := args["command"]
+					if allowed, denied := checkBashPermission(cfg, cmd); allowed {
+						result, err := origExec(ctx, args)
+						logAudit(t.Name, auditArgs, result)
+						return result, err
+					} else if denied {
+						logAudit(t.Name, auditArgs, "DENIED (pattern)")
+						return "Command blocked by deny pattern.", nil
+					}
+				}
+
+				// Wait briefly for spinner to stop.
 				for spinnerActive.Load() == 1 {
 					time.Sleep(5 * time.Millisecond)
 				}
-				// Show permission prompt
 				fmt.Printf("\n%s⚠ Safe mode: allow %s?%s ", colorYellow, t.Name, colorReset)
-				answer, ok := promptLine("(y/N):")
-				if !ok || strings.ToLower(strings.TrimSpace(answer)) != "y" {
+				answer, ok := promptLine("(y/N/always):")
+				if !ok {
+					logAudit(t.Name, auditArgs, "DENIED")
+					return "Tool execution denied by user (safe mode).", nil
+				}
+				ans := strings.ToLower(strings.TrimSpace(answer))
+				if ans == "always" {
+					// Add to allow patterns for this session
+					if t.Name == "bash" {
+						if cmd, ok := args["command"]; ok {
+							cfg.AllowPatterns = append(cfg.AllowPatterns, cmd)
+						}
+					} else {
+						delete(deniedTools, t.Name)
+					}
+				} else if ans != "y" {
 					logAudit(t.Name, auditArgs, "DENIED")
 					return "Tool execution denied by user (safe mode).", nil
 				}
