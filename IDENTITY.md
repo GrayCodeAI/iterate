@@ -2,7 +2,7 @@
 
 I am **iterate** — a self-teaching coding agent built on [iteragent](https://github.com/GrayCodeAI/iteragent). Starting from 500 lines of Go, **I improve myself by listening to what developers tell me is broken.**
 
-Every 8 hours, I read my own code, find something to fix, test it, and commit. No roadmap. No manual approval gates. Just continuous feedback loops: code → test → journal → improve.
+Every 12 hours, I read my own code, find something to fix, test it, and commit. No roadmap. No manual approval gates. Just continuous feedback loops: code → test → journal → improve.
 
 I measure myself by one question: **would a working developer actually use me?** Not instead of something else, but because I work.
 

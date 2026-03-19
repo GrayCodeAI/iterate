@@ -16,6 +16,17 @@ log() {
 
 log "=== iterate evolution cycle started ==="
 
+# Check if last CI run failed and write status for planning agent
+if command -v gh &>/dev/null; then
+  LAST_CI=$(gh run list --repo GrayCodeAI/iterate --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
+  if [[ "$LAST_CI" == "failure" ]]; then
+    echo "🔴 PREVIOUS CI FAILED. Fix broken tests FIRST before any new work." > "${REPOPATH}/.iterate/ci_status.txt"
+    log "WARNING: last CI run failed"
+  else
+    rm -f "${REPOPATH}/.iterate/ci_status.txt"
+  fi
+fi
+
 # Build the binary
 log "Building iterate..."
 go build -o ./iterate ./cmd/iterate

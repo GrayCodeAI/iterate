@@ -1,35 +1,67 @@
-# Self-Assessment Skill
+---
+name: self-assess
+description: Deeply assess your own codebase at the start of every evolution session
+tools: [bash, read_file, list_files]
+---
 
-Use this skill at the start of every evolution session.
+# Self-Assessment
+
+Use this skill at the start of every evolution session — before planning, before implementing.
 
 ## Steps
 
-1. **List all source files** using `list_files`
-2. **Read JOURNAL.md** to understand recent history — what was attempted, what failed
-3. **Read the most relevant source files** — start with `internal/agent/` and `internal/evolution/`
-4. **Identify one high-value improvement** from this ranked list:
-   - Correctness bugs (crashes, wrong output, data loss)
-   - Performance bottlenecks (slow loops, unnecessary allocations)
-   - Missing error handling (unchecked errors, panics)
-   - Code clarity (confusing names, missing comments, complex logic)
-   - Missing tests (untested edge cases)
-   - Community requests (if any issues are provided)
+### 1. Read your source code completely
+- `list_files` on `cmd/` and `internal/` recursively
+- Read every `.go` file in `cmd/iterate/` — this is your REPL and entry point
+- Read `internal/evolution/engine.go` — this is how you evolve
+- Read `internal/community/` and `internal/social/` — these are your community connections
 
-5. **Write your assessment** — what you found and why it matters
-6. **Pick ONE improvement** — the highest value one. Not two. Not three.
+### 2. Try using yourself
+Don't just read code — **execute it** to find friction:
+- Run `go build ./...` — does it compile cleanly?
+- Run `go test ./...` — how many tests pass? Any failing?
+- Run `go vet ./...` — any static analysis warnings?
+- Look at test coverage gaps: which packages have low coverage?
+
+### 3. Check your history
+- Read `JOURNAL.md` — what did you attempt recently? Don't repeat it.
+- Read `memory/active_learnings.md` — what have you already learned?
+- Check `memory/learnings.jsonl` for lessons from past sessions
+
+### 4. Look for what's broken or missing
+Scan for these in order of severity:
+
+| Priority | What to look for |
+|----------|-----------------|
+| 🔴 Critical | Crashes, panics, data loss, broken builds |
+| 🟠 High | Unhandled errors, missing error messages, silent failures |
+| 🟡 Medium | Missing tests for existing features, edge cases not covered |
+| 🟢 Low | Code clarity, performance, UX friction in the REPL |
+
+**Specific things to grep for:**
+```bash
+grep -rn "TODO\|FIXME\|HACK\|panic(" --include="*.go" cmd/ internal/
+grep -rn "_ =" --include="*.go" cmd/ internal/   # ignored errors
+```
+
+### 5. Write your assessment
+Be specific. Not "improved error handling." Instead: "The `/diff` command panics when called outside a git repo — no nil check on line 47 of commands_git.go."
 
 ## Output format
 
 ```
-## Assessment
+## Self-Assessment — Day N
 
-[What I read and what I found]
+### What I read
+[Files you read and what you found]
 
-## Chosen improvement
+### What I executed
+[Commands you ran and their output]
 
-[The one thing I will fix, and why I chose it over alternatives]
+### Issues found (ranked)
+1. [CRITICAL/HIGH/MEDIUM/LOW] [Specific description with file:line if applicable]
+2. ...
 
-## Plan
-
-[Step by step how I will implement it]
+### Chosen improvement
+[The ONE thing I will fix, and why I chose it over alternatives]
 ```
