@@ -3,8 +3,10 @@
 
 import html
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+
+BIRTH_DATE = datetime(2026, 3, 18)
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
@@ -83,15 +85,13 @@ def ordinal(n):
     return f"{n}{['th','st','nd','rd','th'][min(n % 10, 4)]}"
 
 
-def format_timestamp(ts):
-    """Convert '2026-03-19 08:56:12' or 'HH:MM' to '19th March 2026, 08:56:12'."""
-    try:
-        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
-        return f"{ordinal(dt.day)} {dt.strftime('%B %Y')}, {dt.strftime('%H:%M:%S')}"
-    except ValueError:
-        pass
+def format_timestamp(ts, day=None):
+    """Format 'HH:MM' + day number to '19th March 2026, 08:56'."""
     try:
         dt = datetime.strptime(ts, "%H:%M")
+        if day is not None:
+            date = BIRTH_DATE + timedelta(days=day)
+            return f"{ordinal(date.day)} {date.strftime('%B %Y')}, {dt.strftime('%H:%M')}"
         return dt.strftime("%H:%M")
     except ValueError:
         return ts
@@ -113,37 +113,13 @@ def parse_journal(content):
         if not chunk:
             continue
         lines = chunk.split("\n")
-        # Format 1: "Day N — HH:MM — Title"  (evolution engine)
+        # Format: "Day N — HH:MM — Title"
         m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0])
         if m:
             day = int(m.group(1))
             timestamp = m.group(2).strip()
             title = m.group(3).strip()
             body = "\n".join(lines[1:]).strip()
-            entries.append({"day": day, "timestamp": timestamp, "title": title, "body": body})
-            continue
-        # Format 1b: "Day N — Title" (no timestamp)
-        m1b = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
-        if m1b:
-            day = int(m1b.group(1))
-            title = m1b.group(2).strip()
-            body = "\n".join(lines[1:]).strip()
-            entries.append({"day": day, "timestamp": "", "title": title, "body": body})
-            continue
-        # Format 2: "Day N (YYYY-MM-DD HH:MM:SS)"  (evolve.sh shell)
-        m2 = re.match(r"Day\s+(\d+)\s*\(([^)]+)\)", lines[0])
-        if m2:
-            day = int(m2.group(1))
-            timestamp = m2.group(2).strip()
-            body = "\n".join(lines[1:]).strip()
-            body_lines = body.split("\n")
-            first_line = body_lines[0].strip() if body_lines else ""
-            if first_line and first_line != "Auto-evolution session completed.":
-                title = first_line
-                body = "\n".join(body_lines[1:]).strip()
-            else:
-                title = "Auto-evolution"
-                body = ""
             entries.append({"day": day, "timestamp": timestamp, "title": title, "body": body})
     return entries
 
@@ -152,13 +128,13 @@ def render_journal(entries):
     if not entries:
         return '<div class="timeline-empty">The journey begins soon...</div>'
     parts = []
-    for entry in sorted(entries, key=lambda e: e["day"], reverse=True):
+    for entry in entries:
         body_html = ""
         if entry["body"]:
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
         ts = entry.get("timestamp", "")
-        ts_fmt = format_timestamp(ts) if ts else ""
+        ts_fmt = format_timestamp(ts, entry["day"]) if ts else ""
         ts_html = f'      <span class="entry-timestamp">{html.escape(ts_fmt)}</span>\n' if ts_fmt else ""
         parts.append(
             f'  <article class="entry">\n'
