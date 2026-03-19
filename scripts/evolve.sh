@@ -126,5 +126,11 @@ if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
   mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
 fi
 
+# Rebuild GitHub Pages site
+if command -v python3 &>/dev/null && [[ -f "${REPOPATH}/scripts/build_site.py" ]]; then
+  log "Rebuilding GitHub Pages site..."
+  python3 "${REPOPATH}/scripts/build_site.py" 2>>"$LOG_FILE" || log "build_site.py failed"
+fi
+
 log "=== iterate evolution cycle completed ==="
 log "Day $DAY ($SESSION_TIME)"
