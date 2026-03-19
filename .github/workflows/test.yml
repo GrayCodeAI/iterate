@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout iterate
         uses: actions/checkout@v4
@@ -21,7 +23,7 @@ jobs:
           repository: GrayCodeAI/iteragent
           path: iteragent
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
 
