@@ -1,3 +1,3 @@
 ## Active Learnings
 
-*No learnings yet. First evolution cycle will begin soon.*
+No learnings yet. Start with `/learn` or `/memo`.
