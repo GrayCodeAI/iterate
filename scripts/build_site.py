@@ -92,12 +92,22 @@ def parse_journal(content):
         if not chunk:
             continue
         lines = chunk.split("\n")
+        # Format 1: "Day N — HH:MM — Title"  (evolution engine)
         m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
         if m:
             day = int(m.group(1))
-            rest = m.group(2).strip()
-            title = rest  # Keep the full "HH:MM — Title" format
+            title = m.group(2).strip()
             body = "\n".join(lines[1:]).strip()
+            entries.append({"day": day, "title": title, "body": body})
+            continue
+        # Format 2: "Day N (YYYY-MM-DD HH:MM:SS)"  (evolve.sh shell)
+        m2 = re.match(r"Day\s+(\d+)\s*\(([^)]+)\)", lines[0])
+        if m2:
+            day = int(m2.group(1))
+            timestamp = m2.group(2).strip()
+            body = "\n".join(lines[1:]).strip()
+            first_line = body.split("\n")[0].strip() if body else ""
+            title = first_line if first_line and first_line != "Auto-evolution session completed." else timestamp
             entries.append({"day": day, "title": title, "body": body})
     return entries
 
