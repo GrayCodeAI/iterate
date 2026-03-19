@@ -283,4 +283,3 @@ func (s *sessionChangesTracker) format() string {
 
 // conversationMarks maps mark name → message index at time of marking.
 var conversationMarks = map[string]int{}
-

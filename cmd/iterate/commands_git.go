@@ -18,7 +18,7 @@ import (
 type prSubcommand int
 
 const (
-	prSubList     prSubcommand = iota
+	prSubList prSubcommand = iota
 	prSubView
 	prSubDiff
 	prSubReview // AI code review using PR diff

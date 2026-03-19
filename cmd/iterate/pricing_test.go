@@ -33,10 +33,10 @@ func TestLookupPricing_ExactMatch(t *testing.T) {
 func TestLookupPricing_SubstringMatch(t *testing.T) {
 	// Provider prefixes and version suffixes should still match via substring.
 	cases := []string{
-		"claude-opus-4-20250514",        // version suffix
-		"anthropic/claude-sonnet-4",     // provider prefix
-		"claude-haiku-3-5-20241022",     // date suffix
-		"gpt-4o-2024-11-20",             // OpenAI versioned
+		"claude-opus-4-20250514",    // version suffix
+		"anthropic/claude-sonnet-4", // provider prefix
+		"claude-haiku-3-5-20241022", // date suffix
+		"gpt-4o-2024-11-20",         // OpenAI versioned
 	}
 	for _, model := range cases {
 		_, ok := lookupPricing(model)
