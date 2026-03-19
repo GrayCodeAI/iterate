@@ -264,7 +264,11 @@ func extractLearnings(decisions []socialDecision) string {
 }
 
 func (e *Engine) appendLearnings(text string) error {
-	path := filepath.Join(e.repoPath, "memory", "active_social_learnings.md")
+	memDir := filepath.Join(e.repoPath, "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		return fmt.Errorf("create memory dir: %w", err)
+	}
+	path := filepath.Join(memDir, "active_social_learnings.md")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -290,7 +294,11 @@ func (e *Engine) WriteLearningsToMemory(who, insight string) error {
 
 // appendLearningsJSONL appends a social learning as a JSON line to memory/social_learnings.jsonl.
 func (e *Engine) appendLearningsJSONL(decisions []socialDecision, dayCount string) error {
-	path := filepath.Join(e.repoPath, "memory", "social_learnings.jsonl")
+	memDir := filepath.Join(e.repoPath, "memory")
+	if err := os.MkdirAll(memDir, 0o755); err != nil {
+		return fmt.Errorf("create memory dir: %w", err)
+	}
+	path := filepath.Join(memDir, "social_learnings.jsonl")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err

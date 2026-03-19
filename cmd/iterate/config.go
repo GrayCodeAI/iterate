@@ -1,26 +1,35 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 type iterConfig struct {
-	Provider      string   `json:"provider"`
-	Model         string   `json:"model"`
-	OllamaBaseURL string   `json:"ollama_base_url,omitempty"`
-	SafeMode      bool     `json:"safe_mode,omitempty"`
-	DeniedTools   []string `json:"denied_tools,omitempty"`
-	Theme         string   `json:"theme,omitempty"`
-	Notify        bool     `json:"notify,omitempty"`
+	Provider      string   `json:"provider"       toml:"provider"`
+	Model         string   `json:"model"          toml:"model"`
+	OllamaBaseURL string   `json:"ollama_base_url,omitempty" toml:"ollama_base_url"`
+	SafeMode      bool     `json:"safe_mode,omitempty"      toml:"safe_mode"`
+	DeniedTools   []string `json:"denied_tools,omitempty"   toml:"denied_tools"`
+	Theme         string   `json:"theme,omitempty"          toml:"theme"`
+	Notify        bool     `json:"notify,omitempty"         toml:"notify"`
+	// LLM generation parameters.
+	Temperature   float64 `json:"temperature,omitempty"    toml:"temperature"`
+	MaxTokens     int     `json:"max_tokens,omitempty"     toml:"max_tokens"`
+	ThinkingLevel string  `json:"thinking_level,omitempty" toml:"thinking_level"`
+	CacheEnabled  bool    `json:"cache_enabled,omitempty"  toml:"cache_enabled"`
 	// Glob-based allow/deny patterns for bash commands.
-	AllowPatterns []string `json:"allow_patterns,omitempty"`
-	DenyPatterns  []string `json:"deny_patterns,omitempty"`
+	AllowPatterns []string `json:"allow_patterns,omitempty" toml:"allow_patterns"`
+	DenyPatterns  []string `json:"deny_patterns,omitempty"  toml:"deny_patterns"`
 	// Directory restrictions for file tools.
-	AllowDirs []string `json:"allow_dirs,omitempty"`
-	DenyDirs  []string `json:"deny_dirs,omitempty"`
+	AllowDirs []string `json:"allow_dirs,omitempty" toml:"allow_dirs"`
+	DenyDirs  []string `json:"deny_dirs,omitempty"  toml:"deny_dirs"`
 }
 
 func configPath() string {
@@ -37,26 +46,92 @@ func configPathAlt() string {
 	return filepath.Join(home, ".config", "iterate", "config.json")
 }
 
+// configPathTOML returns the TOML config path (~/.config/iterate/config.toml).
+func configPathTOML() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "iterate", "config.toml")
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "iterate", "config.toml")
+}
+
 func loadConfig() iterConfig {
-	// Try XDG path first, then legacy ~/.iterate/config.json
-	for _, path := range []string{configPathAlt(), configPath()} {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var cfg iterConfig
-		if json.Unmarshal(data, &cfg) == nil {
-			return cfg
+	var cfg iterConfig
+
+	// Try TOML first (new preferred format), then JSON paths.
+	if data, err := os.ReadFile(configPathTOML()); err == nil {
+		toml.Unmarshal(data, &cfg) //nolint:errcheck
+	} else {
+		// Fall back to JSON: XDG path, then legacy ~/.iterate/config.json.
+		for _, path := range []string{configPathAlt(), configPath()} {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			if json.Unmarshal(data, &cfg) == nil {
+				break
+			}
 		}
 	}
-	return iterConfig{}
+
+	// Environment variable overrides (always win over file config).
+	applyEnvOverrides(&cfg)
+	return cfg
+}
+
+// applyEnvOverrides applies ITERATE_* environment variables on top of a config.
+func applyEnvOverrides(cfg *iterConfig) {
+	if v := os.Getenv("ITERATE_PROVIDER"); v != "" {
+		cfg.Provider = v
+	}
+	if v := os.Getenv("ITERATE_MODEL"); v != "" {
+		cfg.Model = v
+	}
+	if v := os.Getenv("ITERATE_THEME"); v != "" {
+		cfg.Theme = v
+	}
+	if v := os.Getenv("ITERATE_THINKING_LEVEL"); v != "" {
+		cfg.ThinkingLevel = v
+	}
+	if v := os.Getenv("ITERATE_TEMPERATURE"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			cfg.Temperature = f
+		}
+	}
+	if v := os.Getenv("ITERATE_MAX_TOKENS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.MaxTokens = n
+		}
+	}
+	if v := os.Getenv("ITERATE_SAFE_MODE"); v != "" {
+		cfg.SafeMode = v == "1" || strings.EqualFold(v, "true")
+	}
+	if v := os.Getenv("ITERATE_CACHE_ENABLED"); v != "" {
+		cfg.CacheEnabled = v == "1" || strings.EqualFold(v, "true")
+	}
 }
 
 func saveConfig(cfg iterConfig) {
-	path := configPath()
-	os.MkdirAll(filepath.Dir(path), 0o755)
+	// Prefer TOML if the TOML config file already exists or the JSON path doesn't.
+	tomlPath := configPathTOML()
+	jsonPath := configPath()
+
+	_, tomlExists := os.Stat(tomlPath)
+	_, jsonExists := os.Stat(jsonPath)
+
+	if tomlExists == nil || jsonExists != nil {
+		// Write TOML.
+		os.MkdirAll(filepath.Dir(tomlPath), 0o755)
+		var buf bytes.Buffer
+		if err := toml.NewEncoder(&buf).Encode(cfg); err == nil {
+			os.WriteFile(tomlPath, buf.Bytes(), 0o644)
+			return
+		}
+	}
+	// Fall back to JSON.
+	os.MkdirAll(filepath.Dir(jsonPath), 0o755)
 	data, _ := json.MarshalIndent(cfg, "", "  ")
-	os.WriteFile(path, data, 0o644)
+	os.WriteFile(jsonPath, data, 0o644)
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +197,41 @@ func splitShellWords(cmd string) []string {
 		words = append(words, string(cur))
 	}
 	return words
+}
+
+// ---------------------------------------------------------------------------
+// Directory restriction helpers for file tools
+// ---------------------------------------------------------------------------
+
+// checkDirPermission checks AllowDirs/DenyDirs against a file path.
+// Returns denied=true if the path is blocked; allowed=false means "ask user".
+// When AllowDirs is non-empty the path must be under at least one allowed dir.
+// DenyDirs always wins over AllowDirs.
+func checkDirPermission(cfg iterConfig, filePath string) (denied bool) {
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		abs = filePath
+	}
+	// DenyDirs: block if path is under any denied directory.
+	for _, d := range cfg.DenyDirs {
+		dAbs, _ := filepath.Abs(d)
+		rel, err := filepath.Rel(dAbs, abs)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			return true
+		}
+	}
+	// AllowDirs: if set, path must be under at least one allowed dir.
+	if len(cfg.AllowDirs) > 0 {
+		for _, d := range cfg.AllowDirs {
+			dAbs, _ := filepath.Abs(d)
+			rel, err := filepath.Rel(dAbs, abs)
+			if err == nil && !strings.HasPrefix(rel, "..") {
+				return false
+			}
+		}
+		return true // not under any allowed dir
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------

@@ -75,6 +75,11 @@ func main() {
 
 	ctx := context.Background()
 
+	// Apply persisted ThinkingLevel when the flag is at its default "off".
+	if *thinking == "off" && cfg.ThinkingLevel != "" {
+		*thinking = cfg.ThinkingLevel
+	}
+
 	// Default to REPL unless --evolve or --social is explicitly set.
 	if *chat || (!*evolve && !*socialOnly && *phase == "") {
 		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(*thinking), logger)

@@ -97,7 +97,7 @@ var slashCommands = []string{
 	"/test", "/test-file", "/test-gen", "/build", "/lint", "/lint-fix",
 	"/format", "/coverage", "/doctor",
 	// GitHub & PRs
-	"/pr", "/pr-list", "/pr-review", "/issues",
+	"/pr", "/issues",
 	// project tooling (new)
 	"/health", "/tree", "/index", "/pkgdoc", "/iterate-init",
 	// provider & version (new)
@@ -137,7 +137,7 @@ var commandArgCompletions = map[string][]string{
 	"/thinking": {"off", "minimal", "low", "medium", "high"},
 	"/provider": {"anthropic", "openai", "gemini", "groq", "ollama", "azure", "bedrock", "vertex", "mistral", "deepseek"},
 	"/theme":    {"default", "nord", "monokai", "minimal"},
-	"/pr":       {"list", "view", "diff", "comment", "checkout", "create"},
+	"/pr":       {"list", "view", "diff", "review", "comment", "checkout", "create"},
 	"/git":      {"status", "log", "diff", "add", "commit", "push", "pull", "branch", "stash", "rebase", "fetch"},
 	"/phase":    {"plan", "implement", "communicate"},
 	"/set":      {"temperature", "max_tokens", "reset"},
@@ -404,9 +404,18 @@ func readInput() (string, bool) {
 
 		switch {
 		case b[0] == '\r' || b[0] == '\n':
-			// Enter — submit
+			// Enter — submit (or continue if line ends with \)
 			fmt.Print("\r\n")
-			result := strings.TrimSpace(string(buf))
+			result := string(buf)
+			if strings.HasSuffix(strings.TrimRight(result, " "), "\\") {
+				// Backslash continuation: strip trailing \ and prompt for more
+				result = strings.TrimRight(result, " ")
+				result = result[:len(result)-1] + "\n"
+				buf = []byte(result)
+				fmt.Printf("%s  ...%s ", colorDim, colorReset)
+				continue
+			}
+			result = strings.TrimSpace(result)
 			appendHistory(result)
 			return result, true
 

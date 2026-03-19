@@ -82,14 +82,58 @@ func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.Thinkin
 		WithSystemPrompt(replSystemPrompt(repoPath)).
 		WithSkillSet(skills).
 		WithThinkingLevel(thinking).
-		WithToolExecutionStrategy(iteragent.NewParallelStrategy())
+		WithToolExecutionStrategy(iteragent.NewParallelStrategy()).
+		WithHooks(replHooks())
 	if rtConfig.Temperature != nil {
 		ag = ag.WithTemperature(*rtConfig.Temperature)
 	}
 	if rtConfig.MaxTokens != nil {
 		ag = ag.WithMaxTokens(*rtConfig.MaxTokens)
 	}
+	if rtConfig.CacheEnabled != nil {
+		ag = ag.WithCacheEnabled(*rtConfig.CacheEnabled)
+	}
 	return ag
+}
+
+// replHooks returns lifecycle hooks for the REPL agent.
+// In debug mode: prints turn timing and tool execution duration.
+func replHooks() iteragent.AgentHooks {
+	var turnStart time.Time
+	var toolStart time.Time
+	return iteragent.AgentHooks{
+		BeforeTurn: func(turn int, messages []iteragent.Message) {
+			turnStart = time.Now()
+			if debugMode {
+				fmt.Printf("%s[debug] turn %d — %d messages in context%s\n",
+					colorDim, turn, len(messages), colorReset)
+			}
+		},
+		AfterTurn: func(turn int, response string) {
+			if debugMode {
+				elapsed := time.Since(turnStart).Round(time.Millisecond)
+				fmt.Printf("%s[debug] turn %d done in %s (%d chars)%s\n",
+					colorDim, turn, elapsed, len(response), colorReset)
+			}
+		},
+		OnToolStart: func(toolName string, args map[string]string) {
+			toolStart = time.Now()
+			if debugMode {
+				fmt.Printf("%s[debug] → %s%s\n", colorDim, toolName, colorReset)
+			}
+		},
+		OnToolEnd: func(toolName string, result string, err error) {
+			if debugMode {
+				elapsed := time.Since(toolStart).Round(time.Millisecond)
+				status := "ok"
+				if err != nil {
+					status = "err"
+				}
+				fmt.Printf("%s[debug] ← %s (%s, %s, %d chars)%s\n",
+					colorDim, toolName, status, elapsed, len(result), colorReset)
+			}
+		},
+	}
 }
 
 // runREPL runs an interactive session with iterate.
@@ -111,7 +155,25 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		}
 	}
 
+	// Seed runtime config from persisted values so /set overrides start from saved state.
+	if cfg.Temperature > 0 {
+		t := float32(cfg.Temperature)
+		rtConfig.Temperature = &t
+	}
+	if cfg.MaxTokens > 0 {
+		rtConfig.MaxTokens = &cfg.MaxTokens
+	}
+	if cfg.CacheEnabled {
+		enabled := true
+		rtConfig.CacheEnabled = &enabled
+	}
+	// Apply persisted ThinkingLevel when the caller passed the default "off".
+	if thinking == iteragent.ThinkingLevelOff && cfg.ThinkingLevel != "" {
+		thinking = iteragent.ThinkingLevel(cfg.ThinkingLevel)
+	}
+
 	a := makeAgent(p, repoPath, thinking, logger)
+	defer func() { _ = a.Close() }()
 
 	printHeader(p, thinking)
 
@@ -135,6 +197,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 			if newP != nil {
 				p = newP
 				thinking = newThinking
+				_ = a.Close()
 				a = makeAgent(p, repoPath, thinking, logger)
 				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
 				saveConfig(iterConfig{
@@ -168,6 +231,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 				} else {
 					p = newP
 					os.Setenv("ITERATE_PROVIDER", providerName)
+					_ = a.Close()
 					a = makeAgent(p, repoPath, thinking, logger)
 					fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
 				}
@@ -878,16 +942,19 @@ Available commands:
 
 	case "/ask":
 		currentMode = modeAsk
+		_ = a.Close()
 		a = makeAgent(p, repoPath, *thinking, logger)
 		fmt.Printf("%s✓ Ask mode — read-only (no bash/write). /code to exit.%s\n\n", colorCyan, colorReset)
 
 	case "/architect":
 		currentMode = modeArchitect
+		_ = a.Close()
 		a = makeAgent(p, repoPath, *thinking, logger)
 		fmt.Printf("%s✓ Architect mode — planning only, no tools. /code to exit.%s\n\n", colorPurple, colorReset)
 
 	case "/code":
 		currentMode = modeNormal
+		_ = a.Close()
 		a = makeAgent(p, repoPath, *thinking, logger)
 		fmt.Printf("%s✓ Code mode — all tools enabled.%s\n\n", colorLime, colorReset)
 
@@ -951,16 +1018,19 @@ Available commands:
 			fmt.Sscanf(parts[2], "%f", &v)
 			f := float32(v)
 			rtConfig.Temperature = &f
+			_ = a.Close()
 			a = makeAgent(p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ temperature = %.2f%s\n\n", colorLime, f, colorReset)
 		case "max_tokens", "max-tokens", "tokens":
 			var v int
 			fmt.Sscanf(parts[2], "%d", &v)
 			rtConfig.MaxTokens = &v
+			_ = a.Close()
 			a = makeAgent(p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ max_tokens = %d%s\n\n", colorLime, v, colorReset)
 		case "reset":
 			rtConfig = runtimeConfig{}
+			_ = a.Close()
 			a = makeAgent(p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ runtime config reset to defaults%s\n\n", colorLime, colorReset)
 		default:
@@ -994,13 +1064,13 @@ Available commands:
 		}
 
 	case "/memories":
-		content := readActiveLearnings(repoPath)
-		if content == "" {
-			fmt.Println("No memories found (memory/learnings.jsonl or memory/active_learnings.md).")
-			return false
+		// Show project notes first
+		printProjectMemory(repoPath)
+		// Then show evolution learnings
+		if content := readActiveLearnings(repoPath); content != "" {
+			fmt.Printf("%s── Evolution Learnings ────────────%s\n%s\n%s──────────────────────────────────%s\n\n",
+				colorDim, colorReset, content, colorDim, colorReset)
 		}
-		fmt.Printf("%s── Memories ───────────────────────%s\n%s\n%s──────────────────────────────────%s\n\n",
-			colorDim, colorReset, content, colorDim, colorReset)
 
 	// ── Git workflow ─────────────────────────────────────────────────────────
 
@@ -1374,40 +1444,16 @@ Available commands:
 	// ── GitHub PR ─────────────────────────────────────────────────────────
 
 	case "/pr-list":
-		cmd := exec.Command("gh", "pr", "list", "--limit", "20")
-		cmd.Dir = repoPath
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
-		}
-		fmt.Println()
+		// Alias for /pr list
+		handlePR(ctx, "/pr list", a, repoPath)
 
 	case "/pr-review":
-		var prNum string
+		// Alias for /pr review [N]
+		arg := ""
 		if len(parts) >= 2 {
-			prNum = parts[1]
-		} else {
-			var ok bool
-			prNum, ok = promptLine("PR number:")
-			if !ok || prNum == "" {
-				return false
-			}
+			arg = parts[1]
 		}
-		// Fetch PR diff
-		out, err := exec.Command("gh", "pr", "diff", prNum).Output()
-		if err != nil {
-			fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
-			return false
-		}
-		diff := string(out)
-		if len(diff) > 8000 {
-			diff = diff[:8000] + "\n…[truncated]"
-		}
-		prompt := fmt.Sprintf(
-			"Review PR #%s. Focus on: correctness, edge cases, security, performance, and style.\n\n```diff\n%s\n```",
-			prNum, diff)
-		streamAndPrint(ctx, a, prompt, repoPath)
+		handlePR(ctx, "/pr review "+arg, a, repoPath)
 
 	// ── AI helpers ────────────────────────────────────────────────────────
 
@@ -1566,26 +1612,45 @@ Available commands:
 	// ── Context improvements ──────────────────────────────────────────────
 
 	case "/forget":
-		if len(a.Messages) == 0 {
-			fmt.Println("No messages in context.")
-			return false
+		// /forget <n>  → remove project memory entry n (1-indexed)
+		// /forget msg <n> → remove conversation message n
+		if len(parts) >= 2 && parts[1] == "msg" {
+			// Remove from conversation
+			n := len(a.Messages)
+			if len(parts) >= 3 {
+				fmt.Sscanf(parts[2], "%d", &n)
+				n--
+			}
+			if n < 0 || n >= len(a.Messages) {
+				fmt.Printf("Invalid index. Context has %d messages (1-%d).\n", len(a.Messages), len(a.Messages))
+				return false
+			}
+			removed := a.Messages[n]
+			a.Messages = append(a.Messages[:n], a.Messages[n+1:]...)
+			snippet := removed.Content
+			if len(snippet) > 60 {
+				snippet = snippet[:60] + "…"
+			}
+			fmt.Printf("%s✓ removed message %d [%s]: %s%s\n\n", colorLime, n+1, removed.Role, snippet, colorReset)
+		} else {
+			// Remove from project memory
+			n := 0
+			if len(parts) >= 2 {
+				fmt.Sscanf(parts[1], "%d", &n)
+				n-- // 1-indexed → 0-indexed
+			}
+			entry, ok := removeProjectMemoryEntry(repoPath, n)
+			if !ok {
+				m := loadProjectMemory(repoPath)
+				if len(m.Entries) == 0 {
+					fmt.Println("No project notes. Use /remember <note> to add one.")
+				} else {
+					fmt.Printf("Invalid index. Use /memories to list entries (1-%d).\n", len(m.Entries))
+				}
+				return false
+			}
+			fmt.Printf("%s✓ removed note: %s%s\n\n", colorLime, entry.Note, colorReset)
 		}
-		n := len(a.Messages)
-		if len(parts) >= 2 {
-			fmt.Sscanf(parts[1], "%d", &n)
-			n-- // convert 1-indexed to 0-indexed
-		}
-		if n < 0 || n >= len(a.Messages) {
-			fmt.Printf("Invalid index. Context has %d messages (1-%d).\n", len(a.Messages), len(a.Messages))
-			return false
-		}
-		removed := a.Messages[n]
-		a.Messages = append(a.Messages[:n], a.Messages[n+1:]...)
-		snippet := removed.Content
-		if len(snippet) > 60 {
-			snippet = snippet[:60] + "…"
-		}
-		fmt.Printf("%s✓ removed message %d [%s]: %s%s\n\n", colorLime, n+1, removed.Role, snippet, colorReset)
 
 	case "/compact-hard":
 		keep := 6
@@ -1848,9 +1913,22 @@ Available commands:
 		}
 
 	case "/compact":
+		before := len(a.Messages)
+		if before == 0 {
+			fmt.Println("Nothing to compact.")
+			return false
+		}
+		// Ask the agent to summarise what we've done before we drop messages.
+		summaryPrompt := fmt.Sprintf(
+			"Summarise this conversation in 5 bullet points. Focus on: what was asked, "+
+				"what was implemented, key decisions, and any open questions. Be concise.\n\n"+
+				"(Conversation has %d messages)", before)
+		fmt.Printf("%sCompacting — summarising %d messages…%s\n", colorDim, before, colorReset)
+		streamAndPrint(ctx, a, summaryPrompt, repoPath)
+		// Now compact, preserving the summary (last assistant message) + system context.
 		cfg := iteragent.DefaultContextConfig()
 		a.Messages = iteragent.CompactMessagesTiered(a.Messages, cfg)
-		fmt.Printf("Compacted to %d messages.\n", len(a.Messages))
+		fmt.Printf("%sCompacted: %d → %d messages%s\n", colorDim, before, len(a.Messages), colorReset)
 
 	case "/phase":
 		if len(parts) < 2 {
@@ -1962,6 +2040,7 @@ Available commands:
 
 	case "/pair":
 		currentMode = modeNormal
+		_ = a.Close()
 		a = makeAgent(p, repoPath, *thinking, logger)
 		a.Messages = append(a.Messages, iteragent.Message{
 			Role:    "user",
@@ -2152,6 +2231,7 @@ Available commands:
 				"Provide a complete, standalone solution. Do not ask for clarification.",
 			task)
 		subAgent := makeAgent(p, repoPath, *thinking, logger)
+		defer func() { _ = subAgent.Close() }()
 		fmt.Printf("%sSpawning subagent for: %s%s\n\n", colorCyan, task, colorReset)
 		streamAndPrint(ctx, subAgent, subPrompt, repoPath)
 		fmt.Printf("\n%sSubagent completed.%s\n", colorCyan, colorReset)
@@ -2355,21 +2435,40 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	defer func() { stopOnce() }()
 
 	var fullContent string
+	var streamingTokens bool // true once we receive the first EventTokenUpdate
 
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
+		case iteragent.EventTokenUpdate:
+			// First token: stop spinner and clear line, then print tokens live.
+			if !streamingTokens {
+				stopOnce()
+				fmt.Print("\r\033[K")
+				streamingTokens = true
+			}
+			fmt.Print(e.Content)
+			fullContent += e.Content
+
 		case iteragent.EventMessageUpdate:
-			// Buffer content; spinner already shows progress
-			fullContent = e.Content
+			if streamingTokens {
+				// Already printed token-by-token; just keep fullContent in sync.
+				fullContent = e.Content
+			} else {
+				// Non-streaming provider: buffer and render at the end.
+				fullContent = e.Content
+			}
 
 		case iteragent.EventToolExecutionStart:
 			recordToolCall()
 			stopOnce()
 			if fullContent != "" {
-				fmt.Print("\r\033[K")
-				renderResponse(fullContent)
+				if !streamingTokens {
+					fmt.Print("\r\033[K")
+					renderResponse(fullContent)
+				}
 				fmt.Println()
 				fullContent = ""
+				streamingTokens = false
 			}
 			fmt.Printf("%s⚙ %s%s", colorYellow, e.ToolName, colorReset)
 
@@ -2398,9 +2497,14 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	if fullContent != "" {
 		lastResponse = fullContent
-		fmt.Print("\r\033[K")
-		renderResponse(fullContent)
-		fmt.Println()
+		if streamingTokens {
+			// Tokens were printed live; just add a newline and syntax-render if markdown.
+			fmt.Println()
+		} else {
+			fmt.Print("\r\033[K")
+			renderResponse(fullContent)
+			fmt.Println()
+		}
 	}
 	maybeNotify()
 	elapsed := time.Since(start).Round(time.Millisecond)

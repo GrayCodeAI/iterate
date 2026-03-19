@@ -2,6 +2,8 @@
 
 iterate is a self-evolving Go coding agent. It reads its own source code, plans improvements, implements them, runs tests, and commits — daily, automatically.
 
+The REPL is backed by the `iteragent` SDK which provides: streaming tokens (TokenStreamer), lifecycle hooks (AgentHooks: BeforeTurn/AfterTurn/OnToolStart/OnToolEnd), automatic retry on transient errors, context compaction, MCP server support (Agent.Close() shuts servers down on /quit), and TOML config.
+
 ## Build & Test
 
 ```bash
@@ -19,10 +21,17 @@ make chat               # start interactive REPL
 iterate/
   cmd/iterate/          # CLI entry point
     main.go             # flags, provider init, mode dispatch
-    repl.go             # interactive REPL (14 slash commands)
+    repl.go             # REPL loop, streamAndPrint, handleCommand, replHooks()
+    selector.go         # raw-mode input, tab completion, selectItem
+    features.go         # helpers: sessions, bookmarks, git, memory, themes…
+    config.go           # iterConfig (JSON+TOML), glob/dir permissions, session changes
+    highlight.go        # markdown + syntax rendering
+    commands_project.go # /health, /tree, /index, /pkgdoc, generateIterateMD
+    commands_git.go     # /pr subcommand dispatcher, enhanced /diff
+    pricing.go          # per-model cost table, /cost breakdown
+    memory_project.go   # per-project .iterate/memory.json for /remember
   internal/
     evolution/          # core engine: plan→implement→communicate
-      engine.go         # Engine struct, Run/RunPhase methods
     community/          # GitHub issues + discussions fetcher
     social/             # social interaction engine
   scripts/
@@ -31,13 +40,13 @@ iterate/
     build_site.py       # generates docs/index.html from JOURNAL.md
     format_issues.py    # formats GitHub issues for agent context
   skills/               # structured skill files (SKILL.md per skill)
-    evolve/SKILL.md     # self-modification rules
+    evolve/SKILL.md
     self-assess/SKILL.md
     communicate/SKILL.md
     research/SKILL.md
     social/SKILL.md
     release/SKILL.md
-  memory/               # persistent memory layer
+  memory/               # persistent evolution memory layer
     learnings.jsonl     # append-only lesson log
     active_learnings.md # synthesized from learnings.jsonl
   docs/                 # GitHub Pages site (auto-generated)
@@ -53,7 +62,7 @@ iterate/
 
 ## Skills System
 
-Skills live in `skills/<name>/SKILL.md`. The agent loads them at startup. Each has YAML frontmatter:
+Skills live in `skills/<name>/SKILL.md`. Each has YAML frontmatter:
 
 ```yaml
 ---
@@ -63,15 +72,14 @@ tools: [bash, read_file, write_file, edit_file]
 ---
 ```
 
-The agent sees skill names/descriptions in the system prompt (progressive disclosure). It reads the full body on demand via `read_file`.
-
 ## Memory System
 
-Two-layer:
-- `memory/learnings.jsonl` — append-only JSONL, one lesson per line
-- `memory/active_learnings.md` — synthesized every N days by `synthesize.yml`
+Three layers:
+- `memory/learnings.jsonl` — append-only JSONL evolution lessons
+- `memory/active_learnings.md` — synthesized by `synthesize.yml`
+- `.iterate/memory.json` — per-project REPL notes (`/remember`, `/forget`, `/memories`)
 
-The synthesis workflow compresses old entries and promotes durable insights.
+All three are injected into the agent's system prompt automatically.
 
 ## State Files
 
@@ -80,27 +88,82 @@ The synthesis workflow compresses old entries and promotes durable insights.
 | `JOURNAL.md` | Human-readable evolution log |
 | `DAY_COUNT` | Current day number (integer) |
 | `SESSION_PLAN.md` | Current session task list |
-| `memory/learnings.jsonl` | Raw lesson stream |
+| `ITERATE.md` | Project context file (generate with `/iterate-init`) |
+| `memory/learnings.jsonl` | Raw evolution lesson stream |
 | `memory/active_learnings.md` | Active synthesized knowledge |
-| `.iterate/last-session.json` | Last session message history |
+| `.iterate/memory.json` | Per-project REPL notes |
+| `.iterate/sessions/` | Saved REPL sessions |
+| `.iterate/bookmarks.json` | Disk-persisted conversation bookmarks |
 
-## Key Commands (REPL)
+## Key REPL Commands
 
 ```
-/help     — show all commands
-/clear    — reset conversation
-/compact  — compress history
-/thinking — set thinking level
-/model    — switch model
-/test     — go test ./...
-/build    — go build ./...
-/lint     — go vet ./...
-/commit   — git add -A && git commit
-/status   — git status + day count
-/phase    — run evolution phase
-/skills   — list loaded skills
-/tools    — list available tools
-/quit     — exit
+── Agent ─────────────────────────────────────────────────────────
+/help              — show all commands
+/clear             — reset conversation
+/thinking <level>  — off|minimal|low|medium|high
+/model             — switch provider/model (interactive)
+/provider <name>   — quick provider switch
+/version           — show version + provider
+/quit              — exit (autosaves session)
+
+── Code Quality ──────────────────────────────────────────────────
+/test              — run tests (project-type aware)
+/build             — build project
+/lint              — lint project
+/health            — full project health (Go/Rust/Node/Python/Make)
+/fix               — auto-fix build errors (project-type aware)
+/coverage          — test coverage report
+
+── Project Tooling ───────────────────────────────────────────────
+/tree [depth]      — git ls-files tree
+/index             — structured file index with summaries
+/pkgdoc <pkg>      — look up pkg.go.dev
+/iterate-init      — generate ITERATE.md context file
+/find <pattern>    — fuzzy file search
+/grep <pattern>    — search code content
+
+── Git ───────────────────────────────────────────────────────────
+/diff              — enhanced diff with stat bar
+/status            — git status + day count
+/commit <msg>      — git add -A && commit
+/undo              — undo last commit
+/git <subcmd>      — full git passthrough
+/pr list           — list open PRs
+/pr view [N]       — view PR
+/pr diff [N]       — PR diff
+/pr review [N]     — AI code review of PR diff
+/pr create         — create PR (--draft supported)
+/pr comment N      — post PR comment
+/pr checkout [N]   — checkout PR branch
+/log [n]           — last n commits
+/branch / /checkout / /merge / /stash / /tag
+
+── Memory ────────────────────────────────────────────────────────
+/remember <note>   — save project note to .iterate/memory.json
+/memories          — show project notes + evolution learnings
+/forget [n]        — remove project note n (or /forget msg n for context)
+/learn <fact>      — add to evolution memory/learnings.jsonl
+/memo <text>       — append to JOURNAL.md
+/mark [name]       — mark conversation position (in-memory)
+/marks             — list marks
+/jump <name>       — restore to mark
+
+── Session ───────────────────────────────────────────────────────
+/save [name]       — save session
+/load [name]       — load session (interactive)
+/context           — context stats + bar
+/tokens            — detailed token usage
+/cost              — per-model USD cost estimate
+/changes           — files written/edited this session
+/compact           — summarise then compact history (preserves context)
+/history           — input history
+/stats             — session duration + tool calls
+
+── Evolution ─────────────────────────────────────────────────────
+/phase plan|implement|communicate
+/self-improve
+/evolve-now
 ```
 
 ## Provider Setup
@@ -109,9 +172,31 @@ The synthesis workflow compresses old entries and promotes durable insights.
 export ANTHROPIC_API_KEY=sk-...   # Anthropic Claude
 export GEMINI_API_KEY=...         # Google Gemini
 export OPENAI_API_KEY=sk-...      # OpenAI
+export GROQ_API_KEY=...           # Groq
 ```
 
-Or pass `--provider` and `--api-key` flags.
+Or pass `--provider` and `--api-key` flags, or use `/provider <name>` at runtime.
+
+Config is stored at `~/.config/iterate/config.toml` (preferred) or `~/.iterate/config.json`. TOML is loaded first. Config supports `allow_dirs`, `deny_dirs`, `allow_patterns`, `deny_patterns`, `safe_mode`, `theme`, and more.
+
+## Multi-line Input
+
+End a line with `\` to continue on the next line:
+```
+❯ Fix the auth bug in login.go \
+  ... and add a test for it
+```
+Or use `/multi` for paste mode (end with `.`).
+
+## Permission System
+
+`/safe` enables safe mode — destructive tools (bash, write, edit) require confirmation.
+Answer `always` to add a command to the session allow-list.
+
+Config fields for persistent patterns:
+```json
+{ "allow_patterns": ["go test *"], "deny_patterns": ["rm -rf *"] }
+```
 
 ## Safety Rules
 

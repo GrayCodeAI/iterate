@@ -1,0 +1,38 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - bodyclose
+    - contextcheck
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+      - name: unused-parameter
+        disabled: true
+
+  errcheck:
+    ignore: fmt:.*,io/fs:PathError
+
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - errcheck
+        - bodyclose
+    - path: "scripts/"
+      linters:
+        - revive
