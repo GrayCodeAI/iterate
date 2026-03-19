@@ -43,22 +43,26 @@ fi
 # Phase A: Planning
 log "Phase A: Planning..."
 ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
-  2>/dev/null || log "Planning phase completed with status $?"
+  2>>"$LOG_FILE" || log "Planning phase exited with status $?"
+
+if [[ ! -f "$PLAN_FILE" ]]; then
+  log "ERROR: SESSION_PLAN.md not created — check $LOG_FILE for details"
+fi
 
 # Phase B: Implementation
 if [[ -f "$PLAN_FILE" ]]; then
   log "Phase B: Implementation..."
   ./iterate --phase implement \
-    2>/dev/null || log "Implementation phase completed with status $?"
+    2>>"$LOG_FILE" || log "Implementation phase exited with status $?"
 else
-  log "No SESSION_PLAN.md found, skipping implementation"
+  log "Skipping implementation (no SESSION_PLAN.md)"
 fi
 
 # Phase C: Communication
 log "Phase C: Communication..."
 if [[ -f "$PLAN_FILE" ]]; then
   ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate \
-    2>/dev/null || log "Communication phase completed with status $?"
+    2>>"$LOG_FILE" || log "Communication phase exited with status $?"
 fi
 
 # Update DAY_COUNT from birth date
