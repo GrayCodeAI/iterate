@@ -107,7 +107,11 @@ def parse_journal(content):
             timestamp = m2.group(2).strip()
             body = "\n".join(lines[1:]).strip()
             first_line = body.split("\n")[0].strip() if body else ""
-            title = first_line if first_line and first_line != "Auto-evolution session completed." else timestamp
+            if first_line and first_line != "Auto-evolution session completed.":
+                title = first_line
+            else:
+                title = f"Auto-evolution — {timestamp}"
+                body = ""
             entries.append({"day": day, "title": title, "body": body})
     return entries
 
@@ -116,7 +120,7 @@ def render_journal(entries):
     if not entries:
         return '<div class="timeline-empty">The journey begins soon...</div>'
     parts = []
-    for entry in entries:
+    for entry in sorted(entries, key=lambda e: e["day"], reverse=True):
         body_html = ""
         if entry["body"]:
             body_html = md_inline(entry["body"])
