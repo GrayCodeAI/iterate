@@ -408,11 +408,32 @@ func buildSystemPrompt(repoPath, identity string) string {
 %s
 %s
 
-## Tool call format
-Wrap tool calls in triple backtick blocks:
+## Tool call format — YOU MUST USE THIS EXACTLY
+
+To call any tool, output a fenced code block with the language "tool" and a JSON object:
+
 `+"```"+`tool
 {"tool":"tool_name","args":{"key":"value"}}
-`+"```",
+`+"```"+`
+
+Examples:
+
+Read a file:
+`+"```"+`tool
+{"tool":"read_file","args":{"path":"internal/evolution/engine.go"}}
+`+"```"+`
+
+Write a file:
+`+"```"+`tool
+{"tool":"write_file","args":{"path":"SESSION_PLAN.md","content":"## Session Plan\n\nSession Title: Fix nil pointer\n\n### Task 1: Fix nil check\nFiles: cmd/iterate/repl.go\nDescription: Add nil check on line 47\nIssue: none\n\n### Issue Responses\n"}}
+`+"```"+`
+
+Run a bash command:
+`+"```"+`tool
+{"tool":"bash","args":{"command":"go test ./..."}}
+`+"```"+`
+
+**CRITICAL**: You MUST use this format to write files. Do NOT just describe what you would write — actually write it using the write_file tool call above.`,
 		identity,
 		string(personality),
 		skillsPrompt,
