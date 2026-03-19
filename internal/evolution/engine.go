@@ -142,14 +142,23 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 
+	// Load memory/active_learnings.md
+	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
+
 	var sb strings.Builder
 	sb.WriteString("## Phase: Planning\n\n")
-	sb.WriteString("Read your source code (cmd/, internal/), JOURNAL.md, and ISSUES_TODAY.md.\n")
+	sb.WriteString("You are about to plan your next evolution session. Follow these steps:\n\n")
+	sb.WriteString("1. Read your entire source tree: list_files on cmd/ and internal/ recursively\n")
+	sb.WriteString("2. Read key source files to understand what exists and what is missing\n")
+	sb.WriteString("3. Check go test ./... output to find failing or missing tests\n")
+	sb.WriteString("4. Look at recent journal entries to avoid repeating past work\n")
+	sb.WriteString("5. Pick 1-3 meaningful improvements: real bugs, missing tests, better error handling, new features\n\n")
 	sb.WriteString("Then write SESSION_PLAN.md with EXACTLY this format:\n\n")
 	sb.WriteString("## Session Plan\n\n")
+	sb.WriteString("Session Title: [short title describing today's focus]\n\n")
 	sb.WriteString("### Task 1: [title]\n")
 	sb.WriteString("Files: [files to modify]\n")
-	sb.WriteString("Description: [what to do]\n")
+	sb.WriteString("Description: [what to do and why]\n")
 	sb.WriteString("Issue: #N (or \"none\")\n\n")
 	sb.WriteString("### Task 2: ...\n\n")
 	sb.WriteString("### Issue Responses\n")
@@ -157,12 +166,21 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	sb.WriteString("- #N: wontfix — [reason]\n\n")
 	sb.WriteString("After writing SESSION_PLAN.md, commit it:\n")
 	sb.WriteString(fmt.Sprintf("git add SESSION_PLAN.md && git commit -m \"Day %s: session plan\"\n\n", day))
-	sb.WriteString("Then STOP. Do not implement anything.\n\n")
+	sb.WriteString("Then STOP. Do not implement anything yet.\n\n")
 
+	if len(learnings) > 0 {
+		l := string(learnings)
+		if len(l) > 1000 {
+			l = l[:1000] + "\n...[truncated]"
+		}
+		sb.WriteString("## What you have learned so far\n\n")
+		sb.WriteString(l)
+		sb.WriteString("\n\n")
+	}
 	if len(string(journal)) > 0 {
 		recent := string(journal)
-		if len(recent) > 500 {
-			recent = "...\n" + recent[len(recent)-500:]
+		if len(recent) > 800 {
+			recent = "...\n" + recent[len(recent)-800:]
 		}
 		sb.WriteString("## Recent journal\n\n")
 		sb.WriteString(recent)
@@ -347,10 +365,22 @@ Wrap tool calls in triple backtick blocks:
 }
 
 func buildUserMessage(repoPath, journal, issues string) string {
+	learnings, _ := os.ReadFile(filepath.Join(repoPath, "memory", "active_learnings.md"))
+
 	var sb strings.Builder
 	sb.WriteString("## Your task\n\n")
 	sb.WriteString("Assess your codebase, find one meaningful improvement, implement it, test it, and commit it.\n\n")
-	sb.WriteString("Start by listing your files with list_files, then read relevant source files.\n\n")
+	sb.WriteString("Start by listing your files with list_files on cmd/ and internal/, read relevant source files, then find something real to improve.\n\n")
+
+	if len(learnings) > 0 {
+		l := string(learnings)
+		if len(l) > 1000 {
+			l = l[:1000] + "\n...[truncated]"
+		}
+		sb.WriteString("## What you have learned so far\n\n")
+		sb.WriteString(l)
+		sb.WriteString("\n\n")
+	}
 
 	if len(journal) > 0 {
 		recent := journal

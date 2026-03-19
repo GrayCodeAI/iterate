@@ -63,7 +63,15 @@ TMPJ=$(mktemp)
 {
   echo "# iterate Evolution Journal"
   echo ""
-  echo "## Day $DAY — $SESSION_TIME — Auto-evolution"
+  # Extract session title from SESSION_PLAN.md, fallback to "Auto-evolution"
+  SESSION_TITLE="Auto-evolution"
+  if [[ -f "$PLAN_FILE" ]]; then
+    EXTRACTED=$(grep -m1 "^Session Title:" "$PLAN_FILE" | sed 's/^Session Title:\s*//' | tr -d '\r')
+    if [[ -n "$EXTRACTED" ]]; then
+      SESSION_TITLE="$EXTRACTED"
+    fi
+  fi
+  echo "## Day $DAY — $SESSION_TIME — $SESSION_TITLE"
   echo ""
   if [[ -f "$PLAN_FILE" ]]; then
     head -20 "$PLAN_FILE" | tail -n +2
