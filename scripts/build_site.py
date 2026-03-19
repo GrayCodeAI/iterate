@@ -3,6 +3,7 @@
 
 import html
 import re
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -76,6 +77,26 @@ def md_to_html(text):
 
     return content_html + rules_html
 
+def ordinal(n):
+    if 11 <= (n % 100) <= 13:
+        return f"{n}th"
+    return f"{n}{['th','st','nd','rd','th'][min(n % 10, 4)]}"
+
+
+def format_timestamp(ts):
+    """Convert '2026-03-19 08:56:12' or 'HH:MM' to '19th March 2026, 08:56:12'."""
+    try:
+        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+        return f"{ordinal(dt.day)} {dt.strftime('%B %Y')}, {dt.strftime('%H:%M:%S')}"
+    except ValueError:
+        pass
+    try:
+        dt = datetime.strptime(ts, "%H:%M")
+        return dt.strftime("%H:%M")
+    except ValueError:
+        return ts
+
+
 def md_inline(text):
     text = html.escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
@@ -135,7 +156,8 @@ def render_journal(entries):
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
         ts = entry.get("timestamp", "")
-        ts_html = f'      <span class="entry-timestamp">{html.escape(ts)}</span>\n' if ts else ""
+        ts_fmt = format_timestamp(ts) if ts else ""
+        ts_html = f'      <span class="entry-timestamp">{html.escape(ts_fmt)}</span>\n' if ts_fmt else ""
         parts.append(
             f'  <article class="entry">\n'
             f'    <div class="entry-marker"></div>\n'
