@@ -19,7 +19,7 @@ import (
 type projectType int
 
 const (
-	projectTypeGo      projectType = iota
+	projectTypeGo projectType = iota
 	projectTypeRust
 	projectTypeNode
 	projectTypePython
