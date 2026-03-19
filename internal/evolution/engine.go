@@ -300,52 +300,49 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 		a.Finish()
 	}
 
-	// Step 2 — agent writes its own journal entry
+	// Step 2 — agent generates journal text, Go writes it to file
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day := strings.TrimSpace(string(dayBytes))
-	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 
-	journalMsg := fmt.Sprintf(`Your ONLY job right now: write your Day %s journal entry using this exact bash command.
+	journalMsg := `Run this command and reply with ONLY the journal entry text — nothing else:
 
-First, run: git log --oneline -10
-Read the output to see what actually changed this session.
+bash: git log --oneline -10
 
-Then run this command to write your journal entry (fill in TITLE and BODY):
+Based on the output, write a journal entry in this exact format:
 
-bash:
-python3 - <<'PYEOF'
-import re, datetime
+## Day ` + day + ` — HH:MM — Title
 
-title = "REPLACE_WITH_REAL_TITLE"  # e.g. "Add test coverage for pricing.go"
-body = "REPLACE_WITH_REAL_BODY"    # 2-4 sentences: what you did, what worked, what failed, what's next
+Body paragraph here.
 
-ts = datetime.datetime.utcnow().strftime("%%H:%%M")
-entry = f"## Day %s — {ts} — {title}\n\n{body}\n\n"
-
-with open("JOURNAL.md", "r") as f:
-    content = f.read()
-
-# Insert after header line
-new_content = re.sub(r"(# iterate Evolution Journal\n+)", r"\1" + entry, content, count=1)
-with open("JOURNAL.md", "w") as f:
-    f.write(new_content)
-print("Journal written.")
-PYEOF
-
-Rules for title and body:
-- Title: specific action taken, e.g. "Fix gofmt violations in pricing.go" not "Auto-evolution"
-- Body: what you tried, what worked, what failed, what's next
-- If nothing was implemented this session, say so honestly
-
-Current JOURNAL.md:
-%s`,
-		day, day,
-		truncate(string(journal), 400),
-	)
+Rules:
+- HH:MM = current UTC time
+- Title = specific description of what was done this session
+- Body = 2-4 honest sentences: what you tried, what worked, what failed, what's next
+- If nothing was implemented, say so honestly
+- Reply with ONLY the journal entry, no explanation, no preamble`
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
-	e.forwardEvents(a.Prompt(ctx, journalMsg))
+	var journalEntry string
+	for ev := range a.Prompt(ctx, journalMsg) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			journalEntry = strings.TrimSpace(ev.Content)
+		}
+	}
 	a.Finish()
+
+	// Write journal entry to file if agent produced valid output
+	if strings.HasPrefix(journalEntry, "## Day") {
+		journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+		header := "# iterate Evolution Journal\n"
+		newContent := header + "\n" + journalEntry + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
+		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
+	}
 
 	// Step 3 — separate agent call for learnings (only if journal was written)
 	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
