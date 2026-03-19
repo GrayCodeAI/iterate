@@ -276,7 +276,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	return nil
 }
 
-// RunCommunicatePhase parses Issue Responses from SESSION_PLAN.md and posts them.
+// RunCommunicatePhase posts issue responses, writes the journal entry, and reflects on learnings.
 func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) error {
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
@@ -285,25 +285,62 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 		return nil
 	}
 
-	responses := parseIssueResponses(string(planBytes))
-	if len(responses) == 0 {
-		e.logger.Info("no issue responses in SESSION_PLAN.md")
-		return nil
-	}
-
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	tools := iteragent.DefaultTools(e.repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
+	// Step 1 — post issue responses
+	responses := parseIssueResponses(string(planBytes))
 	for _, resp := range responses {
-		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse the gh CLI: gh issue comment %d --repo . --body \"...\"\nKeep the comment brief and friendly.",
+		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse: gh issue comment %d --repo GrayCodeAI/iterate --body \"...\"\nBe brief, honest, and in your own voice. Sign off with your day count.",
 			resp.IssueNum, resp.Status, resp.Reason, resp.IssueNum)
-
 		a := e.newAgent(p, tools, systemPrompt, skills)
 		e.forwardEvents(a.Prompt(ctx, userMsg))
 		a.Finish()
 	}
+
+	// Step 2 — agent writes its own journal entry and reflects on learnings
+	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	day := strings.TrimSpace(string(dayBytes))
+	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
+
+	journalMsg := fmt.Sprintf(`You just finished Day %s of your evolution. Now do two things:
+
+**1. Write your journal entry.**
+Read git log --oneline -10 to see what you actually did this session.
+Then insert a new entry at the TOP of JOURNAL.md (right after the first line "# iterate Evolution Journal").
+
+Format exactly:
+## Day %s — [HH:MM UTC] — [short honest title of what you actually did]
+
+[2-4 sentences: what you tried, what worked, what didn't, what's next]
+
+Rules:
+- Be specific. "Fixed nil pointer in /diff command" not "improved error handling"
+- Be honest. If nothing changed, say so.
+- End with what's next.
+
+**2. Reflect and write a learning (only if genuinely novel).**
+Read memory/active_learnings.md first to avoid duplicates.
+Ask yourself: did this session teach me something that would change how I act next time?
+If yes, append ONE line to memory/learnings.jsonl using python3.
+
+## Recent journal (for context and to match voice):
+%s
+
+## What you already know:
+%s`,
+		day, day,
+		truncate(string(journal), 600),
+		truncate(string(learnings), 400),
+	)
+
+	a := e.newAgent(p, tools, systemPrompt, skills)
+	e.forwardEvents(a.Prompt(ctx, journalMsg))
+	a.Finish()
+
 	return nil
 }
 

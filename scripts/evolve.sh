@@ -16,6 +16,9 @@ log() {
 
 log "=== iterate evolution cycle started ==="
 
+# Load iterate's identity context
+source "$(dirname "$0")/iterate_context.sh" 2>/dev/null || true
+
 # Check if last CI run failed and write status for planning agent
 if command -v gh &>/dev/null; then
   LAST_CI=$(gh run list --repo GrayCodeAI/iterate --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
@@ -58,8 +61,7 @@ if [[ -f "$PLAN_FILE" ]]; then
     2>/dev/null || log "Communication phase completed with status $?"
 fi
 
-# Update journal
-log "Updating journal..."
+# Update DAY_COUNT from birth date
 BIRTH_DATE="2026-03-18"
 SESSION_TIME=$(date -u +'%H:%M')
 if date -j &>/dev/null 2>&1; then
@@ -69,30 +71,22 @@ else
 fi
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
-# Insert journal entry at TOP (before first ## Day entry), newest-first like yoyo
-TMPJ=$(mktemp)
-{
-  echo "# iterate Evolution Journal"
-  echo ""
-  # Extract session title from SESSION_PLAN.md, fallback to "Auto-evolution"
-  SESSION_TITLE="Auto-evolution"
-  if [[ -f "$PLAN_FILE" ]]; then
-    EXTRACTED=$(grep -m1 "^Session Title:" "$PLAN_FILE" | sed 's/^Session Title:\s*//' | tr -d '\r')
-    if [[ -n "$EXTRACTED" ]]; then
-      SESSION_TITLE="$EXTRACTED"
-    fi
-  fi
-  echo "## Day $DAY — $SESSION_TIME — $SESSION_TITLE"
-  echo ""
-  if [[ -f "$PLAN_FILE" ]]; then
-    head -20 "$PLAN_FILE" | tail -n +2
-  else
+# Journal is written by the agent in the communicate phase.
+# If agent skipped it (e.g. no SESSION_PLAN), write a minimal fallback.
+if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
+  log "Agent did not write journal — writing fallback entry"
+  TMPJ=$(mktemp)
+  {
+    echo "# iterate Evolution Journal"
+    echo ""
+    echo "## Day $DAY — $SESSION_TIME — Auto-evolution"
+    echo ""
     echo "Evolution session completed."
-  fi
-  echo ""
-  grep -n "^## Day" "${REPOPATH}/JOURNAL.md" | head -1 | cut -d: -f1 | xargs -I{} tail -n +{} "${REPOPATH}/JOURNAL.md"
-} > "$TMPJ"
-mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
+    echo ""
+    grep -n "^## Day" "${REPOPATH}/JOURNAL.md" | head -1 | cut -d: -f1 | xargs -I{} tail -n +{} "${REPOPATH}/JOURNAL.md" 2>/dev/null || tail -n +2 "${REPOPATH}/JOURNAL.md"
+  } > "$TMPJ"
+  mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
+fi
 
 log "=== iterate evolution cycle completed ==="
 log "Day $DAY ($SESSION_TIME)"
