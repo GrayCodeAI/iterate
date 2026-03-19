@@ -53,6 +53,10 @@ jobs:
         run: |
           bash scripts/evolve.sh
 
+      - name: Show evolution log
+        if: always()
+        run: cat .iterate/evolution.log 2>/dev/null || echo "(no log file)"
+
       - name: Push changes
         run: |
           if [[ -n $(git status -s) ]]; then
