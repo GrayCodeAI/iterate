@@ -1,26 +1,16 @@
 ## Session Plan
 
-Session Title: Fix CI formatting and add missing test coverage
+Session Title: Add session cost tracking with /cost command
 
-### Task 1: Fix gofmt formatting issues breaking CI
-Files: cmd/iterate/commands_git.go, cmd/iterate/commands_project.go, cmd/iterate/config.go, cmd/iterate/pricing.go, cmd/iterate/pricing_test.go, go.mod
-Description: Run gofmt -w on all Go files to fix formatting violations causing CI failures. The CI format check requires zero files needing formatting.
+### Task 1: Implement token cost tracking
+Files: cmd/iterate/repl.go, cmd/iterate/pricing.go, cmd/iterate/features.go
+Description: Track input/output/cache tokens per session and calculate approximate cost based on provider rates. Add /cost slash command to display usage. Use existing sessionInputTokens/sessionOutputTokens variables in repl.go, add cost calculation functions in pricing.go using known rates for anthropic, openai, gemini, groq. Display in a formatted table showing tokens used and estimated cost.
 Issue: none
 
-### Task 2: Add test coverage for selector.go utility functions
-Files: cmd/iterate/selector_test.go (new file)
-Description: Add unit tests for tabComplete(), tabCompleteWithArgs(), and completeFilePath() functions in selector.go. These are core UX functions with zero coverage. Test: exact matches, partial matches, no matches, argument completion for /thinking and /provider commands.
-Issue: none
-
-### Task 3: Add test coverage for pricing calculations
-Files: cmd/iterate/pricing_test.go
-Description: Expand existing pricing tests to cover estimateCost() and formatCostTable() functions. Add tests for different model pricing tiers (Claude, GPT-4, Gemini) and edge cases (zero tokens, cache hits, unknown models).
-Issue: none
-
-### Task 4: Update CLAUDE_CODE_GAP.md to reflect implemented features
-Files: CLAUDE_CODE_GAP.md
-Description: Update the gap analysis to mark implemented features: Tab completion ✅ (selector.go), Readline history ✅ (selector.go), /diff command ✅ (repl.go), /cost command ✅ (repl.go + pricing.go), Cost tracking ✅. Add any newly identified gaps discovered during testing.
+### Task 2: Remove dead code
+Files: cmd/iterate/commands_git.go
+Description: Remove the duplicate containsString function (lines 167-173) that's already defined in repl.go. This function is unused and creates maintenance burden.
 Issue: none
 
 ### Issue Responses
-- No community issues labeled agent-input or agent-help-wanted to respond to.
+- No open community issues to address.
