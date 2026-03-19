@@ -50,7 +50,7 @@ fi
 # Update journal
 log "Updating journal..."
 BIRTH_DATE="2026-03-18"
-SESSION_TIME=$(date -u +'%H:%M')
+SESSION_TIME=$(TZ="Asia/Kolkata" date +'%H:%M')
 if date -j &>/dev/null 2>&1; then
   DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
 else
