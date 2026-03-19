@@ -58,10 +58,10 @@ else
 fi
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
-# Insert journal entry at TOP (below the # heading line), newest-first like yoyo
+# Insert journal entry at TOP (before first ## Day entry), newest-first like yoyo
 TMPJ=$(mktemp)
 {
-  head -1 "${REPOPATH}/JOURNAL.md"
+  echo "# iterate Evolution Journal"
   echo ""
   echo "## Day $DAY — $SESSION_TIME — Auto-evolution"
   echo ""
@@ -71,7 +71,7 @@ TMPJ=$(mktemp)
     echo "Evolution session completed."
   fi
   echo ""
-  tail -n +2 "${REPOPATH}/JOURNAL.md"
+  grep -n "^## Day" "${REPOPATH}/JOURNAL.md" | head -1 | cut -d: -f1 | xargs -I{} tail -n +{} "${REPOPATH}/JOURNAL.md"
 } > "$TMPJ"
 mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
 
