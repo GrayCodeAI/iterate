@@ -96,8 +96,22 @@ var slashCommands = []string{
 	// code quality
 	"/test", "/test-file", "/test-gen", "/build", "/lint", "/lint-fix",
 	"/format", "/coverage", "/doctor",
-	// GitHub
+	// GitHub & PRs
 	"/pr", "/pr-list", "/pr-review", "/issues",
+	// project tooling (new)
+	"/health", "/tree", "/index", "/pkgdoc", "/iterate-init",
+	// provider & version (new)
+	"/provider", "/version",
+	// marks (new)
+	"/mark", "/marks", "/jump",
+	// per-project memory (new)
+	"/remember",
+	// git passthrough (new)
+	"/git",
+	// session changes (new)
+	"/changes",
+	// token/cost (new)
+	"/tokens",
 	// dev
 	"/watch", "/run", "/plan", "/phase", "/quit",
 	// ai-assisted generation
@@ -116,6 +130,53 @@ var slashCommands = []string{
 	"/init",
 	// search & multi-agent
 	"/search", "/spawn",
+}
+
+// commandArgCompletions maps commands to their known argument completions.
+var commandArgCompletions = map[string][]string{
+	"/thinking": {"off", "minimal", "low", "medium", "high"},
+	"/provider": {"anthropic", "openai", "gemini", "groq", "ollama", "azure", "bedrock", "vertex", "mistral", "deepseek"},
+	"/theme":    {"default", "nord", "monokai", "minimal"},
+	"/pr":       {"list", "view", "diff", "comment", "checkout", "create"},
+	"/git":      {"status", "log", "diff", "add", "commit", "push", "pull", "branch", "stash", "rebase", "fetch"},
+	"/phase":    {"plan", "implement", "communicate"},
+	"/set":      {"temperature", "max_tokens", "reset"},
+}
+
+// tabCompleteWithArgs completes both slash commands and their arguments.
+func tabCompleteWithArgs(partial string) string {
+	// If there's a space, we're completing an argument
+	spaceIdx := strings.Index(partial, " ")
+	if spaceIdx >= 0 {
+		cmd := partial[:spaceIdx]
+		argPartial := partial[spaceIdx+1:]
+		if completions, ok := commandArgCompletions[cmd]; ok {
+			var matches []string
+			for _, c := range completions {
+				if strings.HasPrefix(c, argPartial) {
+					matches = append(matches, c)
+				}
+			}
+			if len(matches) == 1 {
+				return cmd + " " + matches[0] + " "
+			}
+			if len(matches) > 1 {
+				prefix := matches[0]
+				for _, m := range matches[1:] {
+					for !strings.HasPrefix(m, prefix) {
+						prefix = prefix[:len(prefix)-1]
+					}
+				}
+				return cmd + " " + prefix
+			}
+		}
+		// Fall through to file path completion for commands that take file args
+		if cmd == "/add" || cmd == "/open" || cmd == "/view" || cmd == "/mock" {
+			return completeFilePath(partial)
+		}
+		return partial
+	}
+	return tabComplete(partial)
 }
 
 // tabComplete returns the longest unique completion for a partial slash command.
@@ -396,11 +457,11 @@ func readInput() (string, bool) {
 		case b[0] == 27 && n == 1:
 			// bare ESC — ignore
 
-		case b[0] == '\t': // Tab — autocomplete slash commands or file paths
+		case b[0] == '\t': // Tab — autocomplete slash commands, arguments, or file paths
 			current := string(buf)
 			var completion string
 			if strings.HasPrefix(current, "/") {
-				completion = tabComplete(current)
+				completion = tabCompleteWithArgs(current)
 			} else {
 				completion = completeFilePath(current)
 			}
