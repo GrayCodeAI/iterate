@@ -49,21 +49,31 @@ fi
 
 # Update journal
 log "Updating journal..."
-DAY_COUNT=$(cat "${REPOPATH}/DAY_COUNT" 2>/dev/null || echo "1")
-NEXT_DAY=$((DAY_COUNT + 1))
-echo "$NEXT_DAY" > "${REPOPATH}/DAY_COUNT"
+BIRTH_DATE="2026-03-18"
+SESSION_TIME=$(date -u +'%H:%M')
+if date -j &>/dev/null 2>&1; then
+  DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+else
+  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+fi
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
-# Append to JOURNAL.md
+# Insert journal entry at TOP (below the # heading line), newest-first like yoyo
+TMPJ=$(mktemp)
 {
+  head -1 "${REPOPATH}/JOURNAL.md"
   echo ""
-  echo "## Day $DAY_COUNT ($(date -u +'%Y-%m-%d %H:%M:%S'))"
+  echo "## Day $DAY — $SESSION_TIME — Auto-evolution"
   echo ""
   if [[ -f "$PLAN_FILE" ]]; then
     head -20 "$PLAN_FILE" | tail -n +2
   else
-    echo "Auto-evolution session completed."
+    echo "Evolution session completed."
   fi
-} >> "${REPOPATH}/JOURNAL.md"
+  echo ""
+  tail -n +2 "${REPOPATH}/JOURNAL.md"
+} > "$TMPJ"
+mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
 
 log "=== iterate evolution cycle completed ==="
-log "DAY_COUNT advanced from $DAY_COUNT to $NEXT_DAY"
+log "Day $DAY ($SESSION_TIME)"
