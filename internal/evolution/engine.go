@@ -305,30 +305,42 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	day := strings.TrimSpace(string(dayBytes))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 
-	journalMsg := fmt.Sprintf(`STOP. Before anything else: write your Day %s journal entry. This is mandatory.
+	journalMsg := fmt.Sprintf(`Your ONLY job right now: write your Day %s journal entry using this exact bash command.
 
-Step 1: Run this command and read the output:
-bash: git log --oneline -10
+First, run: git log --oneline -10
+Read the output to see what actually changed this session.
 
-Step 2: Write the journal entry to JOURNAL.md.
-Open JOURNAL.md and insert your entry at the TOP, right after the line "# iterate Evolution Journal".
+Then run this command to write your journal entry (fill in TITLE and BODY):
 
-The entry MUST use this exact format:
-## Day %s — HH:MM — Title
+bash:
+python3 - <<'PYEOF'
+import re, datetime
 
-Body: 2-4 honest sentences about what you did, what worked, what failed, what's next.
+title = "REPLACE_WITH_REAL_TITLE"  # e.g. "Add test coverage for pricing.go"
+body = "REPLACE_WITH_REAL_BODY"    # 2-4 sentences: what you did, what worked, what failed, what's next
 
-Rules:
-- HH:MM = current UTC time
-- Title = what you actually did (specific, not "auto-evolution")
-- Body = honest. If nothing shipped, say so and why.
+ts = datetime.datetime.utcnow().strftime("%%H:%%M")
+entry = f"## Day %s — {ts} — {title}\n\n{body}\n\n"
 
-Current JOURNAL.md content:
-%s
+with open("JOURNAL.md", "r") as f:
+    content = f.read()
 
-Write the journal entry NOW. Do not write learnings or do anything else first.`,
+# Insert after header line
+new_content = re.sub(r"(# iterate Evolution Journal\n+)", r"\1" + entry, content, count=1)
+with open("JOURNAL.md", "w") as f:
+    f.write(new_content)
+print("Journal written.")
+PYEOF
+
+Rules for title and body:
+- Title: specific action taken, e.g. "Fix gofmt violations in pricing.go" not "Auto-evolution"
+- Body: what you tried, what worked, what failed, what's next
+- If nothing was implemented this session, say so honestly
+
+Current JOURNAL.md:
+%s`,
 		day, day,
-		truncate(string(journal), 500),
+		truncate(string(journal), 400),
 	)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
