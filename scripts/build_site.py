@@ -93,12 +93,21 @@ def parse_journal(content):
             continue
         lines = chunk.split("\n")
         # Format 1: "Day N — HH:MM — Title"  (evolution engine)
-        m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
+        m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0])
         if m:
             day = int(m.group(1))
-            title = m.group(2).strip()
+            timestamp = m.group(2).strip()
+            title = m.group(3).strip()
             body = "\n".join(lines[1:]).strip()
-            entries.append({"day": day, "title": title, "body": body})
+            entries.append({"day": day, "timestamp": timestamp, "title": title, "body": body})
+            continue
+        # Format 1b: "Day N — Title" (no timestamp)
+        m1b = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(.+)", lines[0])
+        if m1b:
+            day = int(m1b.group(1))
+            title = m1b.group(2).strip()
+            body = "\n".join(lines[1:]).strip()
+            entries.append({"day": day, "timestamp": "", "title": title, "body": body})
             continue
         # Format 2: "Day N (YYYY-MM-DD HH:MM:SS)"  (evolve.sh shell)
         m2 = re.match(r"Day\s+(\d+)\s*\(([^)]+)\)", lines[0])
@@ -110,9 +119,9 @@ def parse_journal(content):
             if first_line and first_line != "Auto-evolution session completed.":
                 title = first_line
             else:
-                title = f"Auto-evolution — {timestamp}"
+                title = "Auto-evolution"
                 body = ""
-            entries.append({"day": day, "title": title, "body": body})
+            entries.append({"day": day, "timestamp": timestamp, "title": title, "body": body})
     return entries
 
 
@@ -125,11 +134,14 @@ def render_journal(entries):
         if entry["body"]:
             body_html = md_inline(entry["body"])
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
+        ts = entry.get("timestamp", "")
+        ts_html = f'      <span class="entry-timestamp">{html.escape(ts)}</span>\n' if ts else ""
         parts.append(
             f'  <article class="entry">\n'
             f'    <div class="entry-marker"></div>\n'
             f'    <div class="entry-content">\n'
             f'      <span class="entry-day">Day {entry["day"]}</span>\n'
+            f'{ts_html}'
             f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
             f'      <p class="entry-body">{body_html}</p>\n'
             f'    </div>\n'
