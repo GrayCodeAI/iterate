@@ -56,7 +56,7 @@ echo "$NEXT_DAY" > "${REPOPATH}/DAY_COUNT"
 # Append to JOURNAL.md
 {
   echo ""
-  echo "## Day $NEXT_DAY ($(date -u +'%Y-%m-%d %H:%M:%S'))"
+  echo "## Day $DAY_COUNT ($(date -u +'%Y-%m-%d %H:%M:%S'))"
   echo ""
   if [[ -f "$PLAN_FILE" ]]; then
     head -20 "$PLAN_FILE" | tail -n +2
@@ -66,4 +66,4 @@ echo "$NEXT_DAY" > "${REPOPATH}/DAY_COUNT"
 } >> "${REPOPATH}/JOURNAL.md"
 
 log "=== iterate evolution cycle completed ==="
-log "DAY_COUNT advanced to $NEXT_DAY"
+log "DAY_COUNT advanced from $DAY_COUNT to $NEXT_DAY"
