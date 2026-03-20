@@ -19,6 +19,18 @@ log "=== iterate evolution cycle started ==="
 # Load iterate's identity context
 source "$(dirname "$0")/iterate_context.sh" 2>/dev/null || true
 
+# Calculate current day from birth date (used everywhere in this script)
+BIRTH_DATE="2026-03-18"
+SESSION_TIME=$(date -u +'%H:%M')
+if date -j &>/dev/null 2>&1; then
+  DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+else
+  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+fi
+
+# Write DAY_COUNT early so the Go engine can read the correct day
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+
 # Check if last CI run failed and write status for planning agent
 if command -v gh &>/dev/null; then
   LAST_CI=$(gh run list --repo GrayCodeAI/iterate --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
@@ -30,26 +42,21 @@ if command -v gh &>/dev/null; then
   fi
 fi
 
-# Strip any placeholder journal entries for today so agent writes a real one
-BIRTH_DATE="2026-03-18"
-if date -j &>/dev/null 2>&1; then
-  _DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
-else
-  _DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
-fi
-if grep -q "^## Day $_DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
-  python3 - <<PYEOF
-import re
+# Strip placeholder journal entries for today so agent writes a real one
+if grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
+  python3 -c "
+import re, sys
+day = sys.argv[1]
 with open('JOURNAL.md', 'r') as f:
     content = f.read()
-# Remove placeholder Day N entry (shell-written fallback)
-pattern = r'^## Day ${_DAY}[^\n]*\n\nEvolution session completed\.\n\n'
+# Remove fallback 'Day N — HH:MM — Auto-evolution' entries
+pattern = r'^## Day ' + day + r'[^\n]*Auto-evolution[^\n]*\n\nEvolution session completed\.\n\n'
 cleaned = re.sub(pattern, '', content, flags=re.MULTILINE)
 if cleaned != content:
     with open('JOURNAL.md', 'w') as f:
         f.write(cleaned)
-    print('[evolve.sh] Removed placeholder Day ${_DAY} entry — agent will write real one')
-PYEOF
+    print('[evolve.sh] Removed placeholder Day %s entry — agent will write real one' % day)
+" "$DAY"
 fi
 
 # Build the binary
@@ -99,18 +106,9 @@ if [[ -f "$PLAN_FILE" ]]; then
     2>>"$LOG_FILE" || log "Communication phase exited with status $?"
 fi
 
-# Update DAY_COUNT from birth date
-BIRTH_DATE="2026-03-18"
-SESSION_TIME=$(date -u +'%H:%M')
-if date -j &>/dev/null 2>&1; then
-  DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
-else
-  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
-fi
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-
-# Journal is written by the agent in the communicate phase.
-# If agent skipped it (e.g. no SESSION_PLAN), write a minimal fallback.
+# Safety net: if communicate phase completely failed to write a journal,
+# write a minimal fallback. The Go engine should always write one now,
+# but this catches edge cases (crash, no SESSION_PLAN, etc).
 if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
   log "Agent did not write journal — writing fallback entry"
   TMPJ=$(mktemp)

@@ -49,7 +49,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           ITERATE_PROVIDER: opencode
           ITERATE_MODEL: kimi-k2.5
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash scripts/evolve.sh
 
