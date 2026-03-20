@@ -304,22 +304,25 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day := strings.TrimSpace(string(dayBytes))
 
-	journalMsg := `Run this command and reply with ONLY the journal entry text — nothing else:
+	journalMsg := `First, run this tool call to see recent commits:
 
-bash: git log --oneline -10
+` + "```tool" + `
+{"tool":"bash","args":{"command":"git log --oneline -10"}}
+` + "```" + `
 
-Based on the output, write a journal entry in this exact format:
+Then write a journal entry based on the output. Your ENTIRE reply must start with "## Day" and contain ONLY the journal entry — no explanation, no preamble, no markdown fences.
 
+Format:
 ## Day ` + day + ` — HH:MM — Title
 
-Body paragraph here.
+Body paragraph here (2-4 honest sentences).
 
 Rules:
 - HH:MM = current UTC time
 - Title = specific description of what was done this session
-- Body = 2-4 honest sentences: what you tried, what worked, what failed, what's next
-- If nothing was implemented, say so honestly
-- Reply with ONLY the journal entry, no explanation, no preamble`
+- Be honest: say what you tried, what worked, what failed
+- If nothing was implemented, say "Evolution session completed." and nothing more
+- Your reply MUST start with "## Day" — no text before it`
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var journalEntry string
@@ -336,15 +339,31 @@ Rules:
 	}
 	a.Finish()
 
-	// Write journal entry to file if agent produced valid output
-	if strings.HasPrefix(journalEntry, "## Day") {
+	// Write journal entry to file if agent produced valid output.
+	// Be lenient: extract the first "## Day" block even if the LLM added preamble text.
+	if idx := strings.Index(journalEntry, "## Day"); idx >= 0 {
+		extracted := journalEntry[idx:]
+		// Trim anything after the next "## " heading (next journal entry or section)
+		if nextIdx := strings.Index(extracted[1:], "\n## "); nextIdx >= 0 {
+			extracted = extracted[:nextIdx+1]
+		}
+		extracted = strings.TrimSpace(extracted)
 		journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 		header := "# iterate Evolution Journal\n"
-		newContent := header + "\n" + journalEntry + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
+		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
+		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
+	} else {
+		e.logger.Warn("agent output does not contain '## Day' — writing fallback journal entry")
+		dayNum, _ := strconv.Atoi(day)
+		sessionTime := time.Now().UTC().Format("15:04")
+		fallbackEntry := fmt.Sprintf("## Day %d — %s — Auto-evolution\n\nEvolution session completed.\n", dayNum, sessionTime)
+		journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+		header := "# iterate Evolution Journal\n"
+		newContent := header + "\n" + fallbackEntry + "\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
 		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
 	}
 
-	// Step 3 — separate agent call for learnings (only if journal was written)
+	// Step 3 — separate agent call for learnings
 	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
 	learningsMsg := fmt.Sprintf(`Did this session teach you something genuinely new that would change how you act next time?
 
