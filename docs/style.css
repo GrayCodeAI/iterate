@@ -115,20 +115,27 @@ main {
 /* ── hero ── */
 
 .hero {
-  padding: 4rem 0 4rem;
+  padding: 5rem 0 4rem;
   border-bottom: 1px solid var(--border);
 }
 
-.hero-logo {
-  max-width: 400px;
-  width: 100%;
-  height: auto;
-  margin-bottom: 1.5rem;
+.hero h1 {
+  font-size: 3.8rem;
+  font-weight: 700;
+  color: var(--lime);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+.cursor {
+  animation: blink 1.2s step-end infinite;
+  color: var(--pink);
+  font-weight: 300;
 }
 
 .day-count {
