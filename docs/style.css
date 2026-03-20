@@ -7,7 +7,7 @@
   --text: #a0aec0;
   --text-bright: #f0f4ff;
   --text-dim: #4a5568;
-  --cyan: #22d3ee;
+  --teal: #14b8a6;
   --lime: #a3e635;
   --pink: #f472b6;
   --yellow: #fbbf24;
@@ -35,7 +35,7 @@ body {
 }
 
 a {
-  color: var(--cyan);
+  color: var(--teal);
   text-decoration: none;
 }
 
@@ -207,7 +207,7 @@ section {
 }
 
 .entry:nth-child(4n+1) .entry-day { color: var(--lime); }
-.entry:nth-child(4n+2) .entry-day { color: var(--cyan); }
+.entry:nth-child(4n+2) .entry-day { color: var(--teal); }
 .entry:nth-child(4n+3) .entry-day { color: var(--pink); }
 .entry:nth-child(4n+4) .entry-day { color: var(--yellow); }
 
