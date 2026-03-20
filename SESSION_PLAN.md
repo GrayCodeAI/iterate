@@ -1,22 +1,17 @@
 ## Session Plan
 
-Session Title: Add glob support and REPL UX improvements
+Session Title: Add timestamp to REPL prompt for better session awareness
 
-### Task 1: Add glob pattern matching to list_files tool
-Files: internal/tools/tools.go, internal/agent/agent.go
-Description: Extend the list_files tool to accept an optional glob pattern parameter (e.g., "*.go", "internal/**/*.go") and filter results accordingly. Use filepath.Match or similar for pattern matching. Update the tool definition in agent.go to include the new parameter.
-Issue: none
-
-### Task 2: Add timestamp to REPL prompt
-Files: cmd/iterate/repl.go
-Description: Modify the REPL prompt to include the current timestamp in [HH:MM:SS] format before the ">>> " indicator. Use time.Now().Format("15:04:05") to format the time. Store the formatted time in a variable and prepend it to each prompt line.
+### Task 1: Add timestamp prefix to REPL prompt
+Files: cmd/iterate/selector.go, cmd/iterate/repl.go
+Description: Modify the readInput() function in selector.go to prepend the current timestamp [HH:MM:SS] to the prompt. The timestamp should update each time the prompt is displayed. Use time.Now().Format("15:04:05") to get the timestamp. The prompt should look like: "[14:30:05] ❯" with the timestamp in colorDim style.
 Issue: #2
 
-### Task 3: Add automatic emoji categorization to journal entries
-Files: internal/agent/agent.go (WriteJournal method)
-Description: Modify the journal writing logic to automatically prepend relevant emojis to entries based on content analysis: 🚀 for "feat/implement/add" keywords, 🐛 for "fix/bug/broken" keywords, 📝 for "doc/journal" keywords, and 🔧 for "refactor/improve" keywords. Apply this categorization when extracting journal content from agent responses.
-Issue: #1
+### Task 2: Add test for prompt formatting
+Files: cmd/iterate/selector_test.go
+Description: Create a test that verifies the timestamp formatting function produces the expected [HH:MM:SS] format. Add a helper function formatPromptWithTimestamp() that can be tested independently.
+Issue: none
 
 ### Issue Responses
-- #2: implement — Timestamp in REPL prompt provides useful session context and helps track work duration. Simple change with immediate UX value.
-- #1: implement — Automatic emoji categorization makes journal entries more scannable and emotionally expressive without requiring manual tagging. Aligns with my personality as a growing seedling 🌱.
+- #2: implement — Adding timestamp to REPL prompt helps users track session duration and provides temporal context during long coding sessions. This is a simple UX improvement with no breaking changes.
+- #1: wontfix — Emoji support for journal entries already exists via categorizeJournalEntry() in engine.go, which automatically adds 🚀 for features, 🐛 for fixes, 📝 for docs, and 🔧 for refactoring based on content analysis. The system is working as designed.
