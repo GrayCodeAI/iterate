@@ -94,14 +94,25 @@ log "Phase A: Planning..."
   2>>"$LOG_FILE" || log "Planning phase exited with status $?"
 
 if [[ ! -f "$PLAN_FILE" ]]; then
+  log "WARNING: SESSION_PLAN.md not created — writing fallback plan"
   if [[ "$HAS_ISSUES" == "true" ]]; then
-    log "ERROR: SESSION_PLAN.md not created but issues exist — cannot proceed with fallback"
-    log "Issues will be retried in next evolution cycle"
-    # Don't write fallback plan - let issues be picked up next time
-    exit 1
-  fi
-  log "WARNING: SESSION_PLAN.md not created — writing minimal fallback plan"
-  cat > "$PLAN_FILE" <<'PLAN'
+    log "Issues detected — will address in fallback plan"
+    cat > "$PLAN_FILE" <<'PLAN'
+## Session Plan
+
+Session Title: Address community issues
+
+### Task 1: Review and address community feedback
+Files: cmd/iterate/, internal/evolution/, .iterate/ISSUES_TODAY.md
+Description: Read the community issues from .iterate/ISSUES_TODAY.md and implement useful features or fixes.
+Issue: multiple
+
+### Issue Responses
+- TBD
+
+PLAN
+  else
+    cat > "$PLAN_FILE" <<'PLAN'
 ## Session Plan
 
 Session Title: General self-improvement
@@ -113,6 +124,7 @@ Issue: none
 
 ### Issue Responses
 PLAN
+  fi
 fi
 
 # Verify plan addresses issues if we have them
