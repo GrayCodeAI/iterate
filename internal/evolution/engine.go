@@ -153,18 +153,33 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 	branchName := fmt.Sprintf("evolution/day-%d", day)
 	e.branchName = branchName
 
+	e.logger.Info("preparing to create feature branch", "branch", branchName)
+
+	// First ensure we're on main and have latest
+	cmds := []string{
+		"git fetch origin main",
+		"git checkout main",
+		"git pull origin main",
+	}
+	for _, cmd := range cmds {
+		e.logger.Info("running prep command", "cmd", cmd)
+		if out, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err != nil {
+			e.logger.Warn("prep command failed", "cmd", cmd, "err", err, "output", out)
+			return "", fmt.Errorf("prep command failed: %w", err)
+		}
+	}
+
+	// Delete existing branch if it exists
 	if err := e.deleteBranch(ctx, branchName); err != nil {
 		e.logger.Warn("failed to delete existing branch", "branch", branchName, "err", err)
 	}
 
-	cmds := []string{
-		"git fetch origin main",
-		fmt.Sprintf("git checkout -b %s origin/main", branchName),
-	}
-	for _, cmd := range cmds {
-		if _, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err != nil {
-			return "", fmt.Errorf("branch creation failed: %w", err)
-		}
+	// Create and checkout new branch
+	createCmd := fmt.Sprintf("git checkout -b %s origin/main", branchName)
+	e.logger.Info("creating branch", "cmd", createCmd)
+	if out, err := e.runTool(ctx, "bash", map[string]string{"cmd": createCmd}); err != nil {
+		e.logger.Warn("branch creation failed", "err", err, "output", out)
+		return "", fmt.Errorf("branch creation failed: %w", err)
 	}
 
 	e.logger.Info("created feature branch", "branch", branchName)
