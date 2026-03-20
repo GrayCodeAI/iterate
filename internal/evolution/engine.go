@@ -1054,6 +1054,40 @@ func (e *Engine) commit(ctx context.Context, msg string) error {
 	return err
 }
 
+// categorizeJournalEntry returns an emoji based on content analysis.
+// 🚀 for feat/implement/add, 🐛 for fix/bug/broken, 📝 for doc/journal, 🔧 for refactor/improve.
+func categorizeJournalEntry(content string) string {
+	lower := strings.ToLower(content)
+
+	// Check for fix/bug/broken keywords first (high priority)
+	if strings.Contains(lower, "fix") || strings.Contains(lower, "bug") ||
+		strings.Contains(lower, "broken") || strings.Contains(lower, "revert") {
+		return "🐛"
+	}
+
+	// Check for feat/implement/add keywords
+	if strings.Contains(lower, "feat") || strings.Contains(lower, "implement") ||
+		strings.Contains(lower, "add ") || strings.Contains(lower, "feature") {
+		return "🚀"
+	}
+
+	// Check for doc/journal keywords
+	if strings.Contains(lower, "doc") || strings.Contains(lower, "journal") ||
+		strings.Contains(lower, "readme") || strings.Contains(lower, "comment") {
+		return "📝"
+	}
+
+	// Check for refactor/improve keywords
+	if strings.Contains(lower, "refactor") || strings.Contains(lower, "improve") ||
+		strings.Contains(lower, "cleanup") || strings.Contains(lower, "clean up") ||
+		strings.Contains(lower, "optimize") || strings.Contains(lower, "enhance") {
+		return "🔧"
+	}
+
+	// Default: no emoji
+	return ""
+}
+
 func (e *Engine) appendJournal(result *RunResult, output, provider string, success bool) {
 	path := filepath.Join(e.repoPath, "JOURNAL.md")
 
@@ -1064,6 +1098,12 @@ func (e *Engine) appendJournal(result *RunResult, output, provider string, succe
 
 	title := extractJournalTitle(output, success)
 	body := buildJournalBody(output, provider, result.FinishedAt.Sub(result.StartedAt))
+
+	// Determine emoji based on content analysis
+	emoji := categorizeJournalEntry(title + " " + body)
+	if emoji != "" {
+		title = emoji + " " + title
+	}
 
 	entry := fmt.Sprintf("\n## Day %d — %s — %s\n\n%s\n",
 		dayCount,
