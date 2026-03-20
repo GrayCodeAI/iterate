@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelWarn,
+		Level: slog.LevelInfo,
 	}))
 
 	// Debug: log environment
