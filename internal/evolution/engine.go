@@ -543,6 +543,9 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 		sb.WriteString("## Community input\n\n")
 		sb.WriteString(issues)
 		sb.WriteString("\n")
+		e.logger.Info("issues included in plan prompt", "issue_count", len(issues))
+	} else {
+		e.logger.Warn("NO ISSUES passed to plan phase")
 	}
 
 	tools := iteragent.DefaultTools(e.repoPath)
