@@ -1824,7 +1824,7 @@ func initProject(repoPath, projectName string) []string {
 	files := map[string]string{
 		"IDENTITY.md":            fmt.Sprintf("# %s\n\nA self-evolving project powered by iterate.\n", projectName),
 		"PERSONALITY.md":         "Helpful, concise, and direct.\n",
-		"JOURNAL.md":             fmt.Sprintf("# Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
+		"JOURNAL.md":             fmt.Sprintf("# iterate Evolution Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
 		"DAY_COUNT":              "1",
 		"memory/learnings.jsonl": "",
 		"skills/.keep":           "",

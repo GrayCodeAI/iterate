@@ -19,8 +19,12 @@ log "=== iterate evolution cycle started ==="
 # Load iterate's identity context
 source "$(dirname "$0")/iterate_context.sh" 2>/dev/null || true
 
-# Calculate current day from birth date (used everywhere in this script)
-BIRTH_DATE="2026-03-18"
+# Calculate current day from birth date (read from BIRTH_DATE file)
+if [[ -f "${REPOPATH}/BIRTH_DATE" ]]; then
+  BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE")
+else
+  BIRTH_DATE="2026-03-18"
+fi
 SESSION_TIME=$(date -u +'%H:%M')
 if date -j &>/dev/null 2>&1; then
   DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
@@ -32,8 +36,9 @@ fi
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
 # Check if last CI run failed and write status for planning agent
+GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
 if command -v gh &>/dev/null; then
-  LAST_CI=$(gh run list --repo GrayCodeAI/iterate --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
+  LAST_CI=$(gh run list --repo "$GITHUB_REPO" --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
   if [[ "$LAST_CI" == "failure" ]]; then
     echo "🔴 PREVIOUS CI FAILED. Fix broken tests FIRST before any new work." > "${REPOPATH}/.iterate/ci_status.txt"
     log "WARNING: last CI run failed"

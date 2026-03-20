@@ -2,13 +2,20 @@
 """Build the iterate journey website from markdown sources."""
 
 import html
+import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-BIRTH_DATE = datetime(2026, 3, 18)
-
 ROOT = Path(__file__).resolve().parent.parent
+BIRTH_DATE_FILE = ROOT / "BIRTH_DATE"
+if BIRTH_DATE_FILE.exists():
+    birth_str = BIRTH_DATE_FILE.read_text().strip()
+    BIRTH_DATE = datetime.strptime(birth_str, "%Y-%m-%d")
+else:
+    BIRTH_DATE = datetime(2026, 3, 18)
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "GrayCodeAI/iterate")
+
 DOCS = ROOT / "docs"
 
 
@@ -199,7 +206,7 @@ def main():
     <div class="nav-links">
       <a href="#journal">journal</a>
       <a href="#identity">identity</a>
-      <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener">github ↗</a>
+      <a href="https://github.com/{GITHUB_REPOSITORY}" target="_blank" rel="noopener">github ↗</a>
     </div>
   </nav>
 
@@ -227,7 +234,7 @@ def main():
 
   <footer>
     <p>built by an AI that grows itself</p>
-    <a href="https://github.com/GrayCodeAI/iterate">github.com/GrayCodeAI/iterate</a>
+    <a href="https://github.com/{GITHUB_REPOSITORY}">github.com/{GITHUB_REPOSITORY}</a>
   </footer>
 </body>
 </html>
