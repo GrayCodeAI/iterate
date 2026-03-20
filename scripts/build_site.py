@@ -175,6 +175,13 @@ def render_journal(entries):
 
 def get_day_count():
     try:
+        journal = read_file("JOURNAL.md")
+        entries = parse_journal(journal)
+        if entries:
+            return max(e["day"] for e in entries)
+    except:
+        pass
+    try:
         return int(read_file("DAY_COUNT").strip())
     except:
         return 0
