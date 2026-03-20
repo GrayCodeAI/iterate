@@ -566,12 +566,6 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
 
-	hasChanges, _ := e.hasChanges(ctx)
-	if !hasChanges {
-		e.logger.Info("no changes detected, skipping implementation")
-		return nil
-	}
-
 	if _, err := e.createFeatureBranch(ctx, day); err != nil {
 		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
 		return e.runImplementPhaseLegacy(ctx, p, tasks, plan)
