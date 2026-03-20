@@ -22,6 +22,9 @@ type Engine struct {
 	logger        *slog.Logger
 	eventSink     chan<- iteragent.Event
 	thinkingLevel iteragent.ThinkingLevel
+	prNumber      int
+	prURL         string
+	branchName    string
 }
 
 // RunResult holds the outcome of a completed evolution run.
@@ -29,6 +32,8 @@ type RunResult struct {
 	Status     string
 	StartedAt  time.Time
 	FinishedAt time.Time
+	PRNumber   int
+	PRURL      string
 }
 
 // New creates a new evolution engine.
@@ -56,6 +61,200 @@ func (e *Engine) WithThinking(level iteragent.ThinkingLevel) *Engine {
 	return e
 }
 
+func (e *Engine) runTool(ctx context.Context, name string, args map[string]string) (string, error) {
+	tools := iteragent.DefaultTools(e.repoPath)
+	tm := iteragent.ToolMap(tools)
+	return tm[name].Execute(ctx, args)
+}
+
+func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
+	out, err := e.runTool(ctx, "git_status", nil)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(out) != "", nil
+}
+
+func (e *Engine) currentBranch(ctx context.Context) (string, error) {
+	out, err := e.runTool(ctx, "bash", map[string]string{
+		"command": "git branch --show-current",
+	})
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func (e *Engine) deleteBranch(ctx context.Context, branch string) error {
+	_, err := e.runTool(ctx, "bash", map[string]string{
+		"command": fmt.Sprintf("git branch -D %s 2>/dev/null || git push origin --delete %s 2>/dev/null || true", branch, branch),
+	})
+	return err
+}
+
+func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, error) {
+	branchName := fmt.Sprintf("evolution/day-%d", day)
+	e.branchName = branchName
+
+	if err := e.deleteBranch(ctx, branchName); err != nil {
+		e.logger.Warn("failed to delete existing branch", "branch", branchName, "err", err)
+	}
+
+	cmds := []string{
+		"git fetch origin main",
+		fmt.Sprintf("git checkout -b %s origin/main", branchName),
+	}
+	for _, cmd := range cmds {
+		if _, err := e.runTool(ctx, "bash", map[string]string{"command": cmd}); err != nil {
+			return "", fmt.Errorf("branch creation failed: %w", err)
+		}
+	}
+
+	e.logger.Info("created feature branch", "branch", branchName)
+	return branchName, nil
+}
+
+func (e *Engine) pushBranch(ctx context.Context) error {
+	_, err := e.runTool(ctx, "bash", map[string]string{
+		"command": fmt.Sprintf("git push -u origin %s", e.branchName),
+	})
+	return err
+}
+
+func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []int) (int, string, error) {
+	var linkedIssues []string
+	for _, n := range issueNums {
+		linkedIssues = append(linkedIssues, fmt.Sprintf("Fixes #%d", n))
+	}
+
+	prBody := body
+	if len(linkedIssues) > 0 {
+		prBody += "\n\n## Related Issues\n"
+		for _, issue := range linkedIssues {
+			prBody += "- " + issue + "\n"
+		}
+	}
+
+	escapedTitle := strings.ReplaceAll(title, "\"", "\\\"")
+	escapedBody := strings.ReplaceAll(prBody, "\"", "\\\"")
+
+	cmd := fmt.Sprintf(
+		`gh pr create --repo %s --title "%s" --body "%s" --base main`,
+		e.repo, escapedTitle, escapedBody,
+	)
+
+	out, err := e.runTool(ctx, "bash", map[string]string{"command": cmd})
+	if err != nil {
+		return 0, "", fmt.Errorf("PR creation failed: %w, output: %s", err, out)
+	}
+
+	url := strings.TrimSpace(out)
+	var prNum int
+	fmt.Sscanf(url, "%*s/%d", &prNum)
+	if idx := strings.LastIndex(url, "/"); idx >= 0 {
+		numStr := url[idx+1:]
+		fmt.Sscanf(numStr, "%d", &prNum)
+	}
+
+	e.prURL = url
+	e.prNumber = prNum
+	e.logger.Info("created PR", "number", prNum, "url", url)
+	return prNum, url, nil
+}
+
+func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet) error {
+	if e.prNumber == 0 {
+		return fmt.Errorf("no PR to review")
+	}
+
+	prDiff, err := e.runTool(ctx, "bash", map[string]string{
+		"command": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get PR diff: %w", err)
+	}
+
+	userMsg := fmt.Sprintf(`Review your own PR #%d changes critically. Check for:
+1. Bugs or security issues
+2. Missing error handling
+3. Test coverage
+4. Code style violations
+5. Whether the changes actually solve the stated tasks
+
+Be honest and strict. If you find issues, describe them so you can fix them before merge.
+
+## PR Diff:
+%s
+
+If you find issues, use write_file/edit_file/bash to fix them, then run tests. 
+After fixing, amend your commit: git commit --amend --no-edit
+Then push: git push --force-with-lease origin %s
+
+If the changes are good, reply: "LGTM"
+`, e.prNumber, truncate(prDiff, 8000), e.branchName)
+
+	a := e.newAgent(p, tools, systemPrompt, skills)
+	var reviewOutput string
+	for ev := range a.Prompt(ctx, userMsg) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			reviewOutput = ev.Content
+		}
+	}
+	a.Finish()
+
+	if strings.Contains(strings.ToLower(reviewOutput), "lgtm") || strings.Contains(strings.ToLower(reviewOutput), "looks good") {
+		e.logger.Info("PR self-review passed")
+		return nil
+	}
+
+	e.logger.Warn("PR self-review found issues, agent will fix them")
+	return nil
+}
+
+func (e *Engine) mergePR(ctx context.Context) error {
+	if e.prNumber == 0 {
+		return fmt.Errorf("no PR to merge")
+	}
+
+	out, err := e.runTool(ctx, "bash", map[string]string{
+		"command": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
+	})
+	if err != nil {
+		if strings.Contains(strings.ToLower(out), "no mergeable") || strings.Contains(strings.ToLower(out), "conflict") {
+			e.logger.Warn("PR has merge conflicts, attempting auto-merge")
+			mergeOut, mergeErr := e.runTool(ctx, "bash", map[string]string{
+				"command": fmt.Sprintf("gh pr merge %d --repo %s --squash --admin --delete-branch 2>&1 || echo 'MERGE_FAILED'", e.prNumber, e.repo),
+			})
+			if mergeErr != nil || strings.Contains(mergeOut, "MERGE_FAILED") {
+				e.logger.Warn("PR merge failed, will retry next session", "output", mergeOut)
+				return fmt.Errorf("merge conflict: %s", mergeOut)
+			}
+		}
+		return fmt.Errorf("PR merge failed: %w, output: %s", err, out)
+	}
+
+	e.logger.Info("PR merged successfully", "number", e.prNumber)
+	return nil
+}
+
+func (e *Engine) switchToMain(ctx context.Context) error {
+	_, err := e.runTool(ctx, "bash", map[string]string{
+		"command": "git checkout main",
+	})
+	if err != nil {
+		_, err = e.runTool(ctx, "bash", map[string]string{
+			"command": "git checkout origin/main -b main",
+		})
+	}
+	return err
+}
+
 // forwardEvents drains the given event channel and forwards each event to eventSink.
 func (e *Engine) forwardEvents(src <-chan iteragent.Event) {
 	if e.eventSink == nil {
@@ -80,6 +279,8 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
@@ -115,6 +316,14 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		return result, runErr
 	}
 
+	hasChanges, _ := e.hasChanges(ctx)
+	if !hasChanges {
+		e.logger.Info("no changes detected, skipping PR flow")
+		result.Status = "no_changes"
+		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
+	}
+
 	testResult, testErr := e.runTests(ctx)
 	_ = testResult
 
@@ -123,18 +332,74 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		result.Status = "reverted"
 		_ = e.revert(ctx)
 		e.appendJournal(result, output, p.Name(), false)
-	} else {
-		e.logger.Info("tests passed, committing changes")
+		return result, nil
+	}
+
+	e.logger.Info("tests passed, creating PR")
+
+	branchName, err := e.createFeatureBranch(ctx, day)
+	if err != nil {
+		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
 		result.Status = "committed"
 		commitMsg := extractCommitMessage(output)
 		if err := e.commit(ctx, commitMsg); err != nil {
 			result.Status = "commit_failed"
-		} else {
-			title := firstLine(commitMsg)
-			_ = e.appendLearningJSONL(title, "evolution", buildUserMessage(e.repoPath, "", issues), "")
 		}
 		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
 	}
+	_ = branchName
+
+	commitMsg := extractCommitMessage(output)
+	if err := e.commit(ctx, commitMsg); err != nil {
+		e.logger.Warn("commit failed, falling back to direct main commit", "err", err)
+		_ = e.switchToMain(ctx)
+		if err := e.commit(ctx, commitMsg); err != nil {
+			result.Status = "commit_failed"
+		}
+		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
+	}
+
+	if err := e.pushBranch(ctx); err != nil {
+		e.logger.Warn("push failed, falling back to direct commit", "err", err)
+		_ = e.switchToMain(ctx)
+		result.Status = "committed"
+		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
+	}
+
+	planBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
+	issueNums := extractIssueNumbers(string(planBytes))
+	prTitle := firstLine(commitMsg)
+	prBody := buildPRBody(string(planBytes), output)
+
+	prNum, _, err := e.createPR(ctx, prTitle, prBody, issueNums)
+	if err != nil {
+		e.logger.Warn("PR creation failed, keeping branch for manual review", "err", err)
+		result.Status = "pr_created_manually"
+		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
+	}
+
+	if err := e.reviewPR(ctx, p, tools, systemPrompt, skills); err != nil {
+		e.logger.Warn("PR review had issues", "err", err)
+	}
+
+	if err := e.mergePR(ctx); err != nil {
+		e.logger.Warn("PR merge failed, will retry next session", "err", err)
+		result.Status = "merge_pending"
+		e.appendJournal(result, output, p.Name(), true)
+		return result, nil
+	}
+
+	result.Status = "merged"
+	result.PRNumber = prNum
+	result.PRURL = e.prURL
+	_ = e.appendLearningJSONL(prTitle, "evolution", buildUserMessage(e.repoPath, "", issues), "")
+	e.appendJournal(result, output, p.Name(), true)
+
+	_ = e.switchToMain(ctx)
 
 	return result, nil
 }
@@ -226,6 +491,7 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 }
 
 // RunImplementPhase reads SESSION_PLAN.md and runs one agent per task.
+// It creates a feature branch, commits changes there, pushes, and creates a PR.
 func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) error {
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
@@ -240,11 +506,26 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		tasks = []planTask{{Number: 1, Title: "Self-improvement", Description: plan}}
 	}
 
+	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
+
+	hasChanges, _ := e.hasChanges(ctx)
+	if !hasChanges {
+		e.logger.Info("no changes detected, skipping implementation")
+		return nil
+	}
+
+	if _, err := e.createFeatureBranch(ctx, day); err != nil {
+		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
+		return e.runImplementPhaseLegacy(ctx, p, tasks, plan)
+	}
+
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	tools := iteragent.DefaultTools(e.repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
+	var allTaskOutputs []string
 	for _, task := range tasks {
 		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
 
@@ -285,13 +566,100 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 			continue
 		}
 
+		allTaskOutputs = append(allTaskOutputs, taskOutput)
 		commitMsg := extractCommitMessage(taskOutput)
+		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
+	}
+
+	hasChangesAfter, _ := e.hasChanges(ctx)
+	if !hasChangesAfter {
+		e.logger.Info("no changes after implementation, skipping PR")
+		_ = e.switchToMain(ctx)
+		return nil
+	}
+
+	if err := e.pushBranch(ctx); err != nil {
+		e.logger.Warn("push failed, PR not created", "err", err)
+		_ = e.switchToMain(ctx)
+		return nil
+	}
+
+	issueNums := extractIssueNumbers(plan)
+	prTitle := fmt.Sprintf("Day %d: %s", day, extractSessionTitle(plan))
+	if prTitle == "Day "+fmt.Sprintf("%d: ", day) {
+		prTitle = fmt.Sprintf("Day %d: evolution session", day)
+	}
+	prBody := buildPRBody(plan, strings.Join(allTaskOutputs, "\n"))
+
+	prNum, prURL, err := e.createPR(ctx, prTitle, prBody, issueNums)
+	if err != nil {
+		e.logger.Warn("PR creation failed, branch pushed for manual PR", "err", err)
+		return nil
+	}
+
+	e.prNumber = prNum
+	e.prURL = prURL
+	e.logger.Info("PR created", "number", prNum, "url", prURL)
+
+	return nil
+}
+
+func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provider, tasks []planTask, plan string) error {
+	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
+	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
+	tools := iteragent.DefaultTools(e.repoPath)
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+
+	for _, task := range tasks {
+		e.logger.Info("implementing task (legacy)", "number", task.Number, "title", task.Title)
+
+		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
+			task.Number, task.Description)
+
+		a := e.newAgent(p, tools, systemPrompt, skills)
+
+		var taskOutput string
+		var taskErr error
+		for ev := range a.Prompt(ctx, userMsg) {
+			if e.eventSink != nil {
+				select {
+				case e.eventSink <- ev:
+				default:
+				}
+			}
+			if ev.Type == string(iteragent.EventMessageEnd) {
+				taskOutput = ev.Content
+			}
+			if ev.Type == string(iteragent.EventError) {
+				taskErr = fmt.Errorf("%s", ev.Content)
+			}
+		}
+		a.Finish()
+
+		if taskErr != nil {
+			e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
+			_ = e.revert(ctx)
+			continue
+		}
+
+		testResult, testErr := e.runTests(ctx)
+		_ = testResult
+		if testErr != nil {
+			e.logger.Warn("tests failed for task, reverting", "number", task.Number)
+			_ = e.revert(ctx)
+			continue
+		}
+
+		commitMsg := extractCommitMessage(taskOutput)
+		if err := e.commit(ctx, commitMsg); err != nil {
+			e.logger.Warn("commit failed", "err", err)
+		}
 		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
 	}
 	return nil
 }
 
-// RunCommunicatePhase posts issue responses, writes the journal entry, and reflects on learnings.
+// RunCommunicatePhase posts issue responses, writes the journal entry, merges PR if created, and reflects on learnings.
 func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) error {
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
@@ -305,11 +673,71 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	tools := iteragent.DefaultTools(e.repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
-	// Step 1 — post issue responses
+	// Step 0 — if PR was created by implement phase, do self-review and merge
+	if e.prNumber > 0 {
+		e.logger.Info("PR found from implement phase, running self-review", "pr", e.prNumber)
+
+		prDiff, _ := e.runTool(ctx, "bash", map[string]string{
+			"command": fmt.Sprintf("gh pr diff %d --repo %s 2>/dev/null || echo ''", e.prNumber, e.repo),
+		})
+
+		reviewPrompt := fmt.Sprintf(`Review PR #%d changes critically. Check for bugs, security issues, missing tests, and code quality.
+
+## PR Diff:
+%s
+
+If you find issues, fix them, amend your commit, and push. 
+If changes are good, reply: "LGTM"
+
+After your review, also merge this PR using:
+gh pr merge %d --repo %s --squash --delete-branch
+
+Or if there are issues that prevent merge, reply with details about what needs fixing.`, e.prNumber, truncate(prDiff, 6000), e.prNumber, e.repo)
+
+		a := e.newAgent(p, tools, systemPrompt, skills)
+		var reviewOutput string
+		for ev := range a.Prompt(ctx, reviewPrompt) {
+			if e.eventSink != nil {
+				select {
+				case e.eventSink <- ev:
+				default:
+				}
+			}
+			if ev.Type == string(iteragent.EventMessageEnd) {
+				reviewOutput = ev.Content
+			}
+		}
+		a.Finish()
+
+		if strings.Contains(strings.ToLower(reviewOutput), "lgtm") || strings.Contains(strings.ToLower(reviewOutput), "looks good") {
+			if err := e.mergePR(ctx); err != nil {
+				e.logger.Warn("PR merge failed in communicate phase", "err", err)
+			} else {
+				e.logger.Info("PR merged successfully in communicate phase", "pr", e.prNumber)
+			}
+		} else {
+			e.logger.Warn("PR self-review found issues, not merging", "output", truncate(reviewOutput, 200))
+		}
+
+		_ = e.switchToMain(ctx)
+	}
+
+	// Step 1 — post issue responses (with PR link if available)
 	responses := parseIssueResponses(string(planBytes))
 	for _, resp := range responses {
-		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse: gh issue comment %d --repo %s --body \"...\"\nBe brief, honest, and in your own voice. Sign off with your day count.",
-			resp.IssueNum, resp.Status, resp.Reason, resp.IssueNum, e.repo)
+		body := fmt.Sprintf("Status: %s\nReason: %s", resp.Status, resp.Reason)
+		if e.prURL != "" && (resp.Status == "implement" || resp.Status == "partial") {
+			body += fmt.Sprintf("\n\nPR: %s", e.prURL)
+		}
+		userMsg := fmt.Sprintf(`Post a GitHub issue comment on issue #%d.
+
+Be brief, honest, and in your own voice. Sign off with your day count.
+
+Issue response body:
+%s
+
+Use: gh issue comment %d --repo %s --body "..."`,
+			resp.IssueNum, body, resp.IssueNum, e.repo)
 		a := e.newAgent(p, tools, systemPrompt, skills)
 		e.forwardEvents(a.Prompt(ctx, userMsg))
 		a.Finish()
@@ -751,4 +1179,65 @@ func parseIssueResponses(plan string) []issueResponse {
 		}
 	}
 	return responses
+}
+
+func extractIssueNumbers(plan string) []int {
+	var nums []int
+	responses := parseIssueResponses(plan)
+	for _, r := range responses {
+		if r.Status == "implement" || r.Status == "partial" {
+			nums = append(nums, r.IssueNum)
+		}
+	}
+	return nums
+}
+
+func buildPRBody(plan, output string) string {
+	var body strings.Builder
+
+	sessionTitle := extractSessionTitle(plan)
+	if sessionTitle != "" {
+		body.WriteString("## Summary\n\n")
+		body.WriteString(sessionTitle + "\n\n")
+	}
+
+	body.WriteString("## Changes\n\n")
+	commitLines := extractCommitLines(output)
+	for _, line := range commitLines {
+		body.WriteString("- " + line + "\n")
+	}
+	if len(commitLines) == 0 {
+		body.WriteString("- Self-improvement and bug fixes\n")
+	}
+
+	body.WriteString("\n## Tasks\n\n")
+	tasks := parseSessionPlanTasks(plan)
+	for _, task := range tasks {
+		body.WriteString(fmt.Sprintf("- [ ] %s\n", task.Title))
+	}
+
+	return body.String()
+}
+
+func extractSessionTitle(plan string) string {
+	for _, line := range strings.Split(plan, "\n") {
+		if strings.HasPrefix(line, "Session Title:") {
+			return strings.TrimPrefix(line, "Session Title:")
+		}
+	}
+	return ""
+}
+
+func extractCommitLines(output string) []string {
+	var lines []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		for _, prefix := range []string{"feat:", "fix:", "refactor:", "chore:", "docs:", "test:"} {
+			if strings.HasPrefix(strings.ToLower(line), prefix) && len(line) < 120 {
+				lines = append(lines, line)
+				break
+			}
+		}
+	}
+	return lines
 }
