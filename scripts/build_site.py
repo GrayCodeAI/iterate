@@ -138,7 +138,7 @@ def parse_journal(content):
 
 def render_journal(entries):
     if not entries:
-        return '<div class="entry"><p class="entry-body">The journey begins soon...</p></div>'
+        return '<div class="timeline-empty">The journey begins soon...</div>'
     parts = []
     for entry in entries:
         body_html = ""
@@ -153,12 +153,15 @@ def render_journal(entries):
             else ""
         )
         parts.append(
-            f'    <div class="entry">\n'
+            f'  <div class="entry">\n'
+            f'    <div class="entry-marker"></div>\n'
+            f'    <div class="entry-content">\n'
             f'      <span class="entry-day">Day {entry["day"]}</span>\n'
             f"{ts_line}"
-            f'      <div class="entry-title">{md_inline(entry["title"])}</div>\n'
+            f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
             f'      <p class="entry-body">{body_html}</p>\n'
-            f"    </div>"
+            f"    </div>\n"
+            f"  </div>"
         )
     return "\n".join(parts)
 
@@ -209,7 +212,7 @@ def main():
 
     <section id="journal">
       <h2 class="section-label">// journal</h2>
-      <div class="journal-grid">
+      <div class="timeline">
 {journal_html}
       </div>
     </section>

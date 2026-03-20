@@ -169,18 +169,36 @@ section {
   text-transform: uppercase;
 }
 
-/* ── journal cards ── */
+/* ── journal timeline ── */
 
-.journal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+.timeline {
+  position: relative;
+  padding-left: 28px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, var(--cyan) 0%, var(--pink) 50%, var(--yellow) 100%);
+}
+
+.timeline-empty {
+  color: var(--text-dim);
+  font-style: italic;
+  padding-left: 28px;
 }
 
 .entry {
+  position: relative;
+  margin-bottom: 2rem;
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  padding: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 4px;
   transition: border-color 0.2s;
 }
 
@@ -193,9 +211,21 @@ section {
 .entry:nth-child(4n+3) .entry-day { color: var(--pink); }
 .entry:nth-child(4n+4) .entry-day { color: var(--yellow); }
 
+.entry-marker {
+  position: absolute;
+  left: -28px;
+  top: 14px;
+  width: 7px;
+  height: 7px;
+  background: var(--lime);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
 .entry-day {
   font-size: 0.7rem;
   font-weight: 700;
+  color: var(--lime);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -210,17 +240,17 @@ section {
 }
 
 .entry-title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text-bright);
-  margin: 0.6rem 0 0.6rem;
+  color: var(--cyan);
+  margin: 0.25rem 0 0.5rem;
   line-height: 1.4;
 }
 
 .entry-body {
   color: var(--text);
-  font-size: 0.8rem;
-  line-height: 1.7;
+  font-size: 0.82rem;
+  line-height: 1.75;
 }
 
 /* ── identity ── */
