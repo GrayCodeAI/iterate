@@ -141,6 +141,15 @@ func main() {
 		logger.Info("compacted session messages", "remaining", len(sessionMessages))
 	}
 
+	iteragent.SetProtectedPaths([]string{
+		filepath.Join(absRepo, "scripts/evolve.sh"),
+		filepath.Join(absRepo, ".github/workflows"),
+		filepath.Join(absRepo, "skills"),
+		filepath.Join(absRepo, "IDENTITY.md"),
+		filepath.Join(absRepo, "PERSONALITY.md"),
+		filepath.Join(absRepo, "CLAUDE.md"),
+	})
+
 	engine := evolution.New(absRepo, logger).
 		WithThinking(iteragent.ThinkingLevel(*thinking))
 
