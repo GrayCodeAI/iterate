@@ -81,12 +81,25 @@ fi
 # Clean up stale session plan so agent creates a fresh one
 rm -f "$PLAN_FILE"
 
+# Check if we have issues to address
+HAS_ISSUES=false
+if [[ -f "${REPOPATH}/.iterate/ISSUES_TODAY.md" ]] && grep -q "Issue #" "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null; then
+  HAS_ISSUES=true
+  log "Issues detected, requiring proper plan..."
+fi
+
 # Phase A: Planning
 log "Phase A: Planning..."
 ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
   2>>"$LOG_FILE" || log "Planning phase exited with status $?"
 
 if [[ ! -f "$PLAN_FILE" ]]; then
+  if [[ "$HAS_ISSUES" == "true" ]]; then
+    log "ERROR: SESSION_PLAN.md not created but issues exist — cannot proceed with fallback"
+    log "Issues will be retried in next evolution cycle"
+    # Don't write fallback plan - let issues be picked up next time
+    exit 1
+  fi
   log "WARNING: SESSION_PLAN.md not created — writing minimal fallback plan"
   cat > "$PLAN_FILE" <<'PLAN'
 ## Session Plan
@@ -100,6 +113,14 @@ Issue: none
 
 ### Issue Responses
 PLAN
+fi
+
+# Verify plan addresses issues if we have them
+if [[ "$HAS_ISSUES" == "true" ]] && ! grep -q "implement\|wontfix\|partial" "$PLAN_FILE" 2>/dev/null; then
+  log "ERROR: Plan does not address issues — retrying plan phase..."
+  rm -f "$PLAN_FILE"
+  ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
+    2>>"$LOG_FILE" || log "Planning phase retry exited with status $?"
 fi
 
 # Phase B: Implementation (creates feature branch, commits, pushes, creates PR)
