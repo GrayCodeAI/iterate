@@ -124,7 +124,7 @@ func (e *Engine) runTool(ctx context.Context, name string, args map[string]strin
 
 func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
 	out, err := e.runTool(ctx, "bash", map[string]string{
-		"command": "git status --short",
+		"cmd": "git status --short",
 	})
 	if err != nil {
 		return false, err
@@ -134,7 +134,7 @@ func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
 
 func (e *Engine) currentBranch(ctx context.Context) (string, error) {
 	out, err := e.runTool(ctx, "bash", map[string]string{
-		"command": "git branch --show-current",
+		"cmd": "git branch --show-current",
 	})
 	if err != nil {
 		return "", err
@@ -144,7 +144,7 @@ func (e *Engine) currentBranch(ctx context.Context) (string, error) {
 
 func (e *Engine) deleteBranch(ctx context.Context, branch string) error {
 	_, err := e.runTool(ctx, "bash", map[string]string{
-		"command": fmt.Sprintf("git branch -D %s 2>/dev/null || git push origin --delete %s 2>/dev/null || true", branch, branch),
+		"cmd": fmt.Sprintf("git branch -D %s 2>/dev/null || git push origin --delete %s 2>/dev/null || true", branch, branch),
 	})
 	return err
 }
@@ -162,7 +162,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 		fmt.Sprintf("git checkout -b %s origin/main", branchName),
 	}
 	for _, cmd := range cmds {
-		if _, err := e.runTool(ctx, "bash", map[string]string{"command": cmd}); err != nil {
+		if _, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err != nil {
 			return "", fmt.Errorf("branch creation failed: %w", err)
 		}
 	}
@@ -173,7 +173,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 
 func (e *Engine) pushBranch(ctx context.Context) error {
 	_, err := e.runTool(ctx, "bash", map[string]string{
-		"command": fmt.Sprintf("git push -u origin %s", e.branchName),
+		"cmd": fmt.Sprintf("git push -u origin %s", e.branchName),
 	})
 	return err
 }
@@ -200,7 +200,7 @@ func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []i
 		e.repo, escapedTitle, escapedBody,
 	)
 
-	out, err := e.runTool(ctx, "bash", map[string]string{"command": cmd})
+	out, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd})
 	if err != nil {
 		return 0, "", fmt.Errorf("PR creation failed: %w, output: %s", err, out)
 	}
@@ -225,7 +225,7 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	}
 
 	prDiff, err := e.runTool(ctx, "bash", map[string]string{
-		"command": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
+		"cmd": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get PR diff: %w", err)
@@ -280,13 +280,13 @@ func (e *Engine) mergePR(ctx context.Context) error {
 	}
 
 	out, err := e.runTool(ctx, "bash", map[string]string{
-		"command": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
+		"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
 	})
 	if err != nil {
 		if strings.Contains(strings.ToLower(out), "no mergeable") || strings.Contains(strings.ToLower(out), "conflict") {
 			e.logger.Warn("PR has merge conflicts, attempting auto-merge")
 			mergeOut, mergeErr := e.runTool(ctx, "bash", map[string]string{
-				"command": fmt.Sprintf("gh pr merge %d --repo %s --squash --admin --delete-branch 2>&1 || echo 'MERGE_FAILED'", e.prNumber, e.repo),
+				"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --admin --delete-branch 2>&1 || echo 'MERGE_FAILED'", e.prNumber, e.repo),
 			})
 			if mergeErr != nil || strings.Contains(mergeOut, "MERGE_FAILED") {
 				e.logger.Warn("PR merge failed, will retry next session", "output", mergeOut)
@@ -302,11 +302,11 @@ func (e *Engine) mergePR(ctx context.Context) error {
 
 func (e *Engine) switchToMain(ctx context.Context) error {
 	_, err := e.runTool(ctx, "bash", map[string]string{
-		"command": "git checkout main",
+		"cmd": "git checkout main",
 	})
 	if err != nil {
 		_, err = e.runTool(ctx, "bash", map[string]string{
-			"command": "git checkout origin/main -b main",
+			"cmd": "git checkout origin/main -b main",
 		})
 	}
 	return err
@@ -734,7 +734,7 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 		e.logger.Info("PR found from implement phase, running self-review", "pr", e.prNumber)
 
 		prDiff, _ := e.runTool(ctx, "bash", map[string]string{
-			"command": fmt.Sprintf("gh pr diff %d --repo %s 2>/dev/null || echo ''", e.prNumber, e.repo),
+			"cmd": fmt.Sprintf("gh pr diff %d --repo %s 2>/dev/null || echo ''", e.prNumber, e.repo),
 		})
 
 		reviewPrompt := fmt.Sprintf(`Review PR #%d changes critically. Check for bugs, security issues, missing tests, and code quality.
@@ -806,7 +806,7 @@ Use: gh issue comment %d --repo %s --body "..."`,
 	journalMsg := `First, run this tool call to see recent commits:
 
 ` + "```tool" + `
-{"tool":"bash","args":{"command":"git log --oneline -10"}}
+{"tool":"bash","args":{"cmd":"git log --oneline -10"}}
 ` + "```" + `
 
 Then write a journal entry based on the output. Your ENTIRE reply must start with "## Day" and contain ONLY the journal entry — no explanation, no preamble, no markdown fences.
@@ -976,7 +976,7 @@ Write a file:
 
 Run a bash command:
 `+"```"+`tool
-{"tool":"bash","args":{"command":"go test ./..."}}
+{"tool":"bash","args":{"cmd":"go test ./..."}}
 `+"```"+`
 
 **CRITICAL**: You MUST use this format to write files. Do NOT just describe what you would write — actually write it using the write_file tool call above.`,
