@@ -207,7 +207,7 @@ def main():
     <header class="hero">
       <h1>iterate<span class="cursor">_</span></h1>
       <p class="day-count">Day {day_count}</p>
-      <p class="tagline">a coding agent growing up in public</p>
+      <p class="tagline">built in public, getting better every day</p>
     </header>
 
     <section id="journal">
