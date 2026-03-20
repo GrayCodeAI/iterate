@@ -36,17 +36,68 @@ type RunResult struct {
 	PRURL      string
 }
 
+// PRState persists PR info between phases (evolve.sh runs phases as separate CLI invocations).
+type PRState struct {
+	PRNumber int    `json:"pr_number"`
+	PRURL    string `json:"pr_url"`
+	Branch   string `json:"branch"`
+}
+
+const prStateFile = ".iterate/pr_state.json"
+
 // New creates a new evolution engine.
 func New(repoPath string, logger *slog.Logger) *Engine {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 	if repo == "" {
 		repo = "GrayCodeAI/iterate"
 	}
-	return &Engine{
+	e := &Engine{
 		repoPath: repoPath,
 		repo:     repo,
 		logger:   logger,
 	}
+	// Load PR state from previous phase if exists
+	e.loadPRState()
+	return e
+}
+
+// savePRState persists PR info to file for cross-phase communication.
+func (e *Engine) savePRState() error {
+	if e.prNumber == 0 {
+		return nil
+	}
+	path := filepath.Join(e.repoPath, prStateFile)
+	data, err := json.Marshal(PRState{
+		PRNumber: e.prNumber,
+		PRURL:    e.prURL,
+		Branch:   e.branchName,
+	})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// loadPRState restores PR info from file at engine creation.
+func (e *Engine) loadPRState() {
+	path := filepath.Join(e.repoPath, prStateFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var state PRState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return
+	}
+	e.prNumber = state.PRNumber
+	e.prURL = state.PRURL
+	e.branchName = state.Branch
+}
+
+// clearPRState removes the PR state file.
+func (e *Engine) clearPRState() {
+	path := filepath.Join(e.repoPath, prStateFile)
+	os.Remove(path)
 }
 
 // WithEventSink sets a channel that receives live agent events during evolution.
@@ -606,6 +657,11 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	e.prNumber = prNum
 	e.prURL = prURL
 	e.logger.Info("PR created", "number", prNum, "url", prURL)
+
+	// Persist PR state for communicate phase (runs as separate CLI invocation)
+	if err := e.savePRState(); err != nil {
+		e.logger.Warn("failed to persist PR state", "err", err)
+	}
 
 	return nil
 }

@@ -2,11 +2,12 @@
 set -e
 
 # iterate evolution pipeline: plan → implement → respond
-# Autonomous 3-phase evolution cycle
+# Autonomous evolution cycle with PR-based workflow
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
 PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
+PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
 
 mkdir -p "${REPOPATH}/.iterate"
 
@@ -64,6 +65,9 @@ if cleaned != content:
 " "$DAY"
 fi
 
+# Clean up stale PR state from previous incomplete runs
+rm -f "$PR_STATE_FILE"
+
 # Build the binary
 log "Building iterate..."
 go build -o ./iterate ./cmd/iterate
@@ -95,16 +99,16 @@ Issue: none
 PLAN
 fi
 
-# Phase B: Implementation
+# Phase B: Implementation (creates feature branch, commits, pushes, creates PR)
 if [[ -f "$PLAN_FILE" ]]; then
   log "Phase B: Implementation..."
-  ./iterate --phase implement \
+  ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate \
     2>>"$LOG_FILE" || log "Implementation phase exited with status $?"
 else
   log "Skipping implementation (no SESSION_PLAN.md)"
 fi
 
-# Phase C: Communication
+# Phase C: Communication (writes journal, merges PR if created, responds to issues)
 log "Phase C: Communication..."
 if [[ -f "$PLAN_FILE" ]]; then
   ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate \
@@ -134,6 +138,9 @@ if command -v python3 &>/dev/null && [[ -f "${REPOPATH}/scripts/build_site.py" ]
   log "Rebuilding GitHub Pages site..."
   python3 "${REPOPATH}/scripts/build_site.py" 2>>"$LOG_FILE" || log "build_site.py failed"
 fi
+
+# Clean up PR state file after successful cycle
+rm -f "$PR_STATE_FILE"
 
 log "=== iterate evolution cycle completed ==="
 log "Day $DAY ($SESSION_TIME)"
