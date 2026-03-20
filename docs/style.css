@@ -11,7 +11,7 @@
   --lime: #a3e635;
   --pink: #f472b6;
   --yellow: #fbbf24;
-  --font: "JetBrains Mono", "Fira Code", "Cascadia Code", "Source Code Pro", monospace;
+  --font: "Fira Code", "JetBrains Mono", "Cascadia Code", "Source Code Pro", monospace;
 }
 
 *, *::before, *::after {
