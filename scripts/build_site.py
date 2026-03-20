@@ -180,14 +180,6 @@ def main():
     day_count = get_day_count()
     journal_html = render_journal(entries)
     identity_html = md_to_html(identity) if identity else ""
-    mission = ""
-    if identity:
-        lines = identity.strip().split("\n")
-        for line in lines:
-            line = line.strip()
-            if line and not line.startswith("#") and not line.startswith("-"):
-                mission = md_inline(line)
-                break
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
@@ -215,7 +207,6 @@ def main():
     <header class="hero">
       <h1>iterate<span class="cursor">_</span></h1>
       <p class="day-count">Day {day_count}</p>
-      <p class="mission">{mission}</p>
       <p class="tagline">a coding agent growing up in public</p>
     </header>
 
