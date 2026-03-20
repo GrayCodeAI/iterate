@@ -53,7 +53,9 @@ def md_to_html(text):
             # Inline formatting
             escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
             escaped = re.sub(r"`(.+?)`", r"<code>\1</code>", escaped)
-            escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
+            escaped = re.sub(
+                r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped
+            )
 
             if not mission_found:
                 content_html += f'<p class="mission">{escaped}</p>\n'
@@ -68,7 +70,9 @@ def md_to_html(text):
                 # Inline formatting
                 rule_text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", rule_text)
                 rule_text = re.sub(r"`(.+?)`", r"<code>\1</code>", rule_text)
-                rule_text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', rule_text)
+                rule_text = re.sub(
+                    r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', rule_text
+                )
 
                 if not rules_html:
                     rules_html = '<ol class="rules">\n'
@@ -79,20 +83,24 @@ def md_to_html(text):
 
     return content_html + rules_html
 
+
 def ordinal(n):
     if 11 <= (n % 100) <= 13:
         return f"{n}th"
-    return f"{n}{['th','st','nd','rd','th'][min(n % 10, 4)]}"
+    return f"{n}{['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]}"
 
 
 def format_timestamp(ts, day=None):
-    """Format 'HH:MM' + day number to '19th March 2026, 08:56'."""
+    """Format 'HH:MM' + day number to '19th March 2026, 08:56 UTC / 14:26 IST'."""
     try:
         dt = datetime.strptime(ts, "%H:%M")
         if day is not None:
             date = BIRTH_DATE + timedelta(days=day)
-            return f"{ordinal(date.day)} {date.strftime('%B %Y')}, {dt.strftime('%H:%M')}"
-        return dt.strftime("%H:%M")
+            ist = dt + timedelta(hours=5, minutes=30)
+            return f"{ordinal(date.day)} {date.strftime('%B %Y')}, {dt.strftime('%H:%M')} UTC / {ist.strftime('%H:%M')} IST"
+        utc_str = dt.strftime("%H:%M")
+        ist = dt + timedelta(hours=5, minutes=30)
+        return f"{utc_str} UTC / {ist.strftime('%H:%M')} IST"
     except ValueError:
         return ts
 
@@ -114,13 +122,17 @@ def parse_journal(content):
             continue
         lines = chunk.split("\n")
         # Format: "Day N — HH:MM — Title"
-        m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0])
+        m = re.match(
+            r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0]
+        )
         if m:
             day = int(m.group(1))
             timestamp = m.group(2).strip()
             title = m.group(3).strip()
             body = "\n".join(lines[1:]).strip()
-            entries.append({"day": day, "timestamp": timestamp, "title": title, "body": body})
+            entries.append(
+                {"day": day, "timestamp": timestamp, "title": title, "body": body}
+            )
     return entries
 
 
@@ -135,17 +147,21 @@ def render_journal(entries):
             body_html = body_html.replace("\n\n", "<br><br>").replace("\n", " ")
         ts = entry.get("timestamp", "")
         ts_fmt = format_timestamp(ts, entry["day"]) if ts else ""
-        ts_html = f'      <span class="entry-timestamp">{html.escape(ts_fmt)}</span>\n' if ts_fmt else ""
+        ts_html = (
+            f'      <span class="entry-timestamp">{html.escape(ts_fmt)}</span>\n'
+            if ts_fmt
+            else ""
+        )
         parts.append(
             f'  <article class="entry">\n'
             f'    <div class="entry-marker"></div>\n'
             f'    <div class="entry-content">\n'
             f'      <span class="entry-day">Day {entry["day"]}</span>\n'
-            f'{ts_html}'
+            f"{ts_html}"
             f'      <h3 class="entry-title">{md_inline(entry["title"])}</h3>\n'
             f'      <p class="entry-body">{body_html}</p>\n'
-            f'    </div>\n'
-            f'  </article>'
+            f"    </div>\n"
+            f"  </article>"
         )
     return "\n".join(parts)
 
