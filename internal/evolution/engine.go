@@ -392,8 +392,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		return result, nil
 	}
 
-	e.logger.Info("tests passed, creating PR")
-
+	e.logger.Info("tests passed, creating feature branch")
 	branchName, err := e.createFeatureBranch(ctx, day)
 	if err != nil {
 		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
@@ -405,11 +404,12 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.appendJournal(result, output, p.Name(), true)
 		return result, nil
 	}
-	_ = branchName
+	e.logger.Info("feature branch created", "branch", branchName)
 
+	e.logger.Info("committing changes")
 	commitMsg := extractCommitMessage(output)
 	if err := e.commit(ctx, commitMsg); err != nil {
-		e.logger.Warn("commit failed, falling back to direct main commit", "err", err)
+		e.logger.Warn("commit failed", "err", err)
 		_ = e.switchToMain(ctx)
 		if err := e.commit(ctx, commitMsg); err != nil {
 			result.Status = "commit_failed"
@@ -417,7 +417,9 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.appendJournal(result, output, p.Name(), true)
 		return result, nil
 	}
+	e.logger.Info("changes committed")
 
+	e.logger.Info("pushing branch")
 	if err := e.pushBranch(ctx); err != nil {
 		e.logger.Warn("push failed, falling back to direct commit", "err", err)
 		_ = e.switchToMain(ctx)
@@ -425,13 +427,18 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.appendJournal(result, output, p.Name(), true)
 		return result, nil
 	}
+	e.logger.Info("branch pushed")
+
+	e.logger.Info("creating PR")
 
 	planBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
 	issueNums := extractIssueNumbers(string(planBytes))
 	prTitle := firstLine(commitMsg)
 	prBody := buildPRBody(string(planBytes), output)
 
-	prNum, _, err := e.createPR(ctx, prTitle, prBody, issueNums)
+	e.logger.Info("creating PR", "title", prTitle, "body_len", len(prBody))
+	prNum, prURL, err := e.createPR(ctx, prTitle, prBody, issueNums)
+	e.logger.Info("PR creation result", "prNum", prNum, "prURL", prURL, "err", err)
 	if err != nil {
 		e.logger.Warn("PR creation failed, keeping branch for manual review", "err", err)
 		result.Status = "pr_created_manually"
