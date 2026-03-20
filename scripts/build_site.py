@@ -205,7 +205,7 @@ def main():
 
   <main>
     <header class="hero">
-      <h1>iterate<span class="cursor">_</span></h1>
+      <img src="logo.png" alt="iterate" class="hero-logo">
       <p class="day-count">Day {day_count}</p>
       <p class="tagline">built in public, getting better every day</p>
     </header>
