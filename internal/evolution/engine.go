@@ -64,11 +64,17 @@ func (e *Engine) WithThinking(level iteragent.ThinkingLevel) *Engine {
 func (e *Engine) runTool(ctx context.Context, name string, args map[string]string) (string, error) {
 	tools := iteragent.DefaultTools(e.repoPath)
 	tm := iteragent.ToolMap(tools)
-	return tm[name].Execute(ctx, args)
+	tool, ok := tm[name]
+	if !ok {
+		return "", fmt.Errorf("tool %q not found", name)
+	}
+	return tool.Execute(ctx, args)
 }
 
 func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
-	out, err := e.runTool(ctx, "git_status", nil)
+	out, err := e.runTool(ctx, "bash", map[string]string{
+		"command": "git status --short",
+	})
 	if err != nil {
 		return false, err
 	}
