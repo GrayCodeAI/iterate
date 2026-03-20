@@ -78,6 +78,9 @@ if command -v gh &> /dev/null; then
   python3 scripts/format_issues.py > "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null || true
 fi
 
+# Clean up stale session plan so agent creates a fresh one
+rm -f "$PLAN_FILE"
+
 # Phase A: Planning
 log "Phase A: Planning..."
 ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
