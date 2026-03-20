@@ -18,6 +18,7 @@ import (
 // Engine runs one evolution session.
 type Engine struct {
 	repoPath      string
+	repo          string
 	logger        *slog.Logger
 	eventSink     chan<- iteragent.Event
 	thinkingLevel iteragent.ThinkingLevel
@@ -32,8 +33,13 @@ type RunResult struct {
 
 // New creates a new evolution engine.
 func New(repoPath string, logger *slog.Logger) *Engine {
+	repo := os.Getenv("GITHUB_REPOSITORY")
+	if repo == "" {
+		repo = "GrayCodeAI/iterate"
+	}
 	return &Engine{
 		repoPath: repoPath,
+		repo:     repo,
 		logger:   logger,
 	}
 }
@@ -266,7 +272,16 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		a.Finish()
 
 		if taskErr != nil {
-			e.logger.Warn("task failed", "number", task.Number, "err", taskErr)
+			e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
+			_ = e.revert(ctx)
+			continue
+		}
+
+		testResult, testErr := e.runTests(ctx)
+		_ = testResult
+		if testErr != nil {
+			e.logger.Warn("tests failed for task, reverting", "number", task.Number)
+			_ = e.revert(ctx)
 			continue
 		}
 
@@ -293,8 +308,8 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	// Step 1 — post issue responses
 	responses := parseIssueResponses(string(planBytes))
 	for _, resp := range responses {
-		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse: gh issue comment %d --repo GrayCodeAI/iterate --body \"...\"\nBe brief, honest, and in your own voice. Sign off with your day count.",
-			resp.IssueNum, resp.Status, resp.Reason, resp.IssueNum)
+		userMsg := fmt.Sprintf("Post a GitHub issue comment on issue #%d.\nStatus: %s\nReason: %s\n\nUse: gh issue comment %d --repo %s --body \"...\"\nBe brief, honest, and in your own voice. Sign off with your day count.",
+			resp.IssueNum, resp.Status, resp.Reason, resp.IssueNum, e.repo)
 		a := e.newAgent(p, tools, systemPrompt, skills)
 		e.forwardEvents(a.Prompt(ctx, userMsg))
 		a.Finish()
@@ -564,7 +579,7 @@ func (e *Engine) appendJournal(result *RunResult, output, provider string, succe
 	)
 
 	existing, _ := os.ReadFile(path)
-	header := "# Journal\n"
+	header := "# iterate Evolution Journal\n"
 	rest := strings.TrimPrefix(string(existing), header)
 	newContent := header + entry + rest
 
