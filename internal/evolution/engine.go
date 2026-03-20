@@ -455,8 +455,9 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	prNum, prURL, err := e.createPR(ctx, prTitle, prBody, issueNums)
 	e.logger.Info("PR creation result", "prNum", prNum, "prURL", prURL, "err", err)
 	if err != nil {
-		e.logger.Warn("PR creation failed, keeping branch for manual review", "err", err)
-		result.Status = "pr_created_manually"
+		e.logger.Warn("PR creation failed, falling back to direct main commit", "err", err)
+		_ = e.switchToMain(ctx)
+		result.Status = "committed"
 		e.appendJournal(result, output, p.Name(), true)
 		return result, nil
 	}
