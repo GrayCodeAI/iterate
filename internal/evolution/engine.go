@@ -211,8 +211,8 @@ func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []i
 	escapedBody := strings.ReplaceAll(prBody, "\"", "\\\"")
 
 	cmd := fmt.Sprintf(
-		`gh pr create --repo %s --title "%s" --body "%s" --base main`,
-		e.repo, escapedTitle, escapedBody,
+		`gh pr create --repo %s --title "%s" --body "%s" --base main --head %s`,
+		e.repo, escapedTitle, escapedBody, e.branchName,
 	)
 
 	out, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd})
