@@ -44,6 +44,14 @@ func main() {
 		Level: slog.LevelWarn,
 	}))
 
+	// Debug: log environment
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	if githubToken != "" {
+		logger.Info("GITHUB_TOKEN is set", "len", len(githubToken))
+	} else {
+		logger.Warn("GITHUB_TOKEN is NOT set")
+	}
+
 	absRepo, err := filepath.Abs(*repoPath)
 	if err != nil {
 		logger.Error("invalid repo path", "err", err)
