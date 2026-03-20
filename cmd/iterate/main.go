@@ -110,6 +110,7 @@ func main() {
 			community.IssueTypeSelf,
 			community.IssueTypeHelpWanted,
 		}
+		logger.Info("fetching issues", "owner", *ghOwner, "repo", *ghRepo)
 		rawIssues, err = community.FetchIssues(fetchCtx, *ghOwner, *ghRepo, issueTypes, *issueMax)
 		cancel()
 		if err != nil {
@@ -120,7 +121,10 @@ func main() {
 			for _, v := range rawIssues {
 				total += len(v)
 			}
-			logger.Info("loaded community issues", "count", total)
+			logger.Info("loaded community issues", "count", total, "issues_len", len(issues))
+			if len(issues) == 0 {
+				logger.Warn("issues string is empty despite fetching some")
+			}
 		}
 	}
 
