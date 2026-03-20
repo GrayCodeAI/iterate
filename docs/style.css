@@ -169,56 +169,40 @@ section {
   text-transform: uppercase;
 }
 
-/* ── journal timeline ── */
+/* ── journal cards ── */
 
-.timeline {
-  position: relative;
-  padding-left: 28px;
-}
-
-.timeline::before {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 6px;
-  bottom: 0;
-  width: 1px;
-  background: linear-gradient(180deg, var(--cyan) 0%, var(--pink) 50%, var(--yellow) 100%);
-}
-
-.timeline-empty {
-  color: var(--text-dim);
-  font-style: italic;
-  padding-left: 28px;
+.journal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
 }
 
 .entry {
-  position: relative;
-  margin-bottom: 2.5rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  transition: border-color 0.2s;
 }
 
-.entry-marker {
-  position: absolute;
-  left: -28px;
-  top: 8px;
-  width: 7px;
-  height: 7px;
-  background: var(--lime);
-  border-radius: 1px;
-  transform: rotate(45deg);
+.entry:hover {
+  border-color: var(--lime);
 }
+
+.entry:nth-child(4n+1) .entry-day { color: var(--lime); }
+.entry:nth-child(4n+2) .entry-day { color: var(--cyan); }
+.entry:nth-child(4n+3) .entry-day { color: var(--pink); }
+.entry:nth-child(4n+4) .entry-day { color: var(--yellow); }
 
 .entry-day {
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--lime);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .entry-timestamp {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text);
   opacity: 0.5;
   margin-top: 0.2rem;
@@ -226,17 +210,17 @@ section {
 }
 
 .entry-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: var(--cyan);
-  margin: 0.25rem 0 0.6rem;
+  color: var(--text-bright);
+  margin: 0.6rem 0 0.6rem;
   line-height: 1.4;
 }
 
 .entry-body {
   color: var(--text);
-  font-size: 0.82rem;
-  line-height: 1.75;
+  font-size: 0.8rem;
+  line-height: 1.7;
 }
 
 /* ── identity ── */
