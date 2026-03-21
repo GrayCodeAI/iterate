@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 REPO_PATH = '.'
 SOCIAL_FILE = f'{REPO_PATH}/memory/social_learnings.jsonl'
-ACTIVE_FILE = f'{REPO_PATH}/memory/active_social_learnings.md'
+ACTIVE_FILE = f'{REPO_PATH}/memory/ACTIVE_SOCIAL_LEARNINGS.md'
 
 def add_social_learning(insight, source="discussion"):
     """Append a social learning to the archive."""

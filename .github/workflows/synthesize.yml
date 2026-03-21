@@ -28,8 +28,8 @@ jobs:
         run: |
           git config user.name "iterate[bot]"
           git config user.email "iterate@users.noreply.github.com"
-          if [[ -n $(git status -s memory/active_learnings.md) ]]; then
-            git add memory/active_learnings.md
+          if [[ -n $(git status -s memory/ACTIVE_LEARNINGS.md) ]]; then
+            git add memory/ACTIVE_LEARNINGS.md
             git commit -m "iterate: synthesize learnings"
             git push
           fi
