@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -530,6 +531,7 @@ Available commands:
   /issues                — list open GitHub issues
   /plan <task>           — plan before execute
   /phase <phase>         — run evolution phase
+  /spawn <task>          — delegate to subagent (context-efficient)
   /model                 — switch provider/model
   /thinking <level>      — set thinking level
   /skills / /tools       — list available skills/tools
@@ -1921,7 +1923,10 @@ Available commands:
 		}
 
 	case "/test":
-		runShell(repoPath, "go", "test", "./...")
+		// Auto-detect test command based on project type (yoyo-evolve style)
+		testCmd := detectTestCommand(repoPath)
+		fmt.Printf("%sRunning: %s%s\n", colorDim, testCmd, colorReset)
+		runShell(repoPath, "bash", "-c", testCmd)
 
 	case "/build":
 		runShell(repoPath, "go", "build", "./...")
@@ -2628,6 +2633,41 @@ func containsString(ss []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// detectTestCommand returns the appropriate test command based on project type.
+// Supports: Go, Rust, Python, Node.js, and falls back to 'make test'.
+func detectTestCommand(repoPath string) string {
+	// Check for Go project
+	if _, err := os.Stat(filepath.Join(repoPath, "go.mod")); err == nil {
+		return "go test ./... -v"
+	}
+	// Check for Rust project
+	if _, err := os.Stat(filepath.Join(repoPath, "Cargo.toml")); err == nil {
+		return "cargo test"
+	}
+	// Check for Python project
+	if _, err := os.Stat(filepath.Join(repoPath, "pyproject.toml")); err == nil {
+		return "pytest"
+	}
+	if _, err := os.Stat(filepath.Join(repoPath, "setup.py")); err == nil {
+		return "python -m pytest"
+	}
+	// Check for Node.js project
+	if _, err := os.Stat(filepath.Join(repoPath, "package.json")); err == nil {
+		// Check for npm test script
+		pkgJSON, _ := os.ReadFile(filepath.Join(repoPath, "package.json"))
+		if bytes.Contains(pkgJSON, []byte(`"test"`)) {
+			return "npm test"
+		}
+		return "node --test"
+	}
+	// Check for Makefile
+	if _, err := os.Stat(filepath.Join(repoPath, "Makefile")); err == nil {
+		return "make test"
+	}
+	// Default fallback
+	return "go test ./..."
 }
 
 func runShell(repoPath string, name string, args ...string) {

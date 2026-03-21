@@ -603,8 +603,11 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	return result, nil
 }
 
-// RunPlanPhase runs only the planning phase.
+// RunPlanPhase runs only the planning phase with a timeout.
 func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues string) error {
+	ctx, cancel := withTimeout(ctx)
+	defer cancel()
+	
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
@@ -694,7 +697,11 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 
 // RunImplementPhase reads SESSION_PLAN.md and runs one agent per task.
 // It creates a feature branch, commits changes there, pushes, and creates a PR.
+// Each task has its own timeout to prevent stuck agents.
 func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) error {
+	ctx, cancel := withTimeout(ctx)
+	defer cancel()
+	
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
@@ -884,6 +891,9 @@ func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provid
 
 // RunCommunicatePhase posts issue responses, writes the journal entry, merges PR if created, and reflects on learnings.
 func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) error {
+	ctx, cancel := withTimeout(ctx)
+	defer cancel()
+	
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
@@ -1205,10 +1215,28 @@ func (e *Engine) runTests(ctx context.Context) (string, error) {
 	return tm["run_tests"].Execute(ctx, nil)
 }
 
+// defaultPhaseTimeout is the maximum duration for any evolution phase.
+const defaultPhaseTimeout = 30 * time.Minute
+
+// withTimeout wraps a context with the default phase timeout.
+func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, defaultPhaseTimeout)
+}
+
 func (e *Engine) revert(ctx context.Context) error {
 	tools := iteragent.DefaultTools(e.repoPath)
 	tm := iteragent.ToolMap(tools)
-	_, err := tm["git_revert"].Execute(ctx, nil)
+	
+	// First, reset all staged and unstaged changes
+	_, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": "git checkout -- . && git clean -fd",
+	})
+	if err != nil {
+		e.logger.Warn("git checkout failed, trying revert tool", "err", err)
+	}
+	
+	// Then use the revert tool for any committed changes
+	_, err = tm["git_revert"].Execute(ctx, nil)
 	return err
 }
 
