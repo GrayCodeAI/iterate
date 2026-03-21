@@ -10,6 +10,34 @@ import (
 	"golang.org/x/term"
 )
 
+// printPrompt prints the mode-aware input prompt with a Claude Code-style status line.
+func printPrompt() {
+	// Status line above prompt — model + session tokens
+	model := os.Getenv("ITERATE_MODEL")
+	if model == "" {
+		model = os.Getenv("ITERATE_PROVIDER")
+	}
+	tokenInfo := ""
+	total := sessionInputTokens + sessionOutputTokens
+	if total > 0 {
+		tokenInfo = fmt.Sprintf(" · %d tokens", total)
+	}
+
+	if model != "" {
+		fmt.Printf("%s● %s%s%s%s\n", colorDim, model, tokenInfo, colorReset, colorReset)
+	}
+
+	// Prompt
+	switch currentMode {
+	case modeAsk:
+		fmt.Printf("%s[ask] ❯%s ", colorCyan, colorReset)
+	case modeArchitect:
+		fmt.Printf("%s[arch] ❯%s ", colorPurple, colorReset)
+	default:
+		fmt.Printf("%s❯%s ", colorLime, colorReset)
+	}
+}
+
 // inputHistory holds commands for up/down arrow navigation.
 var inputHistory []string
 var historyFile string
@@ -372,14 +400,14 @@ func readInput() (string, bool) {
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		// fallback to simple line read
-		fmt.Printf("%s❯%s ", colorLime, colorReset)
+		printPrompt()
 		var line string
 		fmt.Scanln(&line)
 		return strings.TrimSpace(line), true
 	}
 	defer term.Restore(fd, oldState)
 
-	fmt.Printf("%s❯%s ", colorLime, colorReset)
+	printPrompt()
 
 	var buf []byte
 	b := make([]byte, 4)
@@ -432,7 +460,9 @@ func readInput() (string, bool) {
 				histIdx = len(inputHistory)
 			} else {
 				// Reprint prompt and current buf
-				fmt.Printf("\r%s❯%s %s", colorLime, colorReset, string(buf))
+				fmt.Printf("\r")
+				printPrompt()
+				fmt.Printf("%s", string(buf))
 			}
 
 		case b[0] == 4: // Ctrl+D EOF

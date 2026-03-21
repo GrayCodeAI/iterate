@@ -40,8 +40,13 @@ func main() {
 	)
 	flag.Parse()
 
+	// Suppress logs in REPL mode for clean UI
+	logLevel := slog.LevelInfo
+	if *chat || (!*evolve && !*socialOnly && *phase == "") {
+		logLevel = slog.LevelError // Hide info/warn in REPL mode
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 
 	// Debug: log environment
@@ -250,15 +255,8 @@ func incrementDayCount(repoPath string) {
 }
 
 func banner() string {
-	return `
-  _  _            _
- (_)| |_ ___  _ _| |_  ___
- | ||  _/ -_)| '_/ _|/ -_)
- |_| \__\___||_| \__|\__|
-
- self-evolving code agent
- ─────────────────────────
- `
+	// ASCII logo moved to printHeader in repl.go
+	return ""
 }
 
 func saveSessionToFile(path string, messages []iteragent.Message) error {

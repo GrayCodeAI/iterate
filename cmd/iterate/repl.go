@@ -18,6 +18,7 @@ import (
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/commands"
 	"github.com/GrayCodeAI/iterate/internal/evolution"
 )
 
@@ -58,6 +59,9 @@ var (
 	colorCyan   = "\033[36m"
 	colorRed    = "\033[31m"
 )
+
+// replRepoPath is the repo path used in the current REPL session (for prompt display).
+var replRepoPath string
 
 // sessionTokens tracks approximate tokens used this session.
 var sessionTokens int
@@ -175,10 +179,12 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		thinking = iteragent.ThinkingLevel(cfg.ThinkingLevel)
 	}
 
+	replRepoPath = repoPath
+
 	a := makeAgent(p, repoPath, thinking, logger)
 	defer func() { _ = a.Close() }()
 
-	printHeader(p, thinking)
+	printHeader(p, thinking, repoPath)
 
 	// Restore last autosave if available (but don't force — just offer info)
 	if sessions := listSessions(); containsString(sessions, "autosave") {
@@ -259,27 +265,54 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	stopWatch()
 	if len(a.Messages) > 0 {
 		_ = saveSession("autosave", a.Messages)
-		fmt.Printf("\n%ssession autosaved — restore with /load autosave%s\n", colorDim, colorReset)
+		fmt.Printf("\n%s✓ session saved · /load autosave to restore%s\n", colorDim, colorReset)
 	}
-	fmt.Printf("%sbye 🌱%s\n", colorLime, colorReset)
+	fmt.Printf("%s  iterate%s · see you next time\n", colorLime, colorReset)
 }
 
-func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel) {
-	fmt.Printf("\n%s iterate%s  %s%s%s", colorLime+colorBold, colorReset, colorDim, p.Name(), colorReset)
-	if thinking != "" && thinking != iteragent.ThinkingLevelOff {
-		fmt.Printf("  %sthinking:%s %s", colorDim, colorReset, thinking)
+func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPath string) {
+	fmt.Println()
+
+	// ASCII logo
+	fmt.Printf("%s", colorLime)
+	fmt.Println("   ___ _                 _       ")
+	fmt.Println("  |_ _| |_ ___ _ __ __ _| |_ ___ ")
+	fmt.Println("   | || __/ _ \\ '__/ _` | __/ _ \\")
+	fmt.Println("   | || ||  __/ | | (_| | ||  __/")
+	fmt.Println("  |___|\\_\\___|_|  \\__,_|\\__\\___|")
+	fmt.Printf("%s", colorReset)
+	fmt.Println()
+
+	// Tagline
+	fmt.Printf("  %sSelf-Evolving Coding Agent%s\n", colorBold, colorReset)
+	fmt.Println()
+
+	// Working directory (shortened)
+	home, _ := os.UserHomeDir()
+	cwd := repoPath
+	if strings.HasPrefix(cwd, home) {
+		cwd = "~" + cwd[len(home):]
 	}
-	switch currentMode {
-	case modeAsk:
-		fmt.Printf("  %s[ask — read-only]%s", colorCyan, colorReset)
-	case modeArchitect:
-		fmt.Printf("  %s[architect — no tools]%s", colorPurple, colorReset)
-	}
-	if safeMode {
-		fmt.Printf("  %s[safe]%s", colorYellow, colorReset)
+	fmt.Printf("  %s%s%s", colorBold, cwd, colorReset)
+
+	// Git branch
+	if out, err := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output(); err == nil {
+		branch := strings.TrimSpace(string(out))
+		if branch != "" {
+			fmt.Printf("  %s(%s)%s", colorLime, branch, colorReset)
+		}
 	}
 	fmt.Println()
-	fmt.Printf("%sType a message, or /help for commands. Tab completes. ↑↓ history. Ctrl+C to exit.%s\n", colorDim, colorReset)
+
+	fmt.Println()
+
+	// Keyboard hints
+	fmt.Printf("  %s/help%s · %sTab%s complete · %s↑↓%s history · %sCtrl+R%s search · %sCtrl+C%s exit\n",
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorReset)
 	fmt.Println()
 }
 
@@ -435,11 +468,57 @@ func discoverOllamaHosts() []ollamaHost {
 	return hosts
 }
 
+// loadBookmarksWrapper converts main package Bookmarks to commands.Bookmarks.
+func loadBookmarksWrapper() []commands.Bookmark {
+	bms := loadBookmarks()
+	result := make([]commands.Bookmark, len(bms))
+	for i, b := range bms {
+		result[i] = commands.Bookmark{
+			Name:      b.Name,
+			CreatedAt: b.CreatedAt,
+			Messages:  b.Messages,
+		}
+	}
+	return result
+}
+
 // handleCommand processes a slash command. Returns true if the REPL should exit.
 func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p iteragent.Provider, repoPath string, thinking *iteragent.ThinkingLevel, logger *slog.Logger) bool {
 	parts := strings.Fields(line)
 	cmd := strings.ToLower(parts[0])
 
+	// Try modular command registry first
+	cmdCtx := commands.Context{
+		RepoPath:            repoPath,
+		Line:                line,
+		Parts:               parts,
+		Provider:            p,
+		Agent:               a,
+		Thinking:            thinking,
+		SafeMode:            &safeMode,
+		DeniedTools:         deniedTools,
+		SessionInputTokens:  &sessionInputTokens,
+		SessionOutputTokens: &sessionOutputTokens,
+		SessionCacheRead:    &sessionCacheRead,
+		SessionCacheWrite:   &sessionCacheWrite,
+		InputHistory:        &inputHistory,
+		StopWatch:           stopWatch,
+		Pool:                agentPool,
+
+		// Session callbacks
+		SaveSession:   saveSession,
+		LoadSession:   loadSession,
+		ListSessions:  listSessions,
+		AddBookmark:   addBookmark,
+		LoadBookmarks: loadBookmarksWrapper,
+		SelectItem:    selectItem,
+	}
+
+	if result := commands.DefaultRegistry().Execute(cmd, cmdCtx); result.Handled {
+		return result.Done
+	}
+
+	// Fall back to legacy switch for unmigrated commands
 	switch cmd {
 	case "/help", "/?":
 		fmt.Print(`
@@ -2330,26 +2409,26 @@ Available commands:
 			count = 100
 		}
 		taskTemplate := strings.TrimSpace(strings.TrimPrefix(line, parts[0]+" "+parts[1]))
-		
+
 		// Generate tasks by replacing {N} with index
 		tasks := make([]string, count)
 		for i := 0; i < count; i++ {
 			tasks[i] = strings.ReplaceAll(taskTemplate, "{N}", fmt.Sprintf("%d", i+1))
 			tasks[i] = strings.ReplaceAll(tasks[i], "{n}", fmt.Sprintf("%d", i))
 		}
-		
+
 		fmt.Printf("%sLaunching swarm: %d agents%s\n", colorCyan, count, colorReset)
 		fmt.Printf("%sTask: %s%s\n", colorDim, taskTemplate, colorReset)
 		fmt.Printf("%sRate limit: 5 req/sec, Max concurrent: 10%s\n\n", colorDim, colorReset)
-		
+
 		// Create agent pool with rate limiting
 		pool := agent.NewPool(p, iteragent.DefaultTools(repoPath), logger, 10, 5)
 		defer pool.Close()
-		
+
 		// Track results
 		var success, failed int
 		var resultsMu sync.Mutex
-		
+
 		start := time.Now()
 		errs := pool.SpawnAll(ctx, tasks, func(a *iteragent.Agent, task string) error {
 			prompt := fmt.Sprintf("You are a focused subagent. Complete this task:\n\n%s\n\nBe concise.", task)
@@ -2368,7 +2447,7 @@ Available commands:
 			resultsMu.Unlock()
 			return nil
 		})
-		
+
 		// Report results
 		elapsed := time.Since(start).Round(time.Second)
 		fmt.Printf("\n%s── Swarm Complete ─────────────────%s\n", colorDim, colorReset)
@@ -2377,7 +2456,7 @@ Available commands:
 		fmt.Printf("  Failed:    %s%d%s\n", colorRed, failed, colorReset)
 		fmt.Printf("  Duration:  %s\n", elapsed)
 		fmt.Printf("  Rate:      %.1f agents/sec\n", float64(count)/elapsed.Seconds())
-		
+
 		// Report errors
 		for i, err := range errs {
 			if err != nil {
@@ -2533,6 +2612,28 @@ Available commands:
 	return false
 }
 
+// toolStyle returns the display icon, label, and ANSI color for a tool name.
+func toolStyle(name string) (icon, label, col string) {
+	switch name {
+	case "bash", "run_command", "run_terminal_cmd":
+		return "❯", "bash", colorLime
+	case "read_file", "read":
+		return "◎", "read", colorCyan
+	case "write_file", "create_file":
+		return "✎", "write", colorYellow
+	case "edit_file":
+		return "✎", "edit", colorAmber
+	case "search_files", "grep_search", "find_files":
+		return "⌕", "search", colorCyan
+	case "list_dir", "list_directory":
+		return "◈", "list", colorBlue
+	case "web_fetch", "fetch_url":
+		return "↓", "fetch", colorBlue
+	default:
+		return "⚙", name, colorDim
+	}
+}
+
 // spinner runs a spinner in the terminal until stop() is called, signals done when exited.
 func spinner(stop <-chan struct{}, done chan<- struct{}) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -2548,7 +2649,7 @@ func spinner(stop <-chan struct{}, done chan<- struct{}) {
 			return
 		default:
 			elapsed := time.Since(start).Round(time.Millisecond)
-			fmt.Printf("\r%s%s%s thinking… %s%s%s", colorLime, frames[i%len(frames)], colorReset, colorDim, elapsed, colorReset)
+			fmt.Printf("\r%s%s%s  %sthinking%s  %s%s%s", colorLime, frames[i%len(frames)], colorReset, colorBold, colorReset, colorDim, elapsed, colorReset)
 			i++
 			time.Sleep(80 * time.Millisecond)
 		}
@@ -2619,14 +2720,16 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 				fullContent = ""
 				streamingTokens = false
 			}
-			fmt.Printf("%s⚙ %s%s", colorYellow, e.ToolName, colorReset)
+			icon, label, col := toolStyle(e.ToolName)
+			fmt.Printf("%s%s %s%s%s", col, icon, label, colorReset, colorDim)
 
 		case iteragent.EventToolExecutionEnd:
 			snippet := e.Result
 			if len(snippet) > 60 {
 				snippet = snippet[:60] + "…"
 			}
-			fmt.Printf("%s → %s%s\n", colorDim, snippet, colorReset)
+			snippet = strings.ReplaceAll(snippet, "\n", " ")
+			fmt.Printf(" → %s%s\n", snippet, colorReset)
 			// Show git diff after file edits
 			if e.ToolName == "write_file" || e.ToolName == "edit_file" || e.ToolName == "create_file" {
 				showGitDiff(repoPath)
@@ -2679,7 +2782,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 			usageStr = fmt.Sprintf(" · ~%d tokens", approxTokens)
 		}
 	}
-	fmt.Printf("%s%s%s%s\n\n", colorDim, elapsed, usageStr, colorReset)
+	fmt.Printf("\n%s●%s %s%s%s%s\n\n", colorLime, colorReset, colorDim, elapsed, usageStr, colorReset)
 }
 
 // showGitDiff runs git diff and prints colored output if there are changes.

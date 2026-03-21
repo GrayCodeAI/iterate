@@ -18,6 +18,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/agent"
 	"golang.org/x/term"
 )
 
@@ -67,6 +68,9 @@ var deniedTools = map[string]bool{
 	"write_file": true,
 	"edit_file":  true,
 }
+
+// agentPool is the shared agent pool for /swarm command.
+var agentPool *agent.Pool
 
 // wrapToolsWithPermissions wraps tools that need approval in safe mode
 // and adds audit logging to all tools.
