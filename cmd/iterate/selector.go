@@ -25,25 +25,27 @@ func printPrompt() {
 }
 
 // gitStatus returns real-time staged and unstaged file counts.
+// Uses git diff directly to avoid stale index mtime false-positives.
 func gitStatus() (staged, unstaged int) {
 	if replRepoPath == "" {
 		return 0, 0
 	}
-	// Refresh index to fix stale mtime entries that appear as staged
-	_ = exec.Command("git", "-C", replRepoPath, "update-index", "-q", "--refresh").Run()
-	out, err := exec.Command("git", "-C", replRepoPath, "status", "--porcelain").Output()
-	if err != nil {
-		return 0, 0
+	// Count staged files (index vs HEAD)
+	out, err := exec.Command("git", "-C", replRepoPath, "diff", "--cached", "--name-only").Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if strings.TrimSpace(line) != "" {
+				staged++
+			}
+		}
 	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if len(line) < 2 {
-			continue
-		}
-		if line[0] != ' ' && line[0] != '?' {
-			staged++
-		}
-		if line[1] != ' ' && line[1] != '?' {
-			unstaged++
+	// Count unstaged files (working tree vs index)
+	out, err = exec.Command("git", "-C", replRepoPath, "diff", "--name-only").Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if strings.TrimSpace(line) != "" {
+				unstaged++
+			}
 		}
 	}
 	return staged, unstaged
