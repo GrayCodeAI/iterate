@@ -63,6 +63,8 @@ Available commands:
   /lint               — run go vet ./...
   /commit <msg>       — git add -A && git commit
   /status             — git status + day count
+  /day [number]       — show or set evolution day count
+  /mutants            — run mutation tests to find weak test coverage
   /compact            — compact conversation history
   /phase <phase>      — run evolution phase: plan|implement|communicate
   /quit               — exit

@@ -1,0 +1,15 @@
+# GitHub Labels for iterate
+# Create these labels in your repository for community interaction
+
+labels:
+  - name: agent-input
+    description: "Community suggestions, bug reports, feature requests — iterate reads these every session"
+    color: "0075ca"
+
+  - name: agent-self
+    description: "Issues iterate filed for itself as future TODOs"
+    color: "7057ff"
+
+  - name: agent-help-wanted
+    description: "Issues where iterate is stuck and asking humans for help"
+    color: "008672"
