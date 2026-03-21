@@ -16,6 +16,124 @@ import (
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
+// ProtectedFiles defines patterns for files the agent MUST NOT edit during evolution.
+// These are core infrastructure that could break the evolution system itself.
+var ProtectedFiles = []string{
+	// Evolution engine - modifying this could break self-evolution
+	"internal/evolution/engine.go",
+	"internal/evolution/*.go",
+	// GitHub Actions workflows - could disable evolution triggers
+	".github/workflows/evolve.yml",
+	".github/workflows/*.yml",
+	// Core REPL - the agent's interface
+	"cmd/iterate/repl.go",
+	"cmd/iterate/main.go",
+	// Configuration
+	".iterate/config.json",
+	// Scripts that run evolution
+	"scripts/evolve.sh",
+	"scripts/social.sh",
+}
+
+// isProtected checks if a file path matches any protected pattern.
+func isProtected(path string) bool {
+	cleanPath := filepath.Clean(path)
+	for _, pattern := range ProtectedFiles {
+		// Check exact match
+		if cleanPath == filepath.Clean(pattern) {
+			return true
+		}
+		// Check glob pattern match
+		if matched, _ := filepath.Match(pattern, filepath.Base(cleanPath)); matched {
+			dir := filepath.Dir(cleanPath)
+			patternDir := filepath.Dir(pattern)
+			if dir == patternDir || patternDir == "." {
+				return true
+			}
+		}
+		// Check if path is inside a protected directory
+		if strings.HasSuffix(pattern, "/*") || strings.HasSuffix(pattern, "/*.go") {
+			protectedDir := strings.TrimSuffix(pattern, "/*")
+			protectedDir = strings.TrimSuffix(protectedDir, "/*.go")
+			if strings.HasPrefix(cleanPath, protectedDir+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// VerificationResult holds the outcome of a build + test verification run.
+type VerificationResult struct {
+	BuildPassed bool
+	TestPassed  bool
+	Output      string
+	Error       error
+}
+
+// verify runs build + tests and returns the combined result.
+// This is called after each implementation task to ensure changes don't break the codebase.
+func (e *Engine) verify(ctx context.Context) *VerificationResult {
+	result := &VerificationResult{}
+
+	// Step 1: Build
+	buildOut, buildErr := e.runTool(ctx, "bash", map[string]string{
+		"cmd": "go build ./...",
+	})
+	result.Output = buildOut
+	if buildErr != nil {
+		result.Error = fmt.Errorf("build failed: %w", buildErr)
+		return result
+	}
+	result.BuildPassed = true
+
+	// Step 2: Vet
+	vetOut, vetErr := e.runTool(ctx, "bash", map[string]string{
+		"cmd": "go vet ./...",
+	})
+	if vetErr != nil {
+		result.Output += "\n" + vetOut
+		result.Error = fmt.Errorf("vet failed: %w", vetErr)
+		return result
+	}
+
+	// Step 3: Test
+	testOut, testErr := e.runTool(ctx, "bash", map[string]string{
+		"cmd": "go test ./... -short",
+	})
+	result.Output += "\n" + testOut
+	if testErr != nil {
+		result.Error = fmt.Errorf("tests failed: %w", testErr)
+		return result
+	}
+	result.TestPassed = true
+
+	return result
+}
+
+// verifyProtected checks if any modified files are protected.
+// Returns a list of protected files that were modified.
+func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
+	out, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": "git diff --name-only HEAD",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var violations []string
+	for _, file := range strings.Split(strings.TrimSpace(out), "\n") {
+		file = strings.TrimSpace(file)
+		if file == "" {
+			continue
+		}
+		if isProtected(file) {
+			violations = append(violations, file)
+		}
+	}
+	return violations, nil
+}
+
 // Engine runs one evolution session.
 type Engine struct {
 	repoPath      string
@@ -607,8 +725,11 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	for _, task := range tasks {
 		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
 
-		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
-			task.Number, task.Description)
+		// Add protected files warning to task prompt
+		protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+
+		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
+			task.Number, task.Description, protectedWarning)
 
 		a := e.newAgent(p, tools, systemPrompt, skills)
 
@@ -636,10 +757,18 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 			continue
 		}
 
-		testResult, testErr := e.runTests(ctx)
-		_ = testResult
-		if testErr != nil {
-			e.logger.Warn("tests failed for task, reverting", "number", task.Number)
+		// Check for protected file violations
+		violations, _ := e.verifyProtected(ctx)
+		if len(violations) > 0 {
+			e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
+			_ = e.revert(ctx)
+			continue
+		}
+
+		// Verify build + tests (yoyo-evolve style per-task verification)
+		verification := e.verify(ctx)
+		if !verification.BuildPassed || !verification.TestPassed {
+			e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
 			_ = e.revert(ctx)
 			continue
 		}
@@ -693,11 +822,14 @@ func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provid
 	tools := iteragent.DefaultTools(e.repoPath)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
+	// Protected files warning for legacy mode
+	protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+
 	for _, task := range tasks {
 		e.logger.Info("implementing task (legacy)", "number", task.Number, "title", task.Title)
 
-		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
-			task.Number, task.Description)
+		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
+			task.Number, task.Description, protectedWarning)
 
 		a := e.newAgent(p, tools, systemPrompt, skills)
 
@@ -725,10 +857,18 @@ func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provid
 			continue
 		}
 
-		testResult, testErr := e.runTests(ctx)
-		_ = testResult
-		if testErr != nil {
-			e.logger.Warn("tests failed for task, reverting", "number", task.Number)
+		// Check for protected file violations
+		violations, _ := e.verifyProtected(ctx)
+		if len(violations) > 0 {
+			e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
+			_ = e.revert(ctx)
+			continue
+		}
+
+		// Verify build + tests (yoyo-evolve style per-task verification)
+		verification := e.verify(ctx)
+		if !verification.BuildPassed || !verification.TestPassed {
+			e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
 			_ = e.revert(ctx)
 			continue
 		}
