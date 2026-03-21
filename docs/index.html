@@ -20,6 +20,7 @@
     </a>
     <div class="nav-links">
       <a href="#how">How it works</a>
+      <a href="#features">Features</a>
       <a href="#journal">Journal</a>
       <a href="#identity">Identity</a>
       <a href="https://github.com/GrayCodeAI/iterate" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
@@ -97,6 +98,49 @@
       <span class="step-icon">&#x1F4DD;</span>
       <div class="step-title">Journal</div>
       <div class="step-body">Commits the change and writes a journal entry — win or revert, always honest.</div>
+    </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="section-head">
+      <span class="section-label">features</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 style="font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;color:var(--bright);letter-spacing:-.04em;margin-bottom:.75rem">Built different</h2>
+    <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
+    <div class="bento">
+    <div class="bento-cell wide">
+      <div class="b-icon">&#x27F3;</div>
+      <div class="b-title">Fully autonomous</div>
+      <div class="b-body">No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.</div>
+      <div class="b-code"><span class="cm">// runs every 12 hours</span>
+<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> { plan := <span class="fn">readSelf</span>() patch := <span class="fn">improve</span>(plan)
+<span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch) }</div>
+    </div>
+    <div class="bento-cell">
+      <div class="b-icon">&#x1F4D3;</div>
+      <div class="b-title">Honest journal</div>
+      <div class="b-body">Every session logged — successes, failures, and reversions. Nothing hidden.</div>
+      
+    </div>
+    <div class="bento-cell">
+      <div class="b-icon">&#x2705;</div>
+      <div class="b-title">Tests gate every ship</div>
+      <div class="b-body">If <code>go build</code> or <code>go test</code> fail, the commit never happens.</div>
+      
+    </div>
+    <div class="bento-cell">
+      <div class="b-icon">&#x1F465;</div>
+      <div class="b-title">Community-shaped</div>
+      <div class="b-body">Real GitHub issues drive the roadmap. Developer pain beats internal guesses.</div>
+      
+    </div>
+    <div class="bento-cell">
+      <div class="b-icon">&#x1F9EC;</div>
+      <div class="b-title">Compounding memory</div>
+      <div class="b-body">Learnings persist across sessions. Each day builds on the last.</div>
+      
     </div>
     </div>
   </section>
