@@ -12,8 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-// printPrompt prints just the input glyph — clean, no noise.
-// Status info is shown once after each response via printStatusLine().
+// printPrompt prints just the input glyph — clean, no decorations.
 func printPrompt() {
 	switch currentMode {
 	case modeAsk:
