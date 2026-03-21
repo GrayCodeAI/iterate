@@ -287,7 +287,7 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 	fmt.Printf("  %sSelf-Evolving Coding Agent%s\n", colorBold, colorReset)
 	fmt.Println()
 
-	// Working directory (shortened)
+	// Working directory (shortened) + git branch + dirty state
 	home, _ := os.UserHomeDir()
 	cwd := repoPath
 	if strings.HasPrefix(cwd, home) {
@@ -302,7 +302,35 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 			fmt.Printf("  %s(%s)%s", colorLime, branch, colorReset)
 		}
 	}
+
+	// Git dirty indicator
+	if out, err := exec.Command("git", "-C", repoPath, "status", "--porcelain").Output(); err == nil {
+		if lines := strings.TrimSpace(string(out)); lines != "" {
+			count := len(strings.Split(lines, "\n"))
+			fmt.Printf("  %s%d changed%s", colorYellow, count, colorReset)
+		}
+	}
+
 	fmt.Println()
+
+	// Model + thinking level
+	modelName := p.Name()
+	thinkingStr := ""
+	if thinking != iteragent.ThinkingLevelOff && thinking != "" {
+		thinkingStr = fmt.Sprintf("  %sthinking:%s%s%s", colorDim, colorCyan, thinking, colorReset)
+	}
+	safeModeStr := ""
+	if safeMode {
+		safeModeStr = fmt.Sprintf("  %s🔒 safe mode%s", colorCyan, colorReset)
+	}
+	fmt.Printf("  %s%s%s%s%s\n", colorDim, modelName, thinkingStr, safeModeStr, colorReset)
+
+	// Day count if present
+	if data, err := os.ReadFile(filepath.Join(repoPath, "DAY_COUNT")); err == nil {
+		if day := strings.TrimSpace(string(data)); day != "" {
+			fmt.Printf("  %sday %s%s\n", colorDim, day, colorReset)
+		}
+	}
 
 	fmt.Println()
 
@@ -2626,17 +2654,29 @@ func toolStyle(name string) (icon, label, col string) {
 	case "search_files", "grep_search", "find_files":
 		return "⌕", "search", colorCyan
 	case "list_dir", "list_directory":
-		return "◈", "list", colorBlue
+		return "◈", "ls", colorBlue
 	case "web_fetch", "fetch_url":
 		return "↓", "fetch", colorBlue
+	case "delete_file", "remove_file":
+		return "✗", "delete", colorRed
+	case "move_file", "rename_file":
+		return "→", "move", colorAmber
+	case "make_dir", "create_dir":
+		return "+", "mkdir", colorGreen
+	case "git_commit", "git_push", "git_pull":
+		return "⎇", name, colorLime
 	default:
 		return "⚙", name, colorDim
 	}
 }
 
 // spinner runs a spinner in the terminal until stop() is called, signals done when exited.
-func spinner(stop <-chan struct{}, done chan<- struct{}) {
+// label is shown next to the spinner (e.g. "thinking" or "bash").
+func spinner(stop <-chan struct{}, done chan<- struct{}, label string) {
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	if label == "" {
+		label = "thinking"
+	}
 	i := 0
 	start := time.Now()
 	spinnerActive.Store(1)
@@ -2649,7 +2689,10 @@ func spinner(stop <-chan struct{}, done chan<- struct{}) {
 			return
 		default:
 			elapsed := time.Since(start).Round(time.Millisecond)
-			fmt.Printf("\r%s%s%s  %sthinking%s  %s%s%s", colorLime, frames[i%len(frames)], colorReset, colorBold, colorReset, colorDim, elapsed, colorReset)
+			fmt.Printf("\r%s%s%s  %s%s%s  %s%s%s",
+				colorLime, frames[i%len(frames)], colorReset,
+				colorBold, label, colorReset,
+				colorDim, elapsed, colorReset)
 			i++
 			time.Sleep(80 * time.Millisecond)
 		}
@@ -2664,12 +2707,14 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	start := time.Now()
 
 	var (
-		stopSpinner chan struct{}
-		spinnerDone chan struct{}
-		spinnerOnce sync.Once
-		stopOnce    func()
+		stopSpinner  chan struct{}
+		spinnerDone  chan struct{}
+		spinnerOnce  sync.Once
+		stopOnce     func()
+		spinnerLabel string
 	)
-	newSpinner := func() {
+	newSpinner := func(label string) {
+		spinnerLabel = label
 		stopSpinner = make(chan struct{})
 		spinnerDone = make(chan struct{})
 		spinnerOnce = sync.Once{}
@@ -2679,13 +2724,15 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 				<-spinnerDone
 			})
 		}
-		go spinner(stopSpinner, spinnerDone)
+		go spinner(stopSpinner, spinnerDone, spinnerLabel)
 	}
-	newSpinner()
+	_ = spinnerLabel
+	newSpinner("thinking")
 	defer func() { stopOnce() }()
 
 	var fullContent string
 	var streamingTokens bool // true once we receive the first EventTokenUpdate
+	var toolStart time.Time
 
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
@@ -2709,6 +2756,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 			}
 
 		case iteragent.EventToolExecutionStart:
+			toolStart = time.Now()
 			recordToolCall()
 			stopOnce()
 			if fullContent != "" {
@@ -2721,21 +2769,32 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 				streamingTokens = false
 			}
 			icon, label, col := toolStyle(e.ToolName)
-			fmt.Printf("%s%s %s%s%s", col, icon, label, colorReset, colorDim)
+			// Show tool name + truncated key arg inline
+			fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
 
 		case iteragent.EventToolExecutionEnd:
+			elapsed := time.Since(toolStart).Round(time.Millisecond)
 			snippet := e.Result
-			if len(snippet) > 60 {
-				snippet = snippet[:60] + "…"
+			if len(snippet) > 72 {
+				snippet = snippet[:72] + "…"
 			}
 			snippet = strings.ReplaceAll(snippet, "\n", " ")
-			fmt.Printf(" → %s%s\n", snippet, colorReset)
+			// color result snippet based on error
+			snippetColor := colorDim
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(e.Result)), "error") {
+				snippetColor = colorRed
+			}
+			fmt.Printf("%s  %s%s%s  %s%s%s\n",
+				colorDim, colorReset,
+				snippetColor, snippet, colorReset,
+				colorDim, elapsed)
+			fmt.Print(colorReset)
 			// Show git diff after file edits
 			if e.ToolName == "write_file" || e.ToolName == "edit_file" || e.ToolName == "create_file" {
 				showGitDiff(repoPath)
 			}
 			// Restart spinner for next agent step
-			newSpinner()
+			newSpinner("thinking")
 
 		case iteragent.EventContextCompacted:
 			fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
@@ -2771,7 +2830,10 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 			sessionCacheRead += last.Usage.CacheRead
 			sessionCacheWrite += last.Usage.CacheWrite
 			sessionTokens += last.Usage.TotalTokens
-			usageStr = fmt.Sprintf(" · %d in / %d out tokens", last.Usage.InputTokens, last.Usage.OutputTokens)
+			usageStr = fmt.Sprintf("  %s↑%d ↓%d tok%s", colorDim, last.Usage.InputTokens, last.Usage.OutputTokens, colorReset)
+			if last.Usage.CacheRead > 0 {
+				usageStr += fmt.Sprintf("  %scache hit %d%s", colorDim, last.Usage.CacheRead, colorReset)
+			}
 		}
 	}
 	if usageStr == "" {
@@ -2779,7 +2841,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		sessionTokens += approxTokens
 		sessionOutputTokens += approxTokens
 		if approxTokens > 0 {
-			usageStr = fmt.Sprintf(" · ~%d tokens", approxTokens)
+			usageStr = fmt.Sprintf("  %s~%d tok%s", colorDim, approxTokens, colorReset)
 		}
 	}
 	fmt.Printf("\n%s●%s %s%s%s%s\n\n", colorLime, colorReset, colorDim, elapsed, usageStr, colorReset)
