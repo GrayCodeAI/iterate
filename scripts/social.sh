@@ -22,16 +22,13 @@ go build -o ./iterate ./cmd/iterate
 log "Fetching GitHub discussions..."
 python3 scripts/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.md" 2>/dev/null || true
 
-# Social session: read discussions, participate
+# Social session: read discussions, participate, extract learnings
 log "Running social session..."
 ./iterate --social --gh-owner GrayCodeAI --gh-repo iterate \
   2>/dev/null || log "Social session completed with status $?"
 
-# Update social learnings
-log "Updating social learnings..."
-if grep -q "^/learn" "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.md" 2>/dev/null; then
-  python3 scripts/update_social_learnings.py || true
-fi
-
+# Synthesize social learnings into active context
+log "Synthesizing social learnings..."
+python3 scripts/update_social_learnings.py || true
 
 log "=== iterate social session completed ==="
