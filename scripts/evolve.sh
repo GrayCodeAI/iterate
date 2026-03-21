@@ -9,9 +9,45 @@ REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
 PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
 PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
-SPONSORS_FILE="/tmp/sponsor_logins.json"
+SPONSORS_FILE="/tmp/sponsor_logins_$$.json"
+PID_FILE="${REPOPATH}/.iterate/evolve.pid"
+LOCK_TIMEOUT=3600  # 1 hour max lock
+
+# ── Step -1: Concurrent run lock (prevent overlapping evolutions) ──
+acquire_lock() {
+  if [[ -f "$PID_FILE" ]]; then
+    OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
+    if [[ -n "$OLD_PID" ]]; then
+      # Check if process is still running
+      if kill -0 "$OLD_PID" 2>/dev/null; then
+        # Check lock age
+        LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$PID_FILE" 2>/dev/null || stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
+        if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
+          log "ERROR: Another evolution is running (PID $OLD_PID, age ${LOCK_AGE}s)"
+          exit 1
+        else
+          log "WARNING: Stale lock found (age ${LOCK_AGE}s), removing"
+          rm -f "$PID_FILE"
+        fi
+      else
+        log "Removing stale lock file (process $OLD_PID not running)"
+        rm -f "$PID_FILE"
+      fi
+    fi
+  fi
+  echo $$ > "$PID_FILE"
+  log "Acquired lock (PID $$)"
+}
+
+release_lock() {
+  rm -f "$PID_FILE"
+  log "Released lock"
+}
+
+trap release_lock EXIT
 
 mkdir -p "${REPOPATH}/.iterate"
+acquire_lock
 
 log() {
   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
