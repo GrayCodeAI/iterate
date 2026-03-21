@@ -9,7 +9,7 @@
 #   ... your task-specific instructions ...
 #   EOF
 #
-# Reads: IDENTITY.md, PERSONALITY.md, memory/active_learnings.md, memory/active_social_learnings.md
+# Reads: IDENTITY.md, PERSONALITY.md, memory/ACTIVE_LEARNINGS.md, memory/ACTIVE_SOCIAL_LEARNINGS.md
 # These are iterate's stable identity files — who it is, how it speaks,
 # what it's learned about itself, and what it's learned from humans.
 
@@ -37,14 +37,14 @@ fi
 
 # Active learnings — no warning if missing
 _LEARNINGS=""
-if [ -f "$_ITERATE_REPO/memory/active_learnings.md" ]; then
-    _LEARNINGS=$(cat "$_ITERATE_REPO/memory/active_learnings.md") || _LEARNINGS=""
+if [ -f "$_ITERATE_REPO/memory/ACTIVE_LEARNINGS.md" ]; then
+    _LEARNINGS=$(cat "$_ITERATE_REPO/memory/ACTIVE_LEARNINGS.md") || _LEARNINGS=""
 fi
 
 # Active social learnings — no warning if missing
 _SOCIAL_LEARNINGS=""
-if [ -f "$_ITERATE_REPO/memory/active_social_learnings.md" ]; then
-    _SOCIAL_LEARNINGS=$(cat "$_ITERATE_REPO/memory/active_social_learnings.md") || _SOCIAL_LEARNINGS=""
+if [ -f "$_ITERATE_REPO/memory/ACTIVE_SOCIAL_LEARNINGS.md" ]; then
+    _SOCIAL_LEARNINGS=$(cat "$_ITERATE_REPO/memory/ACTIVE_SOCIAL_LEARNINGS.md") || _SOCIAL_LEARNINGS=""
 fi
 
 ITERATE_CONTEXT="=== WHO YOU ARE ===

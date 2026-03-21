@@ -615,7 +615,7 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 
-	// Load memory/active_learnings.md
+	// Load memory/ACTIVE_LEARNINGS.md
 	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
 	ciStatus, _ := os.ReadFile(filepath.Join(e.repoPath, ".iterate", "ci_status.txt"))
 
@@ -1044,7 +1044,7 @@ Rules:
 	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "active_learnings.md"))
 	learningsMsg := fmt.Sprintf(`Did this session teach you something genuinely new that would change how you act next time?
 
-Read memory/active_learnings.md first to avoid duplicates.
+Read memory/ACTIVE_LEARNINGS.md first to avoid duplicates.
 If yes, append ONE entry to memory/learnings.jsonl using python3:
 
 python3 -c "

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 REPO_PATH = '.'
 LEARNINGS_FILE = f'{REPO_PATH}/memory/learnings.jsonl'
-ACTIVE_FILE = f'{REPO_PATH}/memory/active_learnings.md'
+ACTIVE_FILE = f'{REPO_PATH}/memory/ACTIVE_LEARNINGS.md'
 
 def weight_by_age(days_old):
     """Time-weighted compression factor (recent=100%, old=summarized)."""
