@@ -1,5 +1,6 @@
 # Go
 /iterate
+cmd/iterate/iterate
 *.exe
 .iterate/
 vendor/
