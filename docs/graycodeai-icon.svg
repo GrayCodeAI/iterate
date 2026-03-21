@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="bg-glow" cx="75%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#1e3a50" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0d1117" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="120" height="120" rx="24" fill="#0d1117"/>
+  <rect width="120" height="120" rx="24" fill="url(#bg-glow)"/>
+  <rect width="120" height="120" rx="24" stroke="#1e2d3d" stroke-width="1.5"/>
+
+  <!--
+    4 states, bottom-aligned at y=86, gap=4px between pair rects
+    Widths all 16px, heights: 00=8 01=12 11=16 10=20
+    Gap between groups: 8px
+    Total: 4*16 + 3*8 = 88px, centered in 120px → start x = 16
+  -->
+
+  <!-- 00 · both hollow -->
+  <rect x="16" y="70" width="16" height="8"  rx="2.5" fill="none" stroke="#3d5570" stroke-width="1.4"/>
+  <rect x="16" y="82" width="16" height="8"  rx="2.5" fill="none" stroke="#3d5570" stroke-width="1.4"/>
+
+  <!-- 01 · top hollow, bottom filled -->
+  <rect x="40" y="62" width="16" height="12" rx="3"   fill="none" stroke="#3d5268" stroke-width="1.5"/>
+  <rect x="40" y="78" width="16" height="12" rx="3"   fill="#3d5268"/>
+
+  <!-- 11 · both filled -->
+  <rect x="64" y="54" width="16" height="16" rx="3.5" fill="#607d93"/>
+  <rect x="64" y="74" width="16" height="16" rx="3.5" fill="#607d93"/>
+
+  <!-- 10 · top filled, bottom hollow -->
+  <rect x="88" y="46" width="16" height="20" rx="4"   fill="#c0d0e0"/>
+  <rect x="88" y="70" width="16" height="20" rx="4"   fill="none" stroke="#c0d0e0" stroke-width="1.6"/>
+</svg>
