@@ -87,7 +87,7 @@ func printStatusLine(elapsed time.Duration) {
 		fmt.Printf("%s · %s%d tok%s", colorDim, colorPurple, total, colorReset)
 	}
 
-	const windowTokens = 200_000
+	const windowTokens = contextWindow
 	pct := 0
 	if total > 0 {
 		pct = total * 100 / windowTokens
@@ -141,6 +141,8 @@ func initHistory() {
 	}
 }
 
+const maxHistoryLines = 500
+
 func appendHistory(line string) {
 	if line == "" {
 		return
@@ -159,8 +161,25 @@ func appendHistory(line string) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
 	fmt.Fprintln(f, line)
+	f.Close()
+
+	// Trim history file if it exceeds maxHistoryLines
+	trimHistoryFile()
+}
+
+// trimHistoryFile keeps the history file at most maxHistoryLines lines.
+func trimHistoryFile() {
+	data, err := os.ReadFile(historyFile)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) <= maxHistoryLines {
+		return
+	}
+	lines = lines[len(lines)-maxHistoryLines:]
+	_ = os.WriteFile(historyFile, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
 }
 
 const maxVisible = 12

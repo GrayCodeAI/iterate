@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
@@ -62,6 +64,9 @@ var (
 
 // replRepoPath is the repo path used in the current REPL session (for prompt display).
 var replRepoPath string
+
+// requestCancel cancels the currently in-flight agent request (set during streamAndPrint).
+var requestCancel context.CancelFunc
 
 // sessionTokens tracks approximate tokens used this session.
 var sessionTokens int
@@ -149,6 +154,18 @@ func replHooks() iteragent.AgentHooks {
 func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) {
 	initHistory()
 	initAuditLog()
+
+	// Handle SIGINT: cancel in-flight request instead of exiting.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT)
+	go func() {
+		for range sigCh {
+			if requestCancel != nil {
+				requestCancel()
+				fmt.Printf("\r\033[K%s[cancelled]%s\n", colorYellow, colorReset)
+			}
+		}
+	}()
 	cfg := loadConfig()
 	safeMode = cfg.SafeMode
 	notifyEnabled = cfg.Notify
@@ -713,9 +730,8 @@ Available commands:
 		fmt.Printf("%s──────────────────────────────────%s\n\n", colorDim, colorReset)
 
 	case "/tokens":
-		const windowSize = 200000
 		fmt.Printf("%s── Token usage ─────────────────────%s\n", colorDim, colorReset)
-		fmt.Printf("  %s\n", contextBar(a.Messages, windowSize))
+		fmt.Printf("  %s\n", contextBar(a.Messages, contextWindow))
 		fmt.Printf("  Session input:  ~%d tokens\n", sessionInputTokens)
 		fmt.Printf("  Session output: ~%d tokens\n", sessionOutputTokens)
 		if sessionCacheRead > 0 || sessionCacheWrite > 0 {
@@ -929,10 +945,9 @@ Available commands:
 		fmt.Printf("%s── grep: %s ──%s\n%s\n\n", colorDim, pattern, colorReset, result)
 
 	case "/context":
-		const windowSize = 200000
 		fmt.Printf("%s── Context ─────────────────────────%s\n", colorDim, colorReset)
 		fmt.Printf("  %s\n", contextStats(a.Messages))
-		fmt.Printf("  %s\n", contextBar(a.Messages, windowSize))
+		fmt.Printf("  %s\n", contextBar(a.Messages, contextWindow))
 		if len(pinnedMessages) > 0 {
 			fmt.Printf("  Pinned: %d messages\n", len(pinnedMessages))
 		}
@@ -2716,7 +2731,16 @@ func spinner(stop <-chan struct{}, done chan<- struct{}, label string) {
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repoPath string) {
 	lastPrompt = prompt
 	recordMessage()
-	events := a.Prompt(ctx, prompt)
+
+	// Create a cancellable context for this request so Ctrl+C can abort it.
+	reqCtx, cancel := context.WithCancel(ctx)
+	requestCancel = cancel
+	defer func() {
+		requestCancel = nil
+		cancel()
+	}()
+
+	events := a.Prompt(reqCtx, prompt)
 	start := time.Now()
 
 	var (

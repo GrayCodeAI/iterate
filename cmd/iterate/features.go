@@ -397,7 +397,7 @@ func contextStats(messages []iteragent.Message) string {
 		totalChars += len(m.Content)
 	}
 	approxTokens := totalChars / 4
-	pct := float64(approxTokens) / 200000.0 * 100 // assume 200k context window
+	pct := float64(approxTokens) / float64(contextWindow) * 100 // assume 200k context window
 	return fmt.Sprintf("Messages: %d  |  ~%d tokens  |  ~%.0f%% of context window",
 		len(messages), approxTokens, pct)
 }

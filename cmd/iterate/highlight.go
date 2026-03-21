@@ -12,6 +12,9 @@ var (
 	colorPurple = "\033[38;5;141m"
 )
 
+// contextWindow is the assumed token context window size used for % calculations.
+const contextWindow = 200_000
+
 // renderResponse prints a markdown response with syntax highlighting.
 func renderResponse(text string) {
 	lines := strings.Split(text, "\n")
