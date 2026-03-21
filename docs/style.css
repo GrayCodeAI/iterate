@@ -530,9 +530,31 @@ nav {
 .b-code .str { color: var(--amber); }
 .b-code .cm  { color: var(--slate-700); }
 
+/* ── section headings ── */
+
+.sec-h2 {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  color: var(--bright);
+  letter-spacing: -0.04em;
+  margin-bottom: 0.75rem;
+  line-height: 1.15;
+}
+
+.sec-sub {
+  font-size: 0.95rem;
+  color: var(--text);
+  max-width: 500px;
+  line-height: 1.75;
+  margin-bottom: 3rem;
+}
+
 /* ── section ── */
 
 section { padding: 6rem 0 0; }
+
+/* last section before footer gets bottom breathing room */
+section:last-of-type { padding-bottom: 2rem; }
 
 .section-head {
   display: flex;

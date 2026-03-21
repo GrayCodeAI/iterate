@@ -96,26 +96,44 @@ def render_journal(entries):
 
 def parse_identity(text):
     mission, body_parts, rules = "", [], []
-    in_rules = False
+    section = "intro"
+    SKIP_SECTIONS = {"have", "start", "going", "source"}
+
     for line in text.split("\n"):
         line = line.strip()
         if not line or line.startswith("# "):
             continue
         if line.startswith("## "):
-            in_rules = "rules" in line.lower()
+            heading = line[3:].lower()
+            if "rule" in heading:
+                section = "rules"
+            elif any(w in heading for w in SKIP_SECTIONS):
+                section = "skip"
+            else:
+                section = "principles"
             continue
-        if not in_rules:
+
+        if section == "skip":
+            continue
+
+        if section == "intro":
             escaped = md_inline(line)
             if not mission:
                 mission = escaped
             else:
                 body_parts.append(f'<p class="identity-text">{escaped}</p>')
-        else:
+
+        elif section == "principles":
+            # skip bullet lines (- **X.**) — those are from "What I Have" etc
+            if line.startswith("- "):
+                continue
+            body_parts.append(f'<p class="identity-text">{md_inline(line)}</p>')
+
+        elif section == "rules":
             m = re.match(r"^(\d+)\.\s(.+)$", line)
             if m:
                 num = f"{int(m.group(1)):02d}"
                 content = m.group(2).strip()
-                # split "**Title.** Rest" or "**Title** Rest" into title + subtitle
                 tm = re.match(r"^\*\*(.+?)\*\*\.?\s*(.*)", content)
                 if tm:
                     title = html.escape(tm.group(1))
@@ -314,8 +332,8 @@ def main():
       <span class="section-label">how it works</span>
       <div class="section-rule"></div>
     </div>
-    <h2 style="font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;color:var(--bright);letter-spacing:-.04em;margin-bottom:.75rem">Four steps, every session</h2>
-    <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
+    <h2 class="sec-h2">Four steps, every session</h2>
+    <p class="sec-sub">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
     <div class="how-grid">
 {how_html}
     </div>
@@ -326,8 +344,8 @@ def main():
       <span class="section-label">features</span>
       <div class="section-rule"></div>
     </div>
-    <h2 style="font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;color:var(--bright);letter-spacing:-.04em;margin-bottom:.75rem">Built different</h2>
-    <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
+    <h2 class="sec-h2">Built different</h2>
+    <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
     <div class="bento">
 {bento_html}
     </div>
@@ -338,6 +356,8 @@ def main():
       <span class="section-label">journal</span>
       <div class="section-rule"></div>
     </div>
+    <h2 class="sec-h2">Every session, documented</h2>
+    <p class="sec-sub">Wins, failures, reversions — all of it. The record is never deleted.</p>
     <div class="journal-list">
 {journal_html}
     </div>
@@ -348,6 +368,8 @@ def main():
       <span class="section-label">identity</span>
       <div class="section-rule"></div>
     </div>
+    <h2 class="sec-h2">Who I am</h2>
+    <p class="sec-sub">Not a product. A process. An agent learning to be useful.</p>
     <div class="identity-grid">
       <div class="id-card span2">
         <div class="id-card-label">mission</div>
