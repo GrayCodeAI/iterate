@@ -16,6 +16,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/evolution"
 )
 
 // fetchOllamaModels fetches the list of model names from an Ollama /api/tags endpoint.
@@ -1335,6 +1336,37 @@ Available commands:
 				colorDim, colorReset, out, colorDim, colorReset)
 		}
 
+	case "/mutants":
+		fmt.Printf("%sRunning mutation tests…%s\n", colorDim, colorReset)
+		fmt.Printf("%sThis finds untested code paths by mutating code and checking if tests catch it.%s\n\n", colorDim, colorReset)
+		// Use the agent to run mutation testing tool
+		mutantPrompt := "Run the mutation_test tool to analyze test quality. Report which mutations survived (indicating weak tests) and suggest improvements."
+		streamAndPrint(ctx, a, mutantPrompt, repoPath)
+		fmt.Printf("\n")
+
+	case "/day":
+		dayFile := filepath.Join(repoPath, "DAY_COUNT")
+		currentDay := "1"
+		if data, err := os.ReadFile(dayFile); err == nil && len(data) > 0 {
+			currentDay = strings.TrimSpace(string(data))
+		}
+		if len(parts) < 2 {
+			// Show current day
+			fmt.Printf("%sCurrent day: %s%s\n\n", colorLime, currentDay, colorReset)
+			return false
+		}
+		// Set new day
+		newDay := parts[1]
+		if _, err := fmt.Sscanf(newDay, "%s", &newDay); err != nil {
+			fmt.Printf("%sUsage: /day [number]%s\n\n", colorRed, colorReset)
+			return false
+		}
+		if err := os.WriteFile(dayFile, []byte(newDay), 0644); err != nil {
+			fmt.Printf("%sFailed to update day: %v%s\n\n", colorRed, err, colorReset)
+		} else {
+			fmt.Printf("%sDay updated: %s → %s%s\n\n", colorLime, currentDay, newDay, colorReset)
+		}
+
 	// ── Templates ────────────────────────────────────────────────────────
 
 	case "/templates":
@@ -1937,25 +1969,61 @@ Available commands:
 		}
 		phase := parts[1]
 		fmt.Printf("Running phase: %s\n", phase)
-		tools := iteragent.DefaultTools(repoPath)
-		skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
-		phaseAgent := iteragent.New(p, tools, logger).
-			WithThinkingLevel(*thinking).
-			WithSkillSet(skills)
 
-		var prompt string
+		// Fetch issues for plan phase
+		issues := ""
+		if phase == "plan" {
+			var err error
+			issues, err = listGitHubIssues(repoPath, 20)
+			if err != nil {
+				fmt.Printf("%sWarning: could not fetch issues: %s%s\n", colorYellow, err, colorReset)
+			}
+		}
+
+		// Create evolution engine with event forwarding
+		eventCh := make(chan iteragent.Event, 100)
+		eng := evolution.New(repoPath, logger).
+			WithThinking(*thinking).
+			WithEventSink(eventCh)
+
+		// Forward events to streamAndPrint-like output
+		go func() {
+			for ev := range eventCh {
+				switch iteragent.EventType(ev.Type) {
+				case iteragent.EventTokenUpdate:
+					fmt.Print(ev.Content)
+				case iteragent.EventToolExecutionStart:
+					fmt.Printf("%s⚙ %s%s", colorYellow, ev.ToolName, colorReset)
+				case iteragent.EventToolExecutionEnd:
+					snippet := ev.Result
+					if len(snippet) > 60 {
+						snippet = snippet[:60] + "…"
+					}
+					fmt.Printf("%s → %s%s\n", colorDim, snippet, colorReset)
+				case iteragent.EventError:
+					fmt.Printf("%sError: %s%s\n", colorRed, ev.Content, colorReset)
+				}
+			}
+		}()
+
+		var err error
 		switch phase {
 		case "plan":
-			prompt = "Read your source code, JOURNAL.md, and any ISSUES_TODAY.md. Write SESSION_PLAN.md with tasks and issue responses, then commit it. Then STOP."
+			err = eng.RunPlanPhase(ctx, p, issues)
 		case "implement":
-			prompt = "Read SESSION_PLAN.md and implement each task. Run go build && go test after each. Commit passing changes."
+			err = eng.RunImplementPhase(ctx, p)
 		case "communicate":
-			prompt = "Read SESSION_PLAN.md Issue Responses section and post GitHub comments for each issue using: gh issue comment <N> --repo . --body \"...\""
+			err = eng.RunCommunicatePhase(ctx, p)
 		default:
 			fmt.Printf("Unknown phase: %s\n", phase)
 			return false
 		}
-		streamAndPrint(ctx, phaseAgent, prompt, repoPath)
+
+		if err != nil {
+			fmt.Printf("%sPhase failed: %s%s\n", colorRed, err, colorReset)
+		} else {
+			fmt.Printf("%s✓ Phase %s completed%s\n", colorLime, phase, colorReset)
+		}
 
 	case "/generate-commit":
 		prompt := buildGenerateCommitPrompt(repoPath)

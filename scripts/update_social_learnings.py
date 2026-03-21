@@ -3,7 +3,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 REPO_PATH = '.'
 SOCIAL_FILE = f'{REPO_PATH}/memory/social_learnings.jsonl'
@@ -15,7 +15,7 @@ def add_social_learning(insight, source="discussion"):
     
     learning = {
         "type": "social",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "source": source,
         "insight": insight
     }
@@ -29,13 +29,14 @@ def load_social_learnings():
         return []
     
     learnings = []
-    try:
-        with open(SOCIAL_FILE, 'r') as f:
-            for line in f:
-                if line.strip():
+    with open(SOCIAL_FILE, 'r') as f:
+        for line in f:
+            if line.strip():
+                try:
                     learnings.append(json.loads(line))
-    except Exception as e:
-        print(f"Error loading learnings: {e}")
+                except json.JSONDecodeError:
+                    # Skip corrupt lines
+                    pass
     
     return learnings
 
@@ -45,7 +46,7 @@ def synthesize_social(learnings):
         return "## Active Social Learnings\n\nNo social interactions yet.\n"
     
     output = ['## Active Social Learnings\n\n']
-    output.append(f'*Last synthesized: {datetime.utcnow().isoformat()}*\n\n')
+    output.append(f'*Last synthesized: {datetime.now(timezone.utc).isoformat()}*\n\n')
     
     # Group by source
     by_source = {}

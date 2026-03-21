@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -866,6 +867,7 @@ Rules:
 
 	// Write journal entry to file if agent produced valid output.
 	// Be lenient: extract the first "## Day" block even if the LLM added preamble text.
+	// CRITICAL: Enforce correct day number from DAY_COUNT (LLM can hallucinate wrong day).
 	if idx := strings.Index(journalEntry, "## Day"); idx >= 0 {
 		extracted := journalEntry[idx:]
 		// Trim anything after the next "## " heading (next journal entry or section)
@@ -873,6 +875,13 @@ Rules:
 			extracted = extracted[:nextIdx+1]
 		}
 		extracted = strings.TrimSpace(extracted)
+		// Fix hallucinated day number: replace "## Day N" with correct day
+		dayNum, _ := strconv.Atoi(day)
+		if dayNum > 0 {
+			// Match "## Day <number>" and replace with correct day
+			dayPattern := regexp.MustCompile(`^## Day \d+`)
+			extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
+		}
 		journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 		header := "# iterate Evolution Journal\n"
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
