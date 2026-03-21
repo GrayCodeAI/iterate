@@ -2,7 +2,7 @@ name: iterate evolution
 
 on:
   schedule:
-    - cron: '0 */12 * * *'  # Every 12 hours
+    - cron: '0 0,4,8,12,16,20 * * *'  # Every 4 hours (sponsor-gated in evolve.sh)
   workflow_dispatch:
 
 permissions:
@@ -50,6 +50,7 @@ jobs:
           ITERATE_PROVIDER: opencode
           ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ github.token }}
+          GH_PAT: ${{ secrets.GH_PAT }}  # For sponsor queries (needs read:user scope)
         run: |
           bash scripts/evolve.sh
 

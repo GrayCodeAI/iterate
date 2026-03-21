@@ -3,11 +3,13 @@ set -e
 
 # iterate evolution pipeline: plan → implement → respond
 # Autonomous evolution cycle with PR-based workflow
+# Runs every 4h via GitHub Actions. Sponsor-gated for bonus runs.
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
 PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
 PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
+SPONSORS_FILE="/tmp/sponsor_logins.json"
 
 mkdir -p "${REPOPATH}/.iterate"
 
@@ -16,6 +18,73 @@ log() {
 }
 
 log "=== iterate evolution cycle started ==="
+
+# ── Step 0: Fetch sponsors & bonus-run gate ──
+# Sponsor tiers control evolution frequency:
+#   $0/mo  → 3 runs/day (hours 0, 8, 16)
+#   $10+   → 4 runs/day (hours 0, 8, 12, 16)
+#   $50+   → 6 runs/day (hours 0, 4, 8, 12, 16, 20)
+SPONSOR_TIER=0
+MONTHLY_TOTAL=0
+if command -v gh &>/dev/null; then
+    SPONSOR_GH_TOKEN="${GH_PAT:-${GH_TOKEN:-}}"
+    GH_TOKEN="$SPONSOR_GH_TOKEN" gh api graphql -f query='{ viewer { sponsorshipsAsMaintainer(first: 100, activeOnly: true) { nodes { sponsorEntity { ... on User { login } ... on Organization { login } } tier { monthlyPriceInCents } } } } }' > /tmp/sponsor_raw.json 2>/dev/null || echo '{}' > /tmp/sponsor_raw.json
+
+    MONTHLY_TOTAL=$(python3 <<'PYEOF'
+import json
+try:
+    data = json.load(open('/tmp/sponsor_raw.json'))
+    nodes = data['data']['viewer']['sponsorshipsAsMaintainer']['nodes']
+    logins = [n['sponsorEntity']['login'] for n in nodes if n.get('sponsorEntity', {}).get('login')]
+    total_cents = sum(n.get('tier', {}).get('monthlyPriceInCents', 0) for n in nodes)
+    json.dump(logins, open('/tmp/sponsor_logins.json', 'w'))
+    print(total_cents)
+except (KeyError, TypeError, json.JSONDecodeError):
+    json.dump([], open('/tmp/sponsor_logins.json', 'w'))
+    print(0)
+PYEOF
+    ) 2>/dev/null || MONTHLY_TOTAL=0
+    rm -f /tmp/sponsor_raw.json
+else
+    echo '[]' > "$SPONSORS_FILE"
+fi
+
+# Determine sponsor tier from total monthly cents
+MONTHLY_DOLLARS=$(( MONTHLY_TOTAL / 100 ))
+if [ "$MONTHLY_DOLLARS" -ge 50 ] 2>/dev/null; then
+    SPONSOR_TIER=2
+    log "Sponsors: \$${MONTHLY_DOLLARS}/mo (tier 2 — 6 runs/day)"
+elif [ "$MONTHLY_DOLLARS" -ge 10 ] 2>/dev/null; then
+    SPONSOR_TIER=1
+    log "Sponsors: \$${MONTHLY_DOLLARS}/mo (tier 1 — 4 runs/day)"
+elif [ "$MONTHLY_DOLLARS" -gt 0 ] 2>/dev/null; then
+    SPONSOR_TIER=0
+    log "Sponsors: \$${MONTHLY_DOLLARS}/mo (below tier 1 — 3 runs/day)"
+else
+    log "Sponsors: none (3 runs/day)"
+fi
+
+# Bonus-run gate based on sponsor tier.
+# Cron fires every 4h: 0, 4, 8, 12, 16, 20. Base slots: 0, 8, 16.
+# Tier 0 ($0):   skip 3-5, 11-13, 19-21   → 3 runs/day
+# Tier 1 ($10+): skip 3-5, 19-21          → 4 runs/day
+# Tier 2 ($50+): allow all                → 6 runs/day
+CURRENT_HOUR=$((10#$(date +%H)))
+SKIP_RUN="false"
+case "$CURRENT_HOUR" in
+    3|4|5|19|20|21)
+        [ "$SPONSOR_TIER" -lt 2 ] 2>/dev/null && SKIP_RUN="true"
+        ;;
+    11|12|13)
+        [ "$SPONSOR_TIER" -lt 1 ] 2>/dev/null && SKIP_RUN="true"
+        ;;
+esac
+
+if [ "$SKIP_RUN" = "true" ] && [ "${FORCE_RUN:-}" != "true" ]; then
+    log "Bonus slot (hour $CURRENT_HOUR) — tier $SPONSOR_TIER. Skipping."
+    log "Set FORCE_RUN=true to override."
+    exit 0
+fi
 
 # Load iterate's identity context
 source "$(dirname "$0")/iterate_context.sh" 2>/dev/null || true
