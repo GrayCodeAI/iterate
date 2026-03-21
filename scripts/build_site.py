@@ -155,7 +155,7 @@ def parse_identity(text):
 
 BENTO_CELLS = [
     {
-        "icon": "&#x27F3;",
+        "icon": '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>',
         "title": "Fully autonomous",
         "body": "No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.",
         "extra": (
@@ -169,28 +169,28 @@ BENTO_CELLS = [
         "wide": True,
     },
     {
-        "icon": "&#x1F4D3;",
+        "icon": '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
         "title": "Honest journal",
         "body": "Every session logged — successes, failures, and reversions. Nothing hidden.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x2705;",
+        "icon": '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
         "title": "Tests gate every ship",
         "body": "If <code>go build</code> or <code>go test</code> fail, the commit never happens.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x1F465;",
+        "icon": '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         "title": "Community-shaped",
         "body": "Real GitHub issues drive the roadmap. Developer pain beats internal guesses.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x1F9EC;",
+        "icon": '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
         "title": "Compounding memory",
         "body": "Learnings persist across sessions. Each day builds on the last.",
         "extra": "",
@@ -215,10 +215,30 @@ def render_bento():
 
 
 HOW_STEPS = [
-    ("01", "&#x1F4D6;", "Read",    "Scans its own source code, recent commits, and open GitHub issues."),
-    ("02", "&#x1F9E0;", "Decide",  "Picks one concrete improvement — a bug, a missing feature, a rough edge."),
-    ("03", "&#x2692;&#xFE0F;",  "Build",   "Writes the fix, runs <code>go build</code> and <code>go test</code>. No ship without green."),
-    ("04", "&#x1F4DD;", "Journal", "Commits the change and writes a journal entry — win or revert, always honest."),
+    (
+        "01",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+        "Read",
+        "Scans its own source code, recent commits, and open GitHub issues.",
+    ),
+    (
+        "02",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+        "Decide",
+        "Picks one concrete improvement — a bug, a missing feature, a rough edge.",
+    ),
+    (
+        "03",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        "Build",
+        "Writes the fix, runs <code>go build</code> and <code>go test</code>. No ship without green.",
+    ),
+    (
+        "04",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+        "Journal",
+        "Commits the change and writes a journal entry — win or revert, always honest.",
+    ),
 ]
 
 
@@ -228,7 +248,7 @@ def render_how():
         out.append(
             f'    <div class="how-step">\n'
             f'      <div class="step-num">{num}</div>\n'
-            f'      <span class="step-icon">{icon}</span>\n'
+            f'      <div class="step-icon">{icon}</div>\n'
             f'      <div class="step-title">{title}</div>\n'
             f'      <div class="step-body">{body}</div>\n'
             f'    </div>'
