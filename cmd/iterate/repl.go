@@ -17,6 +17,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/agent"
 	"github.com/GrayCodeAI/iterate/internal/evolution"
 )
 
@@ -532,6 +533,7 @@ Available commands:
   /plan <task>           — plan before execute
   /phase <phase>         — run evolution phase
   /spawn <task>          — delegate to subagent (context-efficient)
+  /swarm <n> <task>      — launch N agents with rate limiting (max 100)
   /model                 — switch provider/model
   /thinking <level>      — set thinking level
   /skills / /tools       — list available skills/tools
@@ -2308,6 +2310,80 @@ Available commands:
 		fmt.Printf("%sSpawning subagent for: %s%s\n\n", colorCyan, task, colorReset)
 		streamAndPrint(ctx, subAgent, subPrompt, repoPath)
 		fmt.Printf("\n%sSubagent completed.%s\n", colorCyan, colorReset)
+
+	case "/swarm":
+		// /swarm <n> <task> — safely launch N agents with rate limiting
+		if len(parts) < 3 {
+			fmt.Println("Usage: /swarm <count> <task template>")
+			fmt.Println("")
+			fmt.Println("Launches multiple agents with rate limiting and connection pooling.")
+			fmt.Println("Example: /swarm 10 review file #1.md")
+			fmt.Println("         /swarm 100 analyze issues in internal/")
+			fmt.Println("")
+			fmt.Println("Safety: 10 max concurrent, 5 req/sec rate limit")
+			return false
+		}
+		count := 10
+		fmt.Sscanf(parts[1], "%d", &count)
+		if count > 100 {
+			fmt.Printf("%sWarning: capping swarm at 100 agents%s\n", colorYellow, colorReset)
+			count = 100
+		}
+		taskTemplate := strings.TrimSpace(strings.TrimPrefix(line, parts[0]+" "+parts[1]))
+		
+		// Generate tasks by replacing {N} with index
+		tasks := make([]string, count)
+		for i := 0; i < count; i++ {
+			tasks[i] = strings.ReplaceAll(taskTemplate, "{N}", fmt.Sprintf("%d", i+1))
+			tasks[i] = strings.ReplaceAll(tasks[i], "{n}", fmt.Sprintf("%d", i))
+		}
+		
+		fmt.Printf("%sLaunching swarm: %d agents%s\n", colorCyan, count, colorReset)
+		fmt.Printf("%sTask: %s%s\n", colorDim, taskTemplate, colorReset)
+		fmt.Printf("%sRate limit: 5 req/sec, Max concurrent: 10%s\n\n", colorDim, colorReset)
+		
+		// Create agent pool with rate limiting
+		pool := agent.NewPool(p, iteragent.DefaultTools(repoPath), logger, 10, 5)
+		defer pool.Close()
+		
+		// Track results
+		var success, failed int
+		var resultsMu sync.Mutex
+		
+		start := time.Now()
+		errs := pool.SpawnAll(ctx, tasks, func(a *iteragent.Agent, task string) error {
+			prompt := fmt.Sprintf("You are a focused subagent. Complete this task:\n\n%s\n\nBe concise.", task)
+			var result string
+			for ev := range a.Prompt(ctx, prompt) {
+				if ev.Type == string(iteragent.EventMessageEnd) {
+					result = ev.Content
+				}
+			}
+			resultsMu.Lock()
+			if result != "" {
+				success++
+			} else {
+				failed++
+			}
+			resultsMu.Unlock()
+			return nil
+		})
+		
+		// Report results
+		elapsed := time.Since(start).Round(time.Second)
+		fmt.Printf("\n%s── Swarm Complete ─────────────────%s\n", colorDim, colorReset)
+		fmt.Printf("  Total:     %d agents\n", count)
+		fmt.Printf("  Succeeded: %s%d%s\n", colorLime, success, colorReset)
+		fmt.Printf("  Failed:    %s%d%s\n", colorRed, failed, colorReset)
+		fmt.Printf("  Duration:  %s\n", elapsed)
+		fmt.Printf("  Rate:      %.1f agents/sec\n", float64(count)/elapsed.Seconds())
+		
+		// Report errors
+		for i, err := range errs {
+			if err != nil {
+				fmt.Printf("%sAgent %d error: %s%s\n", colorRed, i+1, err, colorReset)
+			}
+		}
 
 	// ── Project tooling ───────────────────────────────────────────────────
 
