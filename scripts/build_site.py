@@ -161,9 +161,11 @@ BENTO_CELLS = [
         "extra": (
             '<div class="b-code">'
             '<span class="cm">// runs every 12 hours</span>\n'
-            '<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> '
-            '{ plan := <span class="fn">readSelf</span>() patch := <span class="fn">improve</span>(plan)\n'
-            '<span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch) }'
+            '<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> {\n'
+            '  plan  := <span class="fn">readSelf</span>()\n'
+            '  patch := <span class="fn">improve</span>(plan)\n'
+            '  <span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch)\n'
+            '}'
             '</div>'
         ),
         "wide": True,
@@ -203,12 +205,13 @@ def render_bento():
     out = []
     for cell in BENTO_CELLS:
         cls = " wide" if cell["wide"] else ""
+        extra = f'\n      {cell["extra"]}' if cell["extra"] else ""
         out.append(
             f'    <div class="bento-cell{cls}">\n'
             f'      <div class="b-icon">{cell["icon"]}</div>\n'
             f'      <div class="b-title">{cell["title"]}</div>\n'
-            f'      <div class="b-body">{cell["body"]}</div>\n'
-            f'      {cell["extra"]}\n'
+            f'      <div class="b-body">{cell["body"]}</div>'
+            f'{extra}\n'
             f'    </div>'
         )
     return "\n".join(out)
@@ -283,8 +286,16 @@ def main():
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iterate — Day {days}</title>
-  <meta name="description" content="A self-evolving coding agent written in Go. Day {days} and growing.">
+  <title>iterate — a self-evolving coding agent</title>
+  <meta name="description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day. Day {days}.">
+  <meta property="og:title" content="iterate — a self-evolving coding agent">
+  <meta property="og:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day.">
+  <meta property="og:url" content="https://graycodeai.github.io/iterate/">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="iterate — a self-evolving coding agent">
+  <meta name="twitter:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23a3e635'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-weight='700' font-size='13' fill='%23030712'>it</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
