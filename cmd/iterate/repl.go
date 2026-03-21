@@ -263,11 +263,17 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 
 	// Ctrl+C exit — auto-save and stop watch
 	stopWatch()
+	elapsed := time.Since(sessionStart).Round(time.Second)
 	if len(a.Messages) > 0 {
 		_ = saveSession("autosave", a.Messages)
-		fmt.Printf("\n%s✓ session saved · /load autosave to restore%s\n", colorDim, colorReset)
 	}
-	fmt.Printf("%s  iterate%s · see you next time\n", colorLime, colorReset)
+	fmt.Println()
+	fmt.Printf("%s  session: %s · %d messages · %d tokens%s\n",
+		colorDim, elapsed, sessionMessages, sessionInputTokens+sessionOutputTokens, colorReset)
+	if len(a.Messages) > 0 {
+		fmt.Printf("%s  autosaved · /load autosave to restore%s\n", colorDim, colorReset)
+	}
+	fmt.Printf("%s  Goodbye! %sSee you next time%s 🌱\n\n", colorLime, colorCyan, colorReset)
 }
 
 func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPath string) {
@@ -324,13 +330,6 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 		safeModeStr = fmt.Sprintf("  %s🔒 safe mode%s", colorCyan, colorReset)
 	}
 	fmt.Printf("  %s%s%s%s%s\n", colorDim, modelName, thinkingStr, safeModeStr, colorReset)
-
-	// Day count if present
-	if data, err := os.ReadFile(filepath.Join(repoPath, "DAY_COUNT")); err == nil {
-		if day := strings.TrimSpace(string(data)); day != "" {
-			fmt.Printf("  %sday %s%s\n", colorDim, day, colorReset)
-		}
-	}
 
 	fmt.Println()
 
