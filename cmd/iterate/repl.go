@@ -270,8 +270,13 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		_ = saveSession("autosave", a.Messages)
 	}
 	fmt.Println()
-	fmt.Printf("%s  session: %s · %d messages · %d tokens%s\n",
-		colorDim, elapsed, sessionMessages, sessionInputTokens+sessionOutputTokens, colorReset)
+	fmt.Printf("%s  session:%s %s%s%s %s·%s %s%d messages%s %s·%s %s%d tokens%s\n",
+		colorDim, colorReset,
+		colorCyan, elapsed, colorReset,
+		colorDim, colorReset,
+		colorDim, sessionMessages, colorReset,
+		colorDim, colorReset,
+		colorPurple, sessionInputTokens+sessionOutputTokens, colorReset)
 	if len(a.Messages) > 0 {
 		fmt.Printf("%s  autosaved · /load autosave to restore%s\n", colorDim, colorReset)
 	}
