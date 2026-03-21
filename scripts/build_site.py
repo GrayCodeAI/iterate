@@ -78,55 +78,61 @@ def render_journal(entries):
             body = md_inline(e["body"]).replace("\n\n", " ").replace("\n", " ")
         ts = fmt_ts(e["ts"], e["day"])
         out.append(
-            f'      <div class="entry">\n'
-            f'        <div class="e-left">\n'
-            f'          <div class="e-day">{e["day"]}</div>\n'
-            f'          <div class="e-lbl">day</div>\n'
-            f'          <div class="e-line"></div>\n'
-            f'        </div>\n'
-            f'        <div class="e-right">\n'
-            f'          <div class="e-meta"><span class="e-dot"></span>{html.escape(ts)}</div>\n'
-            f'          <div class="e-title">{md_inline(e["title"])}</div>\n'
-            f'          <div class="e-body">{body}</div>\n'
-            f'        </div>\n'
-            f'      </div>'
+            f'    <div class="entry">\n'
+            f'      <div class="e-left">\n'
+            f'        <div class="e-day">{e["day"]}</div>\n'
+            f'        <div class="e-lbl">day</div>\n'
+            f'        <div class="e-line"></div>\n'
+            f'      </div>\n'
+            f'      <div class="e-right">\n'
+            f'        <div class="e-meta"><span class="e-dot"></span>{html.escape(ts)}</div>\n'
+            f'        <div class="e-title">{md_inline(e["title"])}</div>\n'
+            f'        <div class="e-body">{body}</div>\n'
+            f'      </div>\n'
+            f'    </div>'
         )
     return "\n".join(out)
 
 
 def parse_identity(text):
+    """Returns (mission_html, principles_html, rules_html)."""
     mission = ""
     principles = []
     rules = []
     section = "intro"
 
     for line in text.split("\n"):
-        s = line.strip()
-        if not s:
+        stripped = line.strip()
+        if not stripped:
             continue
-        if s.startswith("# "):
+        if stripped.startswith("# "):
             continue
-        if s.startswith("## "):
-            heading = s[3:].lower()
+        if stripped.startswith("## "):
+            heading = stripped[3:].lower()
             if "rule" in heading:
                 section = "rules"
-            elif any(w in heading for w in ("have", "start", "going", "source")):
+            elif "have" in heading or "start" in heading or "going" in heading or "source" in heading:
                 section = "skip"
             else:
                 section = "principles"
             continue
+
         if section == "skip":
             continue
+
         if section == "intro":
-            escaped = md_inline(s)
+            escaped = md_inline(stripped)
             if not mission:
                 mission = escaped
             else:
                 principles.append(f'<p class="id-text">{escaped}</p>')
+
         elif section == "principles":
-            principles.append(f'<p class="id-text">{md_inline(s)}</p>')
+            escaped = md_inline(stripped)
+            principles.append(f'<p class="id-text">{escaped}</p>')
+
         elif section == "rules":
-            m = re.match(r"^(\d+)\.\s(.+)$", s)
+            m = re.match(r"^(\d+)\.\s(.+)$", stripped)
             if m:
                 rules.append(f'<li>{md_inline(m.group(2))}</li>')
 
@@ -142,113 +148,89 @@ def day_count(entries):
         return 0
 
 
-HOW_STEPS = [
-    ("01", "&#x1F4D6;", "Read",    "Scans its own source code, recent commits, and open GitHub issues."),
-    ("02", "&#x1F9E0;", "Decide",  "Picks one concrete improvement — a bug, a missing feature, a rough edge."),
-    ("03", "&#x2692;",  "Build",   "Writes the fix, runs <code>go build</code> and <code>go test</code>. No ship without green."),
-    ("04", "&#x1F4DD;", "Journal", "Commits the change and writes a journal entry — win or revert, always honest."),
-]
-
 BENTO_CELLS = [
     {
-        "icon": "&#x27F3;",
-        "title": "Fully autonomous",
-        "body": "No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.",
+        "icon": "&#x27F3;",  # ↻
+        "title": "Self-evolving",
+        "body": "Every 12 hours, iterate reads its own source code, finds something to improve, and commits the fix — no human in the loop.",
         "extra": (
-            '<div class="b-code">'
-            '<span class="cm">// runs every 12 hours</span>\n'
-            '<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> {\n'
-            '  plan  := <span class="fn">readSelf</span>()\n'
-            '  patch := <span class="fn">improve</span>(plan)\n'
-            '  <span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch)\n'
+            '<div class="bento-code">'
+            '<span class="cm">// every session</span>\n'
+            '<span class="kw">func</span> <span class="fn">evolve</span>() {\n'
+            '  read → fix → test → commit\n'
             '}'
             '</div>'
         ),
         "wide": True,
     },
     {
-        "icon": "&#x1F4D3;",
-        "title": "Honest journal",
-        "body": "Every session logged — successes, failures, and reversions. Nothing hidden.",
+        "icon": "&#x1F4D3;",  # 📓
+        "title": "Transparent journal",
+        "body": "Every session is logged — successes, failures, and reversions. Nothing is hidden.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x2705;",
-        "title": "Tests gate every ship",
-        "body": "If <code>go build</code> or <code>go test</code> fail, the commit never happens.",
+        "icon": "&#x2713;",  # ✓
+        "title": "Tests first",
+        "body": "If <code>go build</code> and <code>go test</code> don't pass, the code doesn't ship. No exceptions.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x1F465;",
-        "title": "Community-shaped",
-        "body": "Real GitHub issues drive the roadmap. Developer pain beats internal guesses.",
+        "icon": "&#x1F465;",  # 👥
+        "title": "Community-driven",
+        "body": "Real GitHub issues shape the roadmap. Community feedback beats internal intuition.",
         "extra": "",
         "wide": False,
     },
     {
-        "icon": "&#x1F9EC;",
-        "title": "Compounding memory",
-        "body": "Learnings persist across sessions. Each day builds on the last.",
+        "icon": "&#x1F9E0;",  # 🧠
+        "title": "Memory that compounds",
+        "body": "Learnings persist across sessions. Patterns in failures matter more than cleanup.",
         "extra": "",
         "wide": False,
     },
 ]
 
 
-def render_how():
-    out = []
-    for step in HOW_STEPS:
-        num, icon, title, body = step
-        out.append(
-            f'      <div class="how-step">\n'
-            f'        <div class="step-num">{num}</div>\n'
-            f'        <span class="step-icon">{icon}</span>\n'
-            f'        <div class="step-title">{title}</div>\n'
-            f'        <div class="step-body">{body}</div>\n'
-            f'      </div>'
-        )
-    return "\n".join(out)
-
-
 def render_bento():
-    out = []
+    cells = []
     for cell in BENTO_CELLS:
-        cls = " wide" if cell["wide"] else ""
-        out.append(
-            f'      <div class="bento-cell{cls}">\n'
-            f'        <div class="b-icon">{cell["icon"]}</div>\n'
-            f'        <div class="b-title">{cell["title"]}</div>\n'
-            f'        <div class="b-body">{cell["body"]}</div>\n'
-            f'        {cell["extra"]}\n'
-            f'      </div>'
+        wide_class = " wide" if cell["wide"] else ""
+        cells.append(
+            f'    <div class="bento-cell{wide_class}">\n'
+            f'      <div class="bento-icon">{cell["icon"]}</div>\n'
+            f'      <div class="bento-title">{cell["title"]}</div>\n'
+            f'      <div class="bento-body">{cell["body"]}</div>\n'
+            f'      {cell["extra"]}\n'
+            f'    </div>'
         )
-    return "\n".join(out)
+    return "\n".join(cells)
 
 
 def main():
-    journal_md  = read_file("JOURNAL.md")
+    journal_md = read_file("JOURNAL.md")
     identity_md = read_file("IDENTITY.md")
-    entries     = parse_journal(journal_md)
-    days        = day_count(entries)
-    sessions    = len(entries)
-    journal_html  = render_journal(entries)
+    entries = parse_journal(journal_md)
+    days = day_count(entries)
+    sessions = len(entries)
+    journal_html = render_journal(entries)
     mission, principles_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
-    how_html    = render_how()
-    bento_html  = render_bento()
-    gh          = GITHUB_REPOSITORY
+    bento_html = render_bento()
+
+    gh = GITHUB_REPOSITORY
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iterate — a self-evolving coding agent</title>
-  <meta name="description" content="iterate reads its own source code, finds something to fix, and commits — autonomously, every day. Day {days}.">
+  <title>iterate — Day {days}</title>
+  <meta name="description" content="A self-evolving coding agent written in Go. Day {days} and growing.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -260,7 +242,7 @@ def main():
       <span class="nav-name">iterate</span>
     </a>
     <div class="nav-links">
-      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
       <a href="#journal">Journal</a>
       <a href="#identity">Identity</a>
       <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
@@ -268,119 +250,79 @@ def main():
   </div>
 </nav>
 
-<!-- ── HERO ── -->
 <section class="hero">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="hero-grid-bg"></div>
   <div class="wrap">
     <div class="hero-inner">
-
       <div>
-        <div class="badge">
-          <span class="badge-dot"></span>
-          evolving in public · day {days}
+        <div class="eyebrow">
+          <span class="pill-live"><span class="live-dot"></span>live</span>
+          <span class="eyebrow-sub">self-evolving · open source · Go</span>
         </div>
-        <h1>The coding agent<br>that <em>fixes itself</em></h1>
-        <p class="hero-sub">
-          iterate reads its own Go source, picks something broken or missing,
-          writes the fix, runs tests, and commits — every 12 hours, no human required.
-        </p>
-        <div class="cta">
-          <a href="https://github.com/{gh}" class="btn btn-primary" target="_blank" rel="noopener">
-            View on GitHub
-          </a>
-          <a href="#journal" class="btn btn-secondary">Read the journal</a>
+        <h1>A coding agent that<br><span class="grad-text">improves itself</span></h1>
+        <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every day.</p>
+        <div class="btns">
+          <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
+          <a href="#journal" class="btn btn-ghost">Read the journal</a>
         </div>
-        <div class="stat-strip">
-          <div class="stat-item">
-            <span class="stat-val">{days}</span>
-            <span class="stat-lbl">days old</span>
+      </div>
+      <div class="hero-card">
+        <div class="card-eyebrow">current day</div>
+        <div class="card-num">{days}</div>
+        <div class="card-sub">days since birth</div>
+        <div class="card-sep"></div>
+        <div class="card-stats">
+          <div>
+            <div class="cs-val">{sessions}</div>
+            <div class="cs-lbl">sessions</div>
           </div>
-          <div class="stat-item">
-            <span class="stat-val">{sessions}</span>
-            <span class="stat-lbl">sessions</span>
+          <div>
+            <div class="cs-val">Go</div>
+            <div class="cs-lbl">language</div>
           </div>
-          <div class="stat-item">
-            <span class="stat-val">Go</span>
-            <span class="stat-lbl">language</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-val">MIT</span>
-            <span class="stat-lbl">license</span>
+          <div>
+            <div class="cs-val">MIT</div>
+            <div class="cs-lbl">license</div>
           </div>
         </div>
       </div>
-
-      <div class="hero-terminal">
-        <div class="term-bar">
-          <span class="term-dot"></span>
-          <span class="term-dot"></span>
-          <span class="term-dot"></span>
-          <span class="term-title">iterate — evolution session</span>
-        </div>
-        <div class="term-body">
-<span class="t-dim">─────────────────────────────</span>
-<span class="t-day">Day {days}</span> <span class="t-out">· evolution starting</span>
-<span class="t-dim">─────────────────────────────</span>
-<span class="t-prompt">$</span> <span class="t-cmd">iterate evolve</span>
-<span class="t-info">&#x2192; reading source...</span>
-<span class="t-info">&#x2192; scanning issues...</span>
-<span class="t-info">&#x2192; planning improvement</span>
-<span class="t-out">  found: 1 task</span>
-<span class="t-info">&#x2192; implementing fix</span>
-<span class="t-prompt">$</span> <span class="t-cmd">go test ./...</span>
-<span class="t-ok">ok  github.com/GrayCodeAI/iterate</span>
-<span class="t-info">&#x2192; committing changes</span>
-<span class="t-ok">&#x2713; committed · journal updated</span>
-<span class="t-dim">─────────────────────────────</span>
-<span class="t-prompt">$</span> <span class="t-cursor"></span>
-        </div>
-      </div>
-
     </div>
   </div>
 </section>
 
-<!-- ── HOW IT WORKS ── -->
-<section id="how" class="sec">
+<section id="features" class="features">
   <div class="wrap">
-    <div class="sec-label">how it works</div>
-    <h2>Four steps, every session</h2>
-    <p class="sec-sub">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
-    <div class="how-grid">
-{how_html}
+    <div class="sec-head">
+      <span class="sec-label">features</span>
+      <div class="sec-rule"></div>
     </div>
-  </div>
-</section>
-
-<!-- ── FEATURES ── -->
-<section id="features" class="sec">
-  <div class="wrap">
-    <div class="sec-label">features</div>
-    <h2>Built different</h2>
-    <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
     <div class="bento">
 {bento_html}
     </div>
   </div>
 </section>
 
-<!-- ── JOURNAL ── -->
-<section id="journal" class="sec">
+<section id="journal" class="journal">
   <div class="wrap">
-    <div class="sec-label">journal</div>
-    <h2>Every session, documented</h2>
-    <p class="sec-sub">Wins, failures, reversions — all of it. The record is sacred.</p>
+    <div class="sec-head">
+      <span class="sec-label">journal</span>
+      <div class="sec-rule"></div>
+    </div>
     <div class="j-list">
 {journal_html}
     </div>
   </div>
 </section>
 
-<!-- ── IDENTITY ── -->
-<section id="identity" class="sec">
+<section id="identity" class="identity">
   <div class="wrap">
-    <div class="sec-label">identity</div>
-    <h2>Who I am</h2>
-    <p class="sec-sub">Not a product. A process. An agent learning to be useful.</p>
+    <div class="sec-head">
+      <span class="sec-label">identity</span>
+      <div class="sec-rule"></div>
+    </div>
     <div class="id-grid">
       <div class="id-card full">
         <div class="id-tag">mission</div>
@@ -395,24 +337,6 @@ def main():
         <ol class="rules">
           {rules_html}
         </ol>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── CTA ── -->
-<section class="sec">
-  <div class="wrap">
-    <div class="cta-banner">
-      <h2>Watch it grow in real time</h2>
-      <p>Star the repo and follow along. Every commit is a step forward — or an honest revert.</p>
-      <div class="cta">
-        <a href="https://github.com/{gh}" class="btn btn-primary" target="_blank" rel="noopener">
-          Star on GitHub
-        </a>
-        <a href="https://github.com/{gh}/commits/main" class="btn btn-secondary" target="_blank" rel="noopener">
-          View commits
-        </a>
       </div>
     </div>
   </div>
