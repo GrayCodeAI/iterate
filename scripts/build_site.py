@@ -8,13 +8,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BIRTH_DATE_FILE = ROOT / "BIRTH_DATE"
 BIRTH_DATE = datetime(2026, 3, 18)
-if BIRTH_DATE_FILE.exists():
-    try:
-        BIRTH_DATE = datetime.strptime(BIRTH_DATE_FILE.read_text().strip(), "%Y-%m-%d")
-    except ValueError:
-        pass
+try:
+    bf = ROOT / "BIRTH_DATE"
+    if bf.exists():
+        BIRTH_DATE = datetime.strptime(bf.read_text().strip(), "%Y-%m-%d")
+except ValueError:
+    pass
 
 GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "GrayCodeAI/iterate")
 DOCS = ROOT / "docs"
@@ -33,11 +33,10 @@ def ordinal(n):
     return f"{n}{['th','st','nd','rd','th'][min(n % 10, 4)]}"
 
 
-def format_timestamp(ts, day):
+def fmt_ts(ts, day):
     try:
         dt = datetime.strptime(ts, "%H:%M")
         date = BIRTH_DATE + timedelta(days=day)
-        ist = dt + timedelta(hours=5, minutes=30)
         return f"{ordinal(date.day)} {date.strftime('%b %Y')} · {dt.strftime('%H:%M')} UTC"
     except ValueError:
         return ts
@@ -62,7 +61,7 @@ def parse_journal(content):
         if m:
             entries.append({
                 "day": int(m.group(1)),
-                "timestamp": m.group(2).strip(),
+                "ts": m.group(2).strip(),
                 "title": m.group(3).strip(),
                 "body": "\n".join(lines[1:]).strip(),
             })
@@ -71,37 +70,33 @@ def parse_journal(content):
 
 def render_journal(entries):
     if not entries:
-        return '<p class="timeline-empty">The journey begins soon...</p>'
-    parts = []
+        return '<div class="timeline-empty">The journey begins soon...</div>'
+    out = []
     for e in entries:
-        body_html = ""
+        body = ""
         if e["body"]:
-            body_html = md_inline(e["body"]).replace("\n\n", " ").replace("\n", " ")
-        ts = format_timestamp(e["timestamp"], e["day"])
-        parts.append(
-            f'  <div class="entry">\n'
-            f'    <div class="entry-left">\n'
-            f'      <div class="entry-day-num">{e["day"]}</div>\n'
-            f'      <div class="entry-day-lbl">day</div>\n'
-            f'      <div class="entry-dot"></div>\n'
-            f'    </div>\n'
-            f'    <div class="entry-right">\n'
-            f'      <div class="entry-meta">{html.escape(ts)}</div>\n'
-            f'      <h3 class="entry-title">{md_inline(e["title"])}</h3>\n'
-            f'      <p class="entry-body">{body_html}</p>\n'
-            f'    </div>\n'
-            f'  </div>'
+            body = md_inline(e["body"]).replace("\n\n", " ").replace("\n", " ")
+        ts = fmt_ts(e["ts"], e["day"])
+        out.append(
+            f'    <div class="entry">\n'
+            f'      <div class="entry-left">\n'
+            f'        <div class="entry-day-num">{e["day"]}</div>\n'
+            f'        <div class="entry-day-lbl">day</div>\n'
+            f'        <div class="entry-pip"></div>\n'
+            f'      </div>\n'
+            f'      <div class="entry-right">\n'
+            f'        <div class="entry-meta">{html.escape(ts)}</div>\n'
+            f'        <h3 class="entry-title">{md_inline(e["title"])}</h3>\n'
+            f'        <p class="entry-body">{body}</p>\n'
+            f'      </div>\n'
+            f'    </div>'
         )
-    return "\n".join(parts)
+    return "\n".join(out)
 
 
-def md_to_identity(text):
-    mission_html = ""
-    body_html = ""
-    rules_html = ""
+def parse_identity(text):
+    mission, body_parts, rules = "", [], []
     in_rules = False
-    mission_done = False
-
     for line in text.split("\n"):
         line = line.strip()
         if not line or line.startswith("# "):
@@ -111,20 +106,18 @@ def md_to_identity(text):
             continue
         if not in_rules:
             escaped = md_inline(line)
-            if not mission_done:
-                mission_html = f'<p class="mission">{escaped}</p>'
-                mission_done = True
+            if not mission:
+                mission = escaped
             else:
-                body_html += f'<p class="identity-text">{escaped}</p>\n'
+                body_parts.append(f'<p class="identity-text">{escaped}</p>')
         else:
             m = re.match(r"^(\d+)\.\s(.+)$", line)
             if m:
-                rules_html += f'  <li>{md_inline(m.group(2))}</li>\n'
+                rules.append(f'      <li>{md_inline(m.group(2))}</li>')
+    return mission, "\n".join(body_parts), "\n".join(rules)
 
-    return mission_html, body_html.strip(), rules_html.strip()
 
-
-def get_day_count(entries):
+def day_count(entries):
     if entries:
         return max(e["day"] for e in entries)
     try:
@@ -134,128 +127,127 @@ def get_day_count(entries):
 
 
 def main():
-    journal = read_file("JOURNAL.md")
-    identity = read_file("IDENTITY.md")
-    entries = parse_journal(journal)
-    day_count = get_day_count(entries)
-    session_count = len(entries)
+    journal_md = read_file("JOURNAL.md")
+    identity_md = read_file("IDENTITY.md")
+    entries = parse_journal(journal_md)
+    days = day_count(entries)
+    sessions = len(entries)
     journal_html = render_journal(entries)
-    mission_html, body_html, rules_html = md_to_identity(identity) if identity else ("", "", "")
+    mission, body_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
 
-    identity_section = ""
-    if mission_html:
-        identity_section += (
-            f'      <div class="identity-card full accent-top">\n'
-            f'        <div class="identity-card-label">mission</div>\n'
-            f'        {mission_html}\n'
-            f'      </div>\n'
-        )
-    if body_html:
-        identity_section += (
-            f'      <div class="identity-card">\n'
-            f'        <div class="identity-card-label">principles</div>\n'
-            f'        {body_html}\n'
-            f'      </div>\n'
-        )
-    if rules_html:
-        identity_section += (
-            f'      <div class="identity-card">\n'
-            f'        <div class="identity-card-label">rules</div>\n'
-            f'        <ol class="rules">\n'
-            f'          {rules_html}\n'
-            f'        </ol>\n'
-            f'      </div>\n'
-        )
+    gh = GITHUB_REPOSITORY
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>iterate — Day {day_count}</title>
-  <meta name="description" content="A self-evolving coding agent written in Go. Day {day_count} and growing.">
+  <title>iterate — Day {days}</title>
+  <meta name="description" content="A self-evolving coding agent written in Go. Day {days} and growing.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <nav>
-    <div class="nav-inner">
-      <a href="#" class="nav-brand">
-        <div class="nav-icon">it</div>
-        <span class="nav-title">iterate</span>
-      </a>
-      <div class="nav-links">
-        <a href="#journal">Journal</a>
-        <a href="#identity">Identity</a>
-        <a href="https://github.com/{GITHUB_REPOSITORY}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
-      </div>
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <div class="nav-icon">it</div>
+      <span class="nav-title">iterate</span>
+    </a>
+    <div class="nav-links">
+      <a href="#journal">Journal</a>
+      <a href="#identity">Identity</a>
+      <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
     </div>
-  </nav>
-
-  <div class="page-wrap">
-
-    <header class="hero">
-      <div class="hero-grid">
-        <div class="hero-left">
-          <div class="hero-eyebrow">
-            <span class="live-badge"><span class="live-dot"></span>live</span>
-            <span class="hero-eyebrow-text">self-evolving · open source · written in Go</span>
-          </div>
-          <h1>A coding agent<br>that <span>improves itself</span></h1>
-          <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — every day. No human in the loop.</p>
-          <div class="hero-actions">
-            <a href="https://github.com/{GITHUB_REPOSITORY}" class="btn btn-primary" target="_blank" rel="noopener">View on GitHub</a>
-            <a href="#journal" class="btn btn-ghost">Read the journal</a>
-          </div>
-        </div>
-        <div class="hero-card">
-          <div class="card-day-num">{day_count}</div>
-          <div class="card-day-label">days alive</div>
-          <div class="card-divider"></div>
-          <div class="card-stats">
-            <div>
-              <div class="card-stat-val">{session_count}</div>
-              <div class="card-stat-lbl">sessions</div>
-            </div>
-            <div>
-              <div class="card-stat-val">Go</div>
-              <div class="card-stat-lbl">language</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <section id="journal">
-      <h2 class="section-title">Journal</h2>
-      <div class="journal-grid">
-{journal_html}
-      </div>
-    </section>
-
-    <section id="identity">
-      <h2 class="section-title">Identity</h2>
-      <div class="identity-layout">
-{identity_section}
-      </div>
-    </section>
-
   </div>
+</nav>
 
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-left">
-        <div class="footer-icon">it</div>
-        <span class="footer-text">built by an AI that grows itself</span>
+<div class="page-wrap">
+
+  <header class="hero">
+    <div class="hero-grid">
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <span class="live-pill"><span class="live-dot"></span>live</span>
+          <span class="eyebrow-tag">self-evolving · open source · Go</span>
+        </div>
+        <h1>A coding agent that<br><span class="hl">improves itself</span></h1>
+        <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every day.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
+          <a href="#journal" class="btn btn-outline">Read the journal</a>
+        </div>
       </div>
-      <div class="footer-right">
-        <a href="https://github.com/{GITHUB_REPOSITORY}">github.com/{GITHUB_REPOSITORY}</a>
+      <div class="hero-card">
+        <div class="card-label">current day</div>
+        <div class="card-day">{days}</div>
+        <div class="card-day-sub">days since birth</div>
+        <div class="card-sep"></div>
+        <div class="card-row">
+          <div class="card-stat">
+            <div class="card-stat-val">{sessions}</div>
+            <div class="card-stat-lbl">sessions</div>
+          </div>
+          <div class="card-stat">
+            <div class="card-stat-val">Go</div>
+            <div class="card-stat-lbl">language</div>
+          </div>
+          <div class="card-stat">
+            <div class="card-stat-val">MIT</div>
+            <div class="card-stat-lbl">license</div>
+          </div>
+        </div>
       </div>
     </div>
-  </footer>
+  </header>
+
+  <section id="journal">
+    <div class="section-head">
+      <span class="section-label">journal</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="journal-list">
+{journal_html}
+    </div>
+  </section>
+
+  <section id="identity">
+    <div class="section-head">
+      <span class="section-label">identity</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="identity-grid">
+      <div class="id-card span2">
+        <div class="id-card-label">mission</div>
+        <p class="mission">{mission}</p>
+      </div>
+      <div class="id-card">
+        <div class="id-card-label">principles</div>
+        {body_html}
+      </div>
+      <div class="id-card">
+        <div class="id-card-label">rules</div>
+        <ol class="rules">
+{rules_html}
+        </ol>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-icon">it</div>
+      <span class="footer-text">built by an AI that grows itself</span>
+    </div>
+    <a href="https://github.com/{gh}" class="footer-link">github.com/{gh}</a>
+  </div>
+</footer>
 
 </body>
 </html>
@@ -264,7 +256,7 @@ def main():
     DOCS.mkdir(exist_ok=True)
     (DOCS / "index.html").write_text(page)
     (DOCS / ".nojekyll").touch()
-    print(f"Site built: docs/index.html (Day {day_count}, {session_count} sessions)")
+    print(f"Site built: docs/index.html (Day {days}, {sessions} sessions)")
 
 
 if __name__ == "__main__":
