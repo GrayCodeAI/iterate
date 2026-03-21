@@ -37,7 +37,8 @@ def fmt_ts(ts, day):
     try:
         dt = datetime.strptime(ts, "%H:%M")
         date = BIRTH_DATE + timedelta(days=day)
-        return f"{ordinal(date.day)} {date.strftime('%b %Y')} · {dt.strftime('%H:%M')} UTC"
+        ist = dt + timedelta(hours=5, minutes=30)
+        return f"{ordinal(date.day)} {date.strftime('%b %Y')} · {dt.strftime('%H:%M')} UTC / {ist.strftime('%H:%M')} IST"
     except ValueError:
         return ts
 
@@ -273,7 +274,7 @@ def main():
     identity_md = read_file("IDENTITY.md")
     entries = parse_journal(journal_md)
     days = day_count(entries)
-    sessions = len(entries)
+    sessions = max(0, len(entries) - 1)  # born entry doesn't count as a session
     journal_html = render_journal(entries)
     mission, body_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
     how_html = render_how()
