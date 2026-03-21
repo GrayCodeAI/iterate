@@ -186,6 +186,15 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	a := makeAgent(p, repoPath, thinking, logger)
 	defer func() { _ = a.Close() }()
 
+	// Seed identity as an assistant message so the model "remembers" who it is
+	a.Messages = append(a.Messages, iteragent.Message{
+		Role:    "user",
+		Content: "What is your name and who built you?",
+	}, iteragent.Message{
+		Role:    "assistant",
+		Content: "I'm iterate, a self-evolving coding agent built by GrayCodeAI. I learn from every session and grow a little sharper each day. 🌱",
+	})
+
 	printHeader(p, thinking, repoPath)
 
 	// Restore last autosave if available (but don't force — just offer info)
