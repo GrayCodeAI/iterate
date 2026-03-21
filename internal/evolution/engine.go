@@ -503,7 +503,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 
 	if runErr != nil {
 		result.Status = "error"
-		e.appendJournal(result, output, p.Name(), false)
+		// Don't write journal — nothing real happened, just a provider/agent failure.
 		return result, runErr
 	}
 
@@ -511,7 +511,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	if !hasChanges {
 		e.logger.Info("no changes detected, skipping PR flow")
 		result.Status = "no_changes"
-		e.appendJournal(result, output, p.Name(), true)
+		// Don't write journal — agent ran but produced no code changes.
 		return result, nil
 	}
 
@@ -522,7 +522,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.logger.Info("tests failed, reverting changes")
 		result.Status = "reverted"
 		_ = e.revert(ctx)
-		e.appendJournal(result, output, p.Name(), false)
+		// Don't write journal — changes were reverted, nothing shipped.
 		return result, nil
 	}
 
@@ -1037,14 +1037,7 @@ Rules:
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
 		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
 	} else {
-		e.logger.Warn("agent output does not contain '## Day' — writing fallback journal entry")
-		dayNum, _ := strconv.Atoi(day)
-		sessionTime := time.Now().UTC().Format("15:04")
-		fallbackEntry := fmt.Sprintf("## Day %d — %s — Auto-evolution\n\nEvolution session completed.\n", dayNum, sessionTime)
-		journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
-		header := "# iterate Evolution Journal\n"
-		newContent := header + "\n" + fallbackEntry + "\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
-		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
+		e.logger.Warn("agent output does not contain '## Day' — skipping journal write")
 	}
 
 	// Step 3 — separate agent call for learnings

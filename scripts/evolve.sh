@@ -256,22 +256,10 @@ if [[ -f "$PLAN_FILE" ]]; then
     2>>"$LOG_FILE" || log "Communication phase exited with status $?"
 fi
 
-# Safety net: if communicate phase completely failed to write a journal,
-# write a minimal fallback. The Go engine should always write one now,
-# but this catches edge cases (crash, no SESSION_PLAN, etc).
+# Safety net: if communicate phase completely failed (crash, no SESSION_PLAN, etc),
+# log a warning but do NOT write a fake journal entry.
 if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
-  log "Agent did not write journal — writing fallback entry"
-  TMPJ=$(mktemp)
-  {
-    echo "# iterate Evolution Journal"
-    echo ""
-    echo "## Day $DAY — $SESSION_TIME — Auto-evolution"
-    echo ""
-    echo "Evolution session completed."
-    echo ""
-    grep -n "^## Day" "${REPOPATH}/JOURNAL.md" | head -1 | cut -d: -f1 | xargs -I{} tail -n +{} "${REPOPATH}/JOURNAL.md" 2>/dev/null || tail -n +2 "${REPOPATH}/JOURNAL.md"
-  } > "$TMPJ"
-  mv "$TMPJ" "${REPOPATH}/JOURNAL.md"
+  log "WARNING: No journal entry written for Day $DAY — communicate phase may have failed or produced no real work"
 fi
 
 # Rebuild GitHub Pages site
