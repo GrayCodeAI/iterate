@@ -117,6 +117,28 @@ def parse_identity(text):
     return mission, "\n".join(body_parts), "\n".join(rules)
 
 
+HOW_STEPS = [
+    ("01", "&#x1F4D6;", "Read",    "Scans its own source code, recent commits, and open GitHub issues."),
+    ("02", "&#x1F9E0;", "Decide",  "Picks one concrete improvement — a bug, a missing feature, a rough edge."),
+    ("03", "&#x2692;&#xFE0F;",  "Build",   "Writes the fix, runs <code>go build</code> and <code>go test</code>. No ship without green."),
+    ("04", "&#x1F4DD;", "Journal", "Commits the change and writes a journal entry — win or revert, always honest."),
+]
+
+
+def render_how():
+    out = []
+    for num, icon, title, body in HOW_STEPS:
+        out.append(
+            f'    <div class="how-step">\n'
+            f'      <div class="step-num">{num}</div>\n'
+            f'      <span class="step-icon">{icon}</span>\n'
+            f'      <div class="step-title">{title}</div>\n'
+            f'      <div class="step-body">{body}</div>\n'
+            f'    </div>'
+        )
+    return "\n".join(out)
+
+
 def day_count(entries):
     if entries:
         return max(e["day"] for e in entries)
@@ -134,6 +156,7 @@ def main():
     sessions = len(entries)
     journal_html = render_journal(entries)
     mission, body_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
+    how_html = render_how()
 
     gh = GITHUB_REPOSITORY
 
@@ -158,6 +181,7 @@ def main():
       <span class="nav-title">iterate</span>
     </a>
     <div class="nav-links">
+      <a href="#how">How it works</a>
       <a href="#journal">Journal</a>
       <a href="#identity">Identity</a>
       <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
@@ -203,6 +227,18 @@ def main():
       </div>
     </div>
   </header>
+
+  <section id="how">
+    <div class="section-head">
+      <span class="section-label">how it works</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 style="font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;color:var(--bright);letter-spacing:-.04em;margin-bottom:.75rem">Four steps, every session</h2>
+    <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
+    <div class="how-grid">
+{how_html}
+    </div>
+  </section>
 
   <section id="journal">
     <div class="section-head">
