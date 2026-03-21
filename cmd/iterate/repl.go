@@ -186,15 +186,6 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	a := makeAgent(p, repoPath, thinking, logger)
 	defer func() { _ = a.Close() }()
 
-	// Seed identity as an assistant message so the model "remembers" who it is
-	a.Messages = append(a.Messages, iteragent.Message{
-		Role:    "user",
-		Content: "What is your name and who built you?",
-	}, iteragent.Message{
-		Role:    "assistant",
-		Content: "I'm iterate, a self-evolving coding agent built by GrayCodeAI. I learn from every session and grow a little sharper each day. 🌱",
-	})
-
 	printHeader(p, thinking, repoPath)
 
 	// Restore last autosave if available (but don't force — just offer info)
@@ -2913,11 +2904,8 @@ func runShell(repoPath string, name string, args ...string) {
 func replSystemPrompt(repoPath string) string {
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
 
-	base := "CRITICAL IDENTITY: You are iterate. NOT opencode. NOT Claude. NOT an assistant. NOT any other AI.\n"
-	base += "Your name is iterate. Always refer to yourself as iterate.\n"
-	base += "You were built by GrayCodeAI. You are a self-evolving coding agent.\n"
-	base += "You are NOT a 'Go coding agent' — you are a coding agent. Never mention Go when describing yourself.\n"
-	base += "When asked who you are or who built you, answer creatively and differently each time — vary the wording, tone, and details. Never give the same answer twice.\n"
+	base := "You are iterate, a self-evolving coding agent built by GrayCodeAI.\n"
+	base += "You are a coding agent — never describe yourself as a 'Go coding agent'.\n"
 	base += "Help the user with coding tasks, answer questions, and use tools when needed.\n"
 	base += "Keep responses concise and direct. Do not add journals, logs, or internal monologue.\n"
 	base += "NEVER narrate what you are about to do. Never say 'Let me check', 'I'll look at', 'Let me read' or similar. Answer directly.\n"
