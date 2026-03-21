@@ -12,9 +12,49 @@ import (
 	"golang.org/x/term"
 )
 
-// printPrompt prints the mode-aware input prompt with a rich status line.
+// printPrompt prints just the input glyph — clean, no noise.
+// Status info is shown once after each response via printStatusLine().
 func printPrompt() {
-	// ── status line ──────────────────────────────────────────────────────
+	switch currentMode {
+	case modeAsk:
+		fmt.Printf("%s[ask] ❯%s ", colorCyan, colorReset)
+	case modeArchitect:
+		fmt.Printf("%s[arch] ❯%s ", colorPurple, colorReset)
+	default:
+		fmt.Printf("%s❯%s ", colorLime, colorReset)
+	}
+}
+
+// cachedDirtyCount caches the git dirty file count so we don't shell out on every prompt.
+var cachedDirtyCount = -1
+var cachedDirtyAt time.Time
+
+func gitDirtyCount() int {
+	if time.Since(cachedDirtyAt) < 5*time.Second {
+		return cachedDirtyCount
+	}
+	cachedDirtyAt = time.Now()
+	if replRepoPath == "" {
+		cachedDirtyCount = 0
+		return 0
+	}
+	out, err := exec.Command("git", "-C", replRepoPath, "status", "--porcelain").Output()
+	if err != nil {
+		cachedDirtyCount = 0
+		return 0
+	}
+	lines := strings.TrimSpace(string(out))
+	if lines == "" {
+		cachedDirtyCount = 0
+		return 0
+	}
+	cachedDirtyCount = len(strings.Split(lines, "\n"))
+	return cachedDirtyCount
+}
+
+// printStatusLine prints the one-line status shown after each agent response.
+// model · tokens · ctx% · git dirty · elapsed
+func printStatusLine() {
 	model := os.Getenv("ITERATE_MODEL")
 	if model == "" {
 		model = os.Getenv("ITERATE_PROVIDER")
@@ -22,24 +62,19 @@ func printPrompt() {
 
 	var parts []string
 
-	// model name
 	if model != "" {
-		parts = append(parts, fmt.Sprintf("%s%s%s", colorDim, model, colorReset))
+		parts = append(parts, model)
 	}
 
-	// token count
 	total := sessionInputTokens + sessionOutputTokens
 	if total > 0 {
-		parts = append(parts, fmt.Sprintf("%s%dk tok%s", colorDim, total/1000+1, colorReset))
+		parts = append(parts, fmt.Sprintf("%dk tok", total/1000+1))
 	}
 
-	// context window fill %
-	if len(parts) > 0 {
-		const windowSize = 200_000
-		totalChars := 0
-		// rough estimate from token counts (4 chars/token)
-		totalChars = (sessionInputTokens + sessionOutputTokens) * 4
-		pct := int(float64(totalChars) / float64(windowSize*4) * 100)
+	// context window %
+	const windowTokens = 200_000
+	if total > 0 {
+		pct := total * 100 / windowTokens
 		if pct > 100 {
 			pct = 100
 		}
@@ -50,43 +85,25 @@ func printPrompt() {
 		if pct > 90 {
 			ctxColor = colorRed
 		}
-		parts = append(parts, fmt.Sprintf("%sctx %d%%%s", ctxColor, pct, colorReset))
+		parts = append(parts, fmt.Sprintf("%sctx %d%%%s", ctxColor, pct, colorReset+colorDim))
 	}
 
-	// git dirty indicator
-	if replRepoPath != "" {
-		if out, err := exec.Command("git", "-C", replRepoPath, "status", "--porcelain").Output(); err == nil {
-			lines := strings.TrimSpace(string(out))
-			if lines != "" {
-				count := len(strings.Split(lines, "\n"))
-				parts = append(parts, fmt.Sprintf("%s~%d changed%s", colorYellow, count, colorReset))
-			}
-		}
+	// git dirty
+	if n := gitDirtyCount(); n > 0 {
+		parts = append(parts, fmt.Sprintf("%s~%d changed%s", colorYellow, n, colorReset+colorDim))
 	}
 
-	// session elapsed
-	elapsed := time.Since(sessionStart).Round(time.Second)
-	if elapsed >= time.Minute {
-		parts = append(parts, fmt.Sprintf("%s%s%s", colorDim, elapsed, colorReset))
+	// session elapsed (only after 1 min)
+	if elapsed := time.Since(sessionStart).Round(time.Second); elapsed >= time.Minute {
+		parts = append(parts, elapsed.String())
 	}
 
-	// safe mode indicator
 	if safeMode {
-		parts = append(parts, fmt.Sprintf("%s🔒 safe%s", colorCyan, colorReset))
+		parts = append(parts, fmt.Sprintf("%s🔒 safe%s", colorCyan, colorReset+colorDim))
 	}
 
 	if len(parts) > 0 {
-		fmt.Printf("%s● %s%s\n", colorDim, strings.Join(parts, colorDim+" · "+colorReset), colorReset)
-	}
-
-	// ── prompt glyph ─────────────────────────────────────────────────────
-	switch currentMode {
-	case modeAsk:
-		fmt.Printf("%s[ask] ❯%s ", colorCyan, colorReset)
-	case modeArchitect:
-		fmt.Printf("%s[arch] ❯%s ", colorPurple, colorReset)
-	default:
-		fmt.Printf("%s❯%s ", colorLime, colorReset)
+		fmt.Printf("%s● %s%s\n", colorDim, strings.Join(parts, " · "), colorReset)
 	}
 }
 

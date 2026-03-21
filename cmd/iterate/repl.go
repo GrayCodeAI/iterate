@@ -2820,8 +2820,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	maybeNotify()
 	elapsed := time.Since(start).Round(time.Millisecond)
 
-	// Try to get accurate usage from the last assistant message.
-	usageStr := ""
+	// Update session token counters from last message usage.
 	if len(a.Messages) > 0 {
 		last := a.Messages[len(a.Messages)-1]
 		if last.Usage != nil {
@@ -2830,21 +2829,20 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 			sessionCacheRead += last.Usage.CacheRead
 			sessionCacheWrite += last.Usage.CacheWrite
 			sessionTokens += last.Usage.TotalTokens
-			usageStr = fmt.Sprintf("  %s↑%d ↓%d tok%s", colorDim, last.Usage.InputTokens, last.Usage.OutputTokens, colorReset)
-			if last.Usage.CacheRead > 0 {
-				usageStr += fmt.Sprintf("  %scache hit %d%s", colorDim, last.Usage.CacheRead, colorReset)
-			}
 		}
-	}
-	if usageStr == "" {
+	} else {
 		approxTokens := len(fullContent) / 4
 		sessionTokens += approxTokens
 		sessionOutputTokens += approxTokens
-		if approxTokens > 0 {
-			usageStr = fmt.Sprintf("  %s~%d tok%s", colorDim, approxTokens, colorReset)
-		}
 	}
-	fmt.Printf("\n%s●%s %s%s%s%s\n\n", colorLime, colorReset, colorDim, elapsed, usageStr, colorReset)
+
+	// Invalidate dirty cache so next printStatusLine reflects any file writes.
+	cachedDirtyAt = time.Time{}
+
+	// Compact timing line, then status line with all context.
+	fmt.Printf("\n%s%s%s\n", colorDim, elapsed, colorReset)
+	printStatusLine()
+	fmt.Println()
 }
 
 // showGitDiff runs git diff and prints colored output if there are changes.
