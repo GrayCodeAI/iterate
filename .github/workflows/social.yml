@@ -57,8 +57,8 @@ jobs:
 
       - name: Commit learnings
         run: |
-          if [[ -n $(git status -s memory/social_learnings.jsonl memory/active_social_learnings.md SOCIAL_LEARNINGS.md) ]]; then
-            git add memory/social_learnings.jsonl memory/active_social_learnings.md SOCIAL_LEARNINGS.md
+          if [[ -n $(git status -s memory/social_learnings.jsonl memory/active_social_learnings.md) ]]; then
+            git add memory/social_learnings.jsonl memory/active_social_learnings.md
             git commit -m "iterate: social session learnings $(date -u +'%Y-%m-%d %H:%M:%S')" || true
             git push || true
           fi
