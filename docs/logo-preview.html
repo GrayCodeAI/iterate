@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrayCode — Brand Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; font-family: 'Space Grotesk', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 4rem 2rem; gap: 2.5rem; }
+    .lbl { font-family: 'JetBrains Mono', monospace; font-size: .55rem; letter-spacing: .2em; text-transform: uppercase; color: #3a5268; margin-bottom: 1rem; }
+    .card { background: #0a0f18; border: 1px solid #1a2535; border-radius: 16px; padding: 2.5rem 3rem; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; }
+    .row { display: flex; gap: 1.25rem; width: 100%; max-width: 680px; flex-wrap: wrap; }
+    .row .card { flex: 1; min-width: 130px; padding: 2rem 1.5rem; }
+    .circle { border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .favicon-sim { width: 32px; height: 32px; border-radius: 6px; overflow: hidden; }
+    h2 { font-family: 'JetBrains Mono', monospace; font-size: .6rem; letter-spacing: .25em; text-transform: uppercase; color: #2e3d50; margin-bottom: 1.5rem; align-self: flex-start; }
+    .divider { width: 100%; max-width: 680px; border: none; border-top: 1px solid #1a2535; }
+
+    /* hero */
+    .hero-card { background: linear-gradient(135deg, #0a0f18 0%, #0f1e2e 100%); border: 1px solid #1e3a50; border-radius: 20px; padding: 4rem; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 680px; gap: 1rem; }
+    .hero-card .lbl { margin-bottom: 0; }
+
+    /* swatches */
+    .swatches { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+    .swatch { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+    .swatch-box { width: 52px; height: 52px; border-radius: 10px; border: 1px solid rgba(255,255,255,.06); }
+    .swatch-hex { font-family: 'JetBrains Mono', monospace; font-size: .5rem; color: #3a5268; letter-spacing: .05em; }
+    .swatch-name { font-size: .55rem; color: #4b6070; letter-spacing: .05em; }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <div class="hero-card">
+    <div class="lbl">GrayCode · Brand Identity</div>
+    <img src="graycodeai-logo.svg" width="480" style="max-width:100%" alt="GrayCode">
+  </div>
+
+  <hr class="divider">
+  <h2>— wordmark</h2>
+
+  <div class="card">
+    <div class="lbl">Dark background</div>
+    <img src="graycodeai-logo.svg" width="380" style="max-width:100%" alt="GrayCode">
+  </div>
+
+  <div class="card" style="background:#f0f4f8; border-color:#dde3ec;">
+    <div class="lbl" style="color:#607d93;">Light background</div>
+    <img src="graycodeai-logo-dark.svg" width="380" style="max-width:100%" alt="GrayCode light">
+  </div>
+
+  <hr class="divider">
+  <h2>— icon</h2>
+
+  <div class="row">
+    <div class="card">
+      <div class="lbl">96px</div>
+      <img src="graycodeai-icon.svg" width="96" height="96" alt="icon">
+    </div>
+    <div class="card">
+      <div class="lbl">64px</div>
+      <img src="graycodeai-icon.svg" width="64" height="64" alt="icon">
+    </div>
+    <div class="card">
+      <div class="lbl">48px</div>
+      <img src="graycodeai-icon.svg" width="48" height="48" alt="icon">
+    </div>
+    <div class="card">
+      <div class="lbl">32px</div>
+      <img src="graycodeai-icon.svg" width="32" height="32" alt="icon">
+    </div>
+  </div>
+
+  <hr class="divider">
+  <h2>— circular</h2>
+
+  <div class="row">
+    <div class="card">
+      <div class="lbl">96px</div>
+      <div class="circle" style="width:96px;height:96px;">
+        <img src="graycodeai-icon.svg" width="96" height="96" alt="circle">
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">64px</div>
+      <div class="circle" style="width:64px;height:64px;">
+        <img src="graycodeai-icon.svg" width="64" height="64" alt="circle">
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">48px</div>
+      <div class="circle" style="width:48px;height:48px;">
+        <img src="graycodeai-icon.svg" width="48" height="48" alt="circle">
+      </div>
+    </div>
+    <div class="card" style="background:#f0f4f8; border-color:#dde3ec;">
+      <div class="lbl" style="color:#607d93;">Light bg · 72px</div>
+      <div class="circle" style="width:72px;height:72px; box-shadow:0 0 0 3px #dde3ec;">
+        <img src="graycodeai-icon.svg" width="72" height="72" alt="circle light">
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <h2>— ui usage</h2>
+
+  <div class="row">
+    <div class="card">
+      <div class="lbl">Favicon · 32px</div>
+      <div class="favicon-sim">
+        <img src="graycodeai-icon.svg" width="32" height="32" alt="favicon">
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">Avatar · 40px</div>
+      <div class="circle" style="width:40px;height:40px;">
+        <img src="graycodeai-icon.svg" width="40" height="40" alt="avatar">
+      </div>
+    </div>
+    <div class="card">
+      <div class="lbl">Nav bar</div>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <img src="graycodeai-icon.svg" width="28" height="28" style="border-radius:7px;" alt="nav">
+        <span style="font-size:1rem;font-weight:700;color:#c8d8e8;letter-spacing:-.5px;">GrayCode</span>
+      </div>
+    </div>
+    <div class="card" style="background:#f0f4f8; border-color:#dde3ec;">
+      <div class="lbl" style="color:#607d93;">Nav · light</div>
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <img src="graycodeai-icon.svg" width="28" height="28" style="border-radius:7px;" alt="nav light">
+        <span style="font-size:1rem;font-weight:700;color:#1a2e3d;letter-spacing:-.5px;">GrayCode</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <h2>— color palette</h2>
+
+  <div class="card">
+    <div class="lbl">Brand colors</div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#c0d0e0;"></div>
+        <div class="swatch-hex">#c0d0e0</div>
+        <div class="swatch-name">Highlight</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#c8d8e8;"></div>
+        <div class="swatch-hex">#c8d8e8</div>
+        <div class="swatch-name">Text light</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#7a9ab0;"></div>
+        <div class="swatch-hex">#7a9ab0</div>
+        <div class="swatch-name">Text muted</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#607d93;"></div>
+        <div class="swatch-hex">#607d93</div>
+        <div class="swatch-name">Mid</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#3d5268;"></div>
+        <div class="swatch-hex">#3d5268</div>
+        <div class="swatch-name">Dark mid</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#1e3a50;"></div>
+        <div class="swatch-hex">#1e3a50</div>
+        <div class="swatch-name">Deep</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#0d1117;"></div>
+        <div class="swatch-hex">#0d1117</div>
+        <div class="swatch-name">Background</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
