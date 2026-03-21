@@ -26,84 +26,96 @@ func printPrompt() {
 
 // cachedDirtyCount caches the git dirty file count so we don't shell out on every prompt.
 var cachedDirtyCount = -1
+var cachedStagedCount int
+var cachedUnstagedCount int
+var cachedDirtyFiles []string
 var cachedDirtyAt time.Time
 
-func gitDirtyCount() int {
+// gitStatus returns staged and unstaged file counts.
+func gitStatus() (staged, unstaged int) {
 	if time.Since(cachedDirtyAt) < 5*time.Second {
-		return cachedDirtyCount
+		return cachedStagedCount, cachedUnstagedCount
 	}
 	cachedDirtyAt = time.Now()
 	if replRepoPath == "" {
-		cachedDirtyCount = 0
-		return 0
+		return 0, 0
 	}
 	out, err := exec.Command("git", "-C", replRepoPath, "status", "--porcelain").Output()
 	if err != nil {
-		cachedDirtyCount = 0
-		return 0
+		return 0, 0
 	}
-	lines := strings.TrimSpace(string(out))
-	if lines == "" {
-		cachedDirtyCount = 0
-		return 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if len(line) < 2 {
+			continue
+		}
+		if line[0] != ' ' && line[0] != '?' {
+			staged++
+		}
+		if line[1] != ' ' {
+			unstaged++
+		}
 	}
-	cachedDirtyCount = len(strings.Split(lines, "\n"))
-	return cachedDirtyCount
+	cachedStagedCount = staged
+	cachedUnstagedCount = unstaged
+	cachedDirtyCount = staged + unstaged
+	return staged, unstaged
 }
 
 // printStatusLine prints the one-line status shown after each agent response.
-// model · tokens · ctx% · git dirty · elapsed
-func printStatusLine() {
+// elapsed · model · tokens · ctx% (only >10%) · git dirty
+func printStatusLine(elapsed time.Duration) {
 	model := os.Getenv("ITERATE_MODEL")
 	if model == "" {
 		model = os.Getenv("ITERATE_PROVIDER")
 	}
+	total := sessionInputTokens + sessionOutputTokens
 
-	var parts []string
+	fmt.Printf("%s●%s %s%s%s",
+		colorCyan, colorReset,
+		colorCyan, elapsed.String(), colorReset)
 
 	if model != "" {
-		parts = append(parts, model)
+		fmt.Printf("%s · %s%s", colorDim, model, colorReset)
 	}
 
-	total := sessionInputTokens + sessionOutputTokens
-	if total > 0 {
-		parts = append(parts, fmt.Sprintf("%dk tok", total/1000+1))
+	if total >= 1000 {
+		fmt.Printf("%s · %s%.1fk tok%s", colorDim, colorPurple, float64(total)/1000, colorReset)
+	} else if total > 0 {
+		fmt.Printf("%s · %s%d tok%s", colorDim, colorPurple, total, colorReset)
 	}
 
-	// context window %
 	const windowTokens = 200_000
+	pct := 0
 	if total > 0 {
-		pct := total * 100 / windowTokens
+		pct = total * 100 / windowTokens
 		if pct > 100 {
 			pct = 100
 		}
-		ctxColor := colorDim
-		if pct > 75 {
-			ctxColor = colorYellow
-		}
-		if pct > 90 {
-			ctxColor = colorRed
-		}
-		parts = append(parts, fmt.Sprintf("%sctx %d%%%s", ctxColor, pct, colorReset+colorDim))
 	}
-
-	// git dirty
-	if n := gitDirtyCount(); n > 0 {
-		parts = append(parts, fmt.Sprintf("%s~%d changed%s", colorYellow, n, colorReset+colorDim))
+	ctxColor := colorBlue
+	if pct > 75 {
+		ctxColor = colorYellow
 	}
+	if pct > 90 {
+		ctxColor = colorRed
+	}
+	fmt.Printf("%s · %sctx %.1f%%%s", colorDim, ctxColor, float64(total)*100/float64(windowTokens), colorReset)
 
-	// session elapsed (only after 1 min)
-	if elapsed := time.Since(sessionStart).Round(time.Second); elapsed >= time.Minute {
-		parts = append(parts, elapsed.String())
+	if staged, unstaged := gitStatus(); staged+unstaged > 0 {
+		if staged > 0 && unstaged > 0 {
+			fmt.Printf("%s · %s+%d staged%s %s±%d unstaged%s", colorDim, colorGreen, staged, colorReset, colorYellow, unstaged, colorReset)
+		} else if staged > 0 {
+			fmt.Printf("%s · %s+%d staged%s", colorDim, colorGreen, staged, colorReset)
+		} else {
+			fmt.Printf("%s · %s±%d unstaged%s", colorDim, colorYellow, unstaged, colorReset)
+		}
 	}
 
 	if safeMode {
-		parts = append(parts, fmt.Sprintf("%s🔒 safe%s", colorCyan, colorReset+colorDim))
+		fmt.Printf("%s · %s🔒 safe%s", colorDim, colorCyan, colorReset)
 	}
 
-	if len(parts) > 0 {
-		fmt.Printf("%s● %s%s\n", colorDim, strings.Join(parts, " · "), colorReset)
-	}
+	fmt.Println()
 }
 
 // inputHistory holds commands for up/down arrow navigation.

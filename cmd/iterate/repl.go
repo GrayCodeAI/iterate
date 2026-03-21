@@ -85,12 +85,14 @@ func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.Thinkin
 	}
 	tools := wrapToolsWithPermissions(base)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
+	defaultTemp := float32(0.9)
 	ag := iteragent.New(p, tools, logger).
 		WithSystemPrompt(replSystemPrompt(repoPath)).
 		WithSkillSet(skills).
 		WithThinkingLevel(thinking).
 		WithToolExecutionStrategy(iteragent.NewParallelStrategy()).
-		WithHooks(replHooks())
+		WithHooks(replHooks()).
+		WithTemperature(defaultTemp)
 	if rtConfig.Temperature != nil {
 		ag = ag.WithTemperature(*rtConfig.Temperature)
 	}
@@ -309,18 +311,25 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 		}
 	}
 
-	// Git dirty indicator
-	if out, err := exec.Command("git", "-C", repoPath, "status", "--porcelain").Output(); err == nil {
-		if lines := strings.TrimSpace(string(out)); lines != "" {
-			count := len(strings.Split(lines, "\n"))
-			fmt.Printf("  %s%d changed%s", colorYellow, count, colorReset)
+	// Git dirty indicator — staged/unstaged
+	staged, unstaged := gitStatus()
+	if staged+unstaged > 0 {
+		if staged > 0 && unstaged > 0 {
+			fmt.Printf("  %s+%d staged%s  %s±%d unstaged%s", colorGreen, staged, colorReset, colorYellow, unstaged, colorReset)
+		} else if staged > 0 {
+			fmt.Printf("  %s+%d staged%s", colorGreen, staged, colorReset)
+		} else {
+			fmt.Printf("  %s±%d unstaged%s", colorYellow, unstaged, colorReset)
 		}
 	}
 
 	fmt.Println()
 
-	// Model + thinking level
-	modelName := p.Name()
+	// Model name only — strip provider prefix if present
+	modelName := os.Getenv("ITERATE_MODEL")
+	if modelName == "" {
+		modelName = p.Name()
+	}
 	thinkingStr := ""
 	if thinking != iteragent.ThinkingLevelOff && thinking != "" {
 		thinkingStr = fmt.Sprintf("  %sthinking:%s%s%s", colorDim, colorCyan, thinking, colorReset)
@@ -2730,42 +2739,25 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	defer func() { stopOnce() }()
 
 	var fullContent string
-	var streamingTokens bool // true once we receive the first EventTokenUpdate
 	var toolStart time.Time
 
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
 		case iteragent.EventTokenUpdate:
-			// First token: stop spinner and clear line, then print tokens live.
-			if !streamingTokens {
-				stopOnce()
-				fmt.Print("\r\033[K")
-				streamingTokens = true
-			}
-			fmt.Print(e.Content)
+			// Buffer tokens, render at end with markdown highlighting.
 			fullContent += e.Content
 
 		case iteragent.EventMessageUpdate:
-			if streamingTokens {
-				// Already printed token-by-token; just keep fullContent in sync.
-				fullContent = e.Content
-			} else {
-				// Non-streaming provider: buffer and render at the end.
-				fullContent = e.Content
-			}
-
+			// Non-streaming provider: buffer and render at the end.
 		case iteragent.EventToolExecutionStart:
 			toolStart = time.Now()
 			recordToolCall()
 			stopOnce()
 			if fullContent != "" {
-				if !streamingTokens {
-					fmt.Print("\r\033[K")
-					renderResponse(fullContent)
-				}
+				fmt.Print("\r\033[K")
+				renderResponse(fullContent)
 				fmt.Println()
 				fullContent = ""
-				streamingTokens = false
 			}
 			icon, label, col := toolStyle(e.ToolName)
 			// Show tool name + truncated key arg inline
@@ -2807,14 +2799,9 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	if fullContent != "" {
 		lastResponse = fullContent
-		if streamingTokens {
-			// Tokens were printed live; just add a newline and syntax-render if markdown.
-			fmt.Println()
-		} else {
-			fmt.Print("\r\033[K")
-			renderResponse(fullContent)
-			fmt.Println()
-		}
+		fmt.Print("\r\033[K")
+		renderResponse(fullContent)
+		fmt.Println()
 	}
 	maybeNotify()
 	elapsed := time.Since(start).Round(time.Millisecond)
@@ -2838,9 +2825,8 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	// Invalidate dirty cache so next printStatusLine reflects any file writes.
 	cachedDirtyAt = time.Time{}
 
-	// Compact timing line, then status line with all context.
-	fmt.Printf("\n%s%s%s\n", colorDim, elapsed, colorReset)
-	printStatusLine()
+	fmt.Println()
+	printStatusLine(elapsed)
 	fmt.Println()
 }
 
@@ -2921,9 +2907,13 @@ func runShell(repoPath string, name string, args ...string) {
 func replSystemPrompt(repoPath string) string {
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
 
-	base := "You are iterate, a self-evolving Go coding agent in an interactive REPL.\n"
+	base := "IMPORTANT: Your name is iterate. You are NOT opencode, NOT Claude, NOT an assistant. You are iterate.\n"
+	base += "You are iterate, a self-evolving coding agent built by GrayCodeAI.\n"
+	base += "You are NOT a 'Go coding agent' — you are a coding agent. Never mention Go when describing yourself.\n"
+	base += "When asked who you are or who built you, answer creatively and differently each time — vary the wording, tone, and details you highlight. Never give the same answer twice.\n"
 	base += "Help the user with coding tasks, answer questions, and use tools when needed.\n"
 	base += "Keep responses concise and direct. Do not add journals, logs, or internal monologue.\n"
+	base += "NEVER narrate what you are about to do. Never say 'Let me check', 'I'll look at', 'Let me read' or similar. Answer directly.\n"
 	if len(personality) > 0 {
 		base += "\n## Personality\n" + string(personality)
 	}

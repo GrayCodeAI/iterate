@@ -41,6 +41,8 @@ func renderResponse(text string) {
 func renderInline(line string) string {
 	// Bold **text**
 	line = replacePairs(line, "**", colorBold, colorReset+"\033[97m")
+	// Italic *text*
+	line = replacePairs(line, "*", "\033[3m", colorReset+"\033[97m")
 	// Inline code `text`
 	line = replacePairs(line, "`", colorAmber, colorReset+"\033[97m")
 	return "\033[97m" + line + colorReset
