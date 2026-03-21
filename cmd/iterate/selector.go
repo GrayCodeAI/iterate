@@ -24,19 +24,8 @@ func printPrompt() {
 	}
 }
 
-// cachedDirtyCount caches the git dirty file count so we don't shell out on every prompt.
-var cachedDirtyCount = -1
-var cachedStagedCount int
-var cachedUnstagedCount int
-var cachedDirtyFiles []string
-var cachedDirtyAt time.Time
-
-// gitStatus returns staged and unstaged file counts.
+// gitStatus returns real-time staged and unstaged file counts.
 func gitStatus() (staged, unstaged int) {
-	if time.Since(cachedDirtyAt) < 5*time.Second {
-		return cachedStagedCount, cachedUnstagedCount
-	}
-	cachedDirtyAt = time.Now()
 	if replRepoPath == "" {
 		return 0, 0
 	}
@@ -51,14 +40,24 @@ func gitStatus() (staged, unstaged int) {
 		if line[0] != ' ' && line[0] != '?' {
 			staged++
 		}
-		if line[1] != ' ' {
+		if line[1] != ' ' && line[1] != '?' {
 			unstaged++
 		}
 	}
-	cachedStagedCount = staged
-	cachedUnstagedCount = unstaged
-	cachedDirtyCount = staged + unstaged
 	return staged, unstaged
+}
+
+// formatElapsed formats a duration cleanly: "5.8s", "1m2s", "320ms"
+func formatElapsed(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	m := int(d.Minutes())
+	s := int(d.Seconds()) % 60
+	return fmt.Sprintf("%dm%ds", m, s)
 }
 
 // printStatusLine prints the one-line status shown after each agent response.
@@ -72,7 +71,7 @@ func printStatusLine(elapsed time.Duration) {
 
 	fmt.Printf("%s●%s %s%s%s",
 		colorCyan, colorReset,
-		colorCyan, elapsed.String(), colorReset)
+		colorCyan, formatElapsed(elapsed), colorReset)
 
 	if model != "" {
 		fmt.Printf("%s · %s%s", colorDim, model, colorReset)

@@ -2822,9 +2822,6 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		sessionOutputTokens += approxTokens
 	}
 
-	// Invalidate dirty cache so next printStatusLine reflects any file writes.
-	cachedDirtyAt = time.Time{}
-
 	fmt.Println()
 	printStatusLine(elapsed)
 	fmt.Println()
