@@ -29,6 +29,8 @@ func gitStatus() (staged, unstaged int) {
 	if replRepoPath == "" {
 		return 0, 0
 	}
+	// Refresh index to fix stale mtime entries that appear as staged
+	_ = exec.Command("git", "-C", replRepoPath, "update-index", "-q", "--refresh").Run()
 	out, err := exec.Command("git", "-C", replRepoPath, "status", "--porcelain").Output()
 	if err != nil {
 		return 0, 0
