@@ -117,6 +117,67 @@ def parse_identity(text):
     return mission, "\n".join(body_parts), "\n".join(rules)
 
 
+BENTO_CELLS = [
+    {
+        "icon": "&#x27F3;",
+        "title": "Fully autonomous",
+        "body": "No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.",
+        "extra": (
+            '<div class="b-code">'
+            '<span class="cm">// runs every 12 hours</span>\n'
+            '<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> '
+            '{ plan := <span class="fn">readSelf</span>() patch := <span class="fn">improve</span>(plan)\n'
+            '<span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch) }'
+            '</div>'
+        ),
+        "wide": True,
+    },
+    {
+        "icon": "&#x1F4D3;",
+        "title": "Honest journal",
+        "body": "Every session logged — successes, failures, and reversions. Nothing hidden.",
+        "extra": "",
+        "wide": False,
+    },
+    {
+        "icon": "&#x2705;",
+        "title": "Tests gate every ship",
+        "body": "If <code>go build</code> or <code>go test</code> fail, the commit never happens.",
+        "extra": "",
+        "wide": False,
+    },
+    {
+        "icon": "&#x1F465;",
+        "title": "Community-shaped",
+        "body": "Real GitHub issues drive the roadmap. Developer pain beats internal guesses.",
+        "extra": "",
+        "wide": False,
+    },
+    {
+        "icon": "&#x1F9EC;",
+        "title": "Compounding memory",
+        "body": "Learnings persist across sessions. Each day builds on the last.",
+        "extra": "",
+        "wide": False,
+    },
+]
+
+
+def render_bento():
+    out = []
+    for cell in BENTO_CELLS:
+        cls = " wide" if cell["wide"] else ""
+        out.append(
+            f'    <div class="bento-cell{cls}">\n'
+            f'      <div class="b-icon">{cell["icon"]}</div>\n'
+            f'      <div class="b-title">{cell["title"]}</div>\n'
+            f'      <div class="b-body">{cell["body"]}</div>\n'
+            f'      {cell["extra"]}\n'
+            f'    </div>'
+        )
+    return "\n".join(out)
+
+
 HOW_STEPS = [
     ("01", "&#x1F4D6;", "Read",    "Scans its own source code, recent commits, and open GitHub issues."),
     ("02", "&#x1F9E0;", "Decide",  "Picks one concrete improvement — a bug, a missing feature, a rough edge."),
@@ -157,6 +218,7 @@ def main():
     journal_html = render_journal(entries)
     mission, body_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
     how_html = render_how()
+    bento_html = render_bento()
 
     gh = GITHUB_REPOSITORY
 
@@ -182,6 +244,7 @@ def main():
     </a>
     <div class="nav-links">
       <a href="#how">How it works</a>
+      <a href="#features">Features</a>
       <a href="#journal">Journal</a>
       <a href="#identity">Identity</a>
       <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
@@ -237,6 +300,18 @@ def main():
     <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
     <div class="how-grid">
 {how_html}
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="section-head">
+      <span class="section-label">features</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 style="font-size:clamp(1.8rem,3vw,2.4rem);font-weight:800;color:var(--bright);letter-spacing:-.04em;margin-bottom:.75rem">Built different</h2>
+    <p style="font-size:.95rem;color:var(--text);max-width:500px;line-height:1.75;margin-bottom:3rem">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
+    <div class="bento">
+{bento_html}
     </div>
   </section>
 
