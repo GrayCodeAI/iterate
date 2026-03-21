@@ -203,6 +203,6 @@ Config fields for persistent patterns:
 The agent must never modify:
 - `IDENTITY.md` — its constitution
 - `PERSONALITY.md` — its voice
-- `scripts/evolve.sh` — what runs it
+- `scripts/evolution/evolve.sh` — what runs it
 - `.github/workflows/` — its safety net
 - Core skills (evolve, self-assess, communicate, research)

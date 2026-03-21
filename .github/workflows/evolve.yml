@@ -52,7 +52,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}  # For sponsor queries (needs read:user scope)
         run: |
-          bash scripts/evolve.sh
+          bash scripts/evolution/evolve.sh
 
       - name: Show evolution log
         if: always()

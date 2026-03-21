@@ -20,7 +20,7 @@ go build -o ./iterate ./cmd/iterate
 
 # Fetch GitHub discussions
 log "Fetching GitHub discussions..."
-python3 scripts/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.md" 2>/dev/null || true
+python3 scripts/build/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_TODAY.md" 2>/dev/null || true
 
 # Social session: read discussions, participate, extract learnings
 log "Running social session..."
@@ -29,6 +29,6 @@ log "Running social session..."
 
 # Synthesize social learnings into active context
 log "Synthesizing social learnings..."
-python3 scripts/update_social_learnings.py || true
+python3 scripts/social/update_social_learnings.py || true
 
 log "=== iterate social session completed ==="

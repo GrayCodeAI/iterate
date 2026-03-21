@@ -159,7 +159,7 @@ func main() {
 	}
 
 	iteragent.SetProtectedPaths([]string{
-		filepath.Join(absRepo, "scripts/evolve.sh"),
+		filepath.Join(absRepo, "scripts/evolution/evolve.sh"),
 		filepath.Join(absRepo, ".github/workflows"),
 		filepath.Join(absRepo, "skills"),
 		filepath.Join(absRepo, "IDENTITY.md"),

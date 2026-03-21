@@ -180,7 +180,7 @@ go build -o ./iterate ./cmd/iterate
 # Fetch GitHub issues (if community.go is implemented)
 log "Fetching GitHub issues..."
 if command -v gh &> /dev/null; then
-  python3 scripts/format_issues.py > "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null || true
+  python3 scripts/build/format_issues.py > "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null || true
 fi
 
 # Clean up stale session plan so agent creates a fresh one
@@ -263,9 +263,9 @@ if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
 fi
 
 # Rebuild GitHub Pages site
-if command -v python3 &>/dev/null && [[ -f "${REPOPATH}/scripts/build_site.py" ]]; then
+if command -v python3 &>/dev/null && [[ -f "${REPOPATH}/scripts/build/build_site.py" ]]; then
   log "Rebuilding GitHub Pages site..."
-  python3 "${REPOPATH}/scripts/build_site.py" 2>>"$LOG_FILE" || log "build_site.py failed"
+  python3 "${REPOPATH}/scripts/build/build_site.py" 2>>"$LOG_FILE" || log "build_site.py failed"
 fi
 
 # Clean up PR state file after successful cycle
