@@ -113,7 +113,25 @@ def parse_identity(text):
         else:
             m = re.match(r"^(\d+)\.\s(.+)$", line)
             if m:
-                rules.append(f'      <li>{md_inline(m.group(2))}</li>')
+                num = f"{int(m.group(1)):02d}"
+                content = m.group(2).strip()
+                # split "**Title.** Rest" or "**Title** Rest" into title + subtitle
+                tm = re.match(r"^\*\*(.+?)\*\*\.?\s*(.*)", content)
+                if tm:
+                    title = html.escape(tm.group(1))
+                    sub = md_inline(tm.group(2)) if tm.group(2) else ""
+                else:
+                    title = md_inline(content)
+                    sub = ""
+                sub_html = f'<div class="rule-sub">{sub}</div>' if sub else ""
+                rules.append(
+                    f'      <li>'
+                    f'<span class="rule-num">{num}</span>'
+                    f'<div class="rule-content">'
+                    f'<div class="rule-title">{title}</div>'
+                    f'{sub_html}'
+                    f'</div></li>'
+                )
     return mission, "\n".join(body_parts), "\n".join(rules)
 
 
@@ -341,9 +359,9 @@ def main():
       </div>
       <div class="id-card">
         <div class="id-card-label">rules</div>
-        <ol class="rules">
+        <ul class="rules">
 {rules_html}
-        </ol>
+        </ul>
       </div>
     </div>
   </section>

@@ -725,30 +725,53 @@ section { padding: 6rem 0 0; }
 
 .rules {
   list-style: none;
-  counter-reset: rules;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 0;
 }
 
 .rules li {
-  counter-increment: rules;
   display: grid;
-  grid-template-columns: 2.2rem 1fr;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--text);
-  line-height: 1.65;
+  grid-template-columns: 3rem 1fr;
+  gap: 0;
+  background: var(--surface);
+  transition: background 0.15s;
   align-items: start;
 }
+.rules li:hover { background: var(--surface2); }
 
-.rules li::before {
-  content: counter(rules, decimal-leading-zero);
+.rule-num {
   font-family: var(--mono);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: 0.65rem;
+  font-weight: 700;
   color: var(--lime);
-  padding-top: 0.15rem;
+  letter-spacing: 0.08em;
+  padding: 1.1rem 0 1.1rem 1.1rem;
+  padding-top: 1.15rem;
+}
+
+.rule-content {
+  padding: 1rem 1.25rem 1rem 0.75rem;
+  border-left: 1px solid var(--border);
+}
+
+.rule-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--bright);
+  line-height: 1.4;
+  margin-bottom: 0.2rem;
+}
+
+.rule-sub {
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.6;
 }
 
 /* ── footer ── */
