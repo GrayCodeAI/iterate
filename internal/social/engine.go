@@ -77,7 +77,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 
 	// Build prompt for the agent
 	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "PERSONALITY.md"))
-	socialSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/social.md"))
+	socialSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/social/SKILL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 
 	systemPrompt := fmt.Sprintf(`You are iterate, a self-evolving coding agent.
@@ -153,7 +153,7 @@ func (e *Engine) ReplyToIssues(ctx context.Context, p iteragent.Provider, issueN
 	}
 
 	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "PERSONALITY.md"))
-	communicateSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/communicate.md"))
+	communicateSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/communicate/SKILL.md"))
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 

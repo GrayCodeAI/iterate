@@ -1,9 +1,9 @@
 #!/bin/bash
-# scripts/iterate_context.sh — Build iterate's identity context for prompts.
+# scripts/evolution/iterate_context.sh — Build iterate's identity context for prompts.
 # Source this file, then use $ITERATE_CONTEXT in any prompt.
 #
 # Usage:
-#   ITERATE_REPO="/path/to/iterate" source scripts/iterate_context.sh
+#   ITERATE_REPO="/path/to/iterate" source scripts/evolution/iterate_context.sh
 #   cat > prompt.txt <<EOF
 #   $ITERATE_CONTEXT
 #   ... your task-specific instructions ...

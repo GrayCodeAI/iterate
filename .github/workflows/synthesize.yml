@@ -22,7 +22,7 @@ jobs:
 
       - name: Synthesize learnings
         run: |
-          python3 scripts/synthesize_learnings.py
+          python3 scripts/maintenance/synthesize_learnings.py
 
       - name: Commit if changed
         run: |

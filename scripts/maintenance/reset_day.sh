@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# scripts/reset_day.sh — Reset (or set) the DAY_COUNT file.
+# scripts/maintenance/reset_day.sh — Reset (or set) the DAY_COUNT file.
 #
 # Usage:
-#   ./scripts/reset_day.sh        # reset to 0
-#   ./scripts/reset_day.sh 42     # set to 42
+#   ./scripts/maintenance/reset_day.sh        # reset to 0
+#   ./scripts/maintenance/reset_day.sh 42     # set to 42
 
 set -euo pipefail
 

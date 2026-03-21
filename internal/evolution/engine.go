@@ -31,8 +31,8 @@ var ProtectedFiles = []string{
 	// Configuration
 	".iterate/config.json",
 	// Scripts that run evolution
-	"scripts/evolve.sh",
-	"scripts/social.sh",
+	"scripts/evolution/evolve.sh",
+	"scripts/social/social.sh",
 }
 
 // isProtected checks if a file path matches any protected pattern.
@@ -733,7 +733,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
 
 		// Add protected files warning to task prompt
-		protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+		protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
 
 		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
 			task.Number, task.Description, protectedWarning)
@@ -830,7 +830,7 @@ func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provid
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
 	// Protected files warning for legacy mode
-	protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+	protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
 
 	for _, task := range tasks {
 		e.logger.Info("implementing task (legacy)", "number", task.Number, "title", task.Title)

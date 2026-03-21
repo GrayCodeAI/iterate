@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# scripts/evolve-local.sh — Run a full evolution cycle locally.
+# scripts/evolution/evolve-local.sh — Run a full evolution cycle locally.
 #
 # Usage:
-#   OPENCODE_API_KEY=sk-... ./scripts/evolve-local.sh
-#   GEMINI_API_KEY=... ITERATE_PROVIDER=gemini ./scripts/evolve-local.sh
-#   ./scripts/evolve-local.sh --phase plan   # run only the plan phase
+#   OPENCODE_API_KEY=sk-... ./scripts/evolution/evolve-local.sh
+#   GEMINI_API_KEY=... ITERATE_PROVIDER=gemini ./scripts/evolution/evolve-local.sh
+#   ./scripts/evolution/evolve-local.sh --phase plan   # run only the plan phase
 #
 # Runs the same 3-phase pipeline as the GitHub Actions evolve workflow,
 # but locally. Useful for testing or manual evolution sessions.

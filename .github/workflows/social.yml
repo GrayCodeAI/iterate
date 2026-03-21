@@ -53,7 +53,7 @@ jobs:
           ITERATE_PROVIDER: opencode
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          bash scripts/social.sh
+          bash scripts/social/social.sh
 
       - name: Commit learnings
         run: |
