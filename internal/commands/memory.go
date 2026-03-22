@@ -59,7 +59,7 @@ func cmdMemo(ctx Context) Result {
 		fmt.Println("Usage: /memo <text>")
 		return Result{Handled: true}
 	}
-	journalPath := filepath.Join(ctx.RepoPath, "JOURNAL.md")
+	journalPath := filepath.Join(ctx.RepoPath, "docs/docs/JOURNAL.md")
 	f, err := os.OpenFile(journalPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		PrintError("failed to open JOURNAL.md: %v", err)

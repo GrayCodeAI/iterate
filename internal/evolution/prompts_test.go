@@ -86,7 +86,7 @@ func TestIsProtected_SocialScript(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsIdentity(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "PERSONALITY.md"), []byte("Friendly"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/PERSONALITY.md"), []byte("Friendly"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 
 	result := buildSystemPrompt(dir, "I am iterate")
@@ -103,7 +103,7 @@ func TestBuildSystemPrompt_ContainsIdentity(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsToolFormat(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "PERSONALITY.md"), []byte("p"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/PERSONALITY.md"), []byte("p"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 
 	result := buildSystemPrompt(dir, "id")
@@ -120,7 +120,7 @@ func TestBuildSystemPrompt_ContainsToolFormat(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsBashFormat(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "PERSONALITY.md"), []byte("p"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/PERSONALITY.md"), []byte("p"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 
 	result := buildSystemPrompt(dir, "id")

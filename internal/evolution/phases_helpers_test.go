@@ -62,7 +62,7 @@ func TestAppendJournal_CreatesFile(t *testing.T) {
 
 	e.appendJournal(result, "feat: add streaming", "anthropic", true)
 
-	data, err := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	if err != nil {
 		t.Fatalf("JOURNAL.md not created: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestAppendJournal_WithDayCount(t *testing.T) {
 
 	e.appendJournal(result, "some output", "test", true)
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	if !strings.Contains(string(data), "Day 5") {
 		t.Error("expected 'Day 5' in journal")
 	}
@@ -96,7 +96,7 @@ func TestAppendJournal_WithDayCount(t *testing.T) {
 
 func TestAppendJournal_PreservesExisting(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "JOURNAL.md"),
+	os.WriteFile(filepath.Join(dir, "docs/docs/JOURNAL.md"),
 		[]byte("# iterate Evolution Journal\n\n## Day 1 — existing entry\n"), 0o644)
 	e := New(dir, slog.Default())
 
@@ -108,7 +108,7 @@ func TestAppendJournal_PreservesExisting(t *testing.T) {
 
 	e.appendJournal(result, "feat: new entry", "test", true)
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	content := string(data)
 	if !strings.Contains(content, "existing entry") {
 		t.Error("should preserve existing journal content")
@@ -130,7 +130,7 @@ func TestAppendJournal_FailureStatus(t *testing.T) {
 
 	e.appendJournal(result, "no changes", "test", false)
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	if !strings.Contains(string(data), "no changes committed") {
 		t.Error("expected failure title for unsuccessful run")
 	}

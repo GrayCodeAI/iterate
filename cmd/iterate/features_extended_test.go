@@ -301,7 +301,7 @@ func TestAppendMemo(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	if err != nil {
 		t.Fatalf("JOURNAL.md not created: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestInitProject_CreatesFiles(t *testing.T) {
 	}
 
 	// Verify key files exist
-	for _, file := range []string{"IDENTITY.md", "PERSONALITY.md", "JOURNAL.md", "DAY_COUNT"} {
+	for _, file := range []string{"docs/docs/IDENTITY.md", "docs/docs/PERSONALITY.md", "docs/docs/JOURNAL.md", "DAY_COUNT"} {
 		if _, err := os.Stat(filepath.Join(dir, file)); os.IsNotExist(err) {
 			t.Errorf("expected %s to exist", file)
 		}
@@ -335,11 +335,11 @@ func TestInitProject_CreatesFiles(t *testing.T) {
 
 func TestInitProject_SkipsExisting(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "IDENTITY.md"), []byte("existing"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/IDENTITY.md"), []byte("existing"), 0o644)
 
 	created := initProject(dir, "MyProject")
 	for _, file := range created {
-		if file == "IDENTITY.md" {
+		if file == "docs/docs/IDENTITY.md" {
 			t.Error("should not re-create existing IDENTITY.md")
 		}
 	}
@@ -349,7 +349,7 @@ func TestInitProject_IDENTITYContent(t *testing.T) {
 	dir := t.TempDir()
 	initProject(dir, "TestProject")
 
-	data, _ := os.ReadFile(filepath.Join(dir, "IDENTITY.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/IDENTITY.md"))
 	if !strings.Contains(string(data), "TestProject") {
 		t.Error("IDENTITY.md should contain project name")
 	}

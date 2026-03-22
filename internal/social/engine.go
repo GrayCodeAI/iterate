@@ -127,7 +127,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 }
 
 func (e *Engine) buildSocialSystemPrompt() (string, string) {
-	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "PERSONALITY.md"))
+	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/PERSONALITY.md"))
 	socialSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/social/SKILL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 	day := strings.TrimSpace(string(dayCount))
@@ -232,9 +232,9 @@ func (e *Engine) ReplyToIssues(ctx context.Context, p iteragent.Provider, issueN
 		return nil
 	}
 
-	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "PERSONALITY.md"))
+	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/PERSONALITY.md"))
 	communicateSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/communicate/SKILL.md"))
-	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/JOURNAL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 
 	journalSnippet := string(journal)

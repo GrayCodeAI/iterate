@@ -218,7 +218,7 @@ func cmdJournal(ctx Context) Result {
 	if ctx.HasArg(1) {
 		fmt.Sscanf(ctx.Arg(1), "%d", &n)
 	}
-	journalPath := filepath.Join(ctx.RepoPath, "JOURNAL.md")
+	journalPath := filepath.Join(ctx.RepoPath, "docs/docs/JOURNAL.md")
 	data, err := os.ReadFile(journalPath)
 	if err != nil {
 		PrintError("JOURNAL.md not found: %v", err)

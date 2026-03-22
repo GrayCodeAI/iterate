@@ -7,7 +7,7 @@ set -e
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
-PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
+PLAN_FILE="${REPOPATH}/docs/SESSION_PLAN.md"
 PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
 SPONSORS_FILE="/tmp/sponsor_logins.json"
 PID_FILE="${REPOPATH}/.iterate/evolve.pid"
@@ -154,7 +154,7 @@ if command -v gh &>/dev/null; then
 fi
 
 # Strip placeholder journal entries for today so agent writes a real one
-if grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
+if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   python3 -c "
 import re, sys
 day = sys.argv[1]
@@ -258,7 +258,7 @@ fi
 
 # Safety net: if communicate phase completely failed (crash, no SESSION_PLAN, etc),
 # log a warning but do NOT write a fake journal entry.
-if ! grep -q "^## Day $DAY" "${REPOPATH}/JOURNAL.md" 2>/dev/null; then
+if ! grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   log "WARNING: No journal entry written for Day $DAY — communicate phase may have failed or produced no real work"
 fi
 

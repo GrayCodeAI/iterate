@@ -274,8 +274,8 @@ def day_count(entries):
 
 
 def main():
-    journal_md = read_file("JOURNAL.md")
-    identity_md = read_file("IDENTITY.md")
+    journal_md = read_file("docs/docs/JOURNAL.md")
+    identity_md = read_file("docs/docs/IDENTITY.md")
     entries = parse_journal(journal_md)
     days = day_count(entries)
     sessions = max(0, len(entries) - 1)  # born entry doesn't count as a session
