@@ -130,7 +130,7 @@ fi
 # Phase A: Planning
 log "Phase A: Planning..."
 ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
-  2>>"$LOG_FILE" || log "Planning phase exited with status $?"
+  2>&1 | tee -a "$LOG_FILE" || log "Planning phase exited with status $?"
 
 if [[ ! -f "$PLAN_FILE" ]]; then
   log "WARNING: SESSION_PLAN.md not created — writing fallback plan"
