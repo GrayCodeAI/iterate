@@ -25,44 +25,44 @@ func TestSessionStats_Format(t *testing.T) {
 }
 
 func TestRecordMessage_Increments(t *testing.T) {
-	before := sessionMessages
+	before := sess.Messages
 	recordMessage()
-	if sessionMessages != before+1 {
-		t.Errorf("expected sessionMessages = %d, got %d", before+1, sessionMessages)
+	if sess.Messages != before+1 {
+		t.Errorf("expected sessionMessages = %d, got %d", before+1, sess.Messages)
 	}
 }
 
 func TestRecordToolCall_Increments(t *testing.T) {
-	before := sessionToolCalls
+	before := sess.ToolCalls
 	recordToolCall()
-	if sessionToolCalls != before+1 {
-		t.Errorf("expected sessionToolCalls = %d, got %d", before+1, sessionToolCalls)
+	if sess.ToolCalls != before+1 {
+		t.Errorf("expected sessionToolCalls = %d, got %d", before+1, sess.ToolCalls)
 	}
 }
 
 func TestRecordMessage_Multiple(t *testing.T) {
-	before := sessionMessages
+	before := sess.Messages
 	for i := 0; i < 5; i++ {
 		recordMessage()
 	}
-	if sessionMessages != before+5 {
-		t.Errorf("expected sessionMessages = %d, got %d", before+5, sessionMessages)
+	if sess.Messages != before+5 {
+		t.Errorf("expected sessionMessages = %d, got %d", before+5, sess.Messages)
 	}
 }
 
 func TestRecordToolCall_Multiple(t *testing.T) {
-	before := sessionToolCalls
+	before := sess.ToolCalls
 	for i := 0; i < 3; i++ {
 		recordToolCall()
 	}
-	if sessionToolCalls != before+3 {
-		t.Errorf("expected sessionToolCalls = %d, got %d", before+3, sessionToolCalls)
+	if sess.ToolCalls != before+3 {
+		t.Errorf("expected sessionToolCalls = %d, got %d", before+3, sess.ToolCalls)
 	}
 }
 
 func TestSessionStats_UpdatesAfterRecording(t *testing.T) {
-	msgsBefore := sessionMessages
-	toolsBefore := sessionToolCalls
+	msgsBefore := sess.Messages
+	toolsBefore := sess.ToolCalls
 
 	recordMessage()
 	recordMessage()
