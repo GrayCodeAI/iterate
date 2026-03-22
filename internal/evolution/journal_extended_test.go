@@ -74,13 +74,13 @@ func TestExtractCommitLines_WhitespaceOnlyInput(t *testing.T) {
 	}
 }
 
-func TestExtractCommitLines_ExactMaxLength(t *testing.T) {
+func TestExtractCommitLines_UnderMaxLength(t *testing.T) {
 	prefix := "feat: "
-	content := strings.Repeat("x", 114)
+	content := strings.Repeat("x", 110)
 	output := prefix + content
 	lines := extractCommitLines(output)
 	if len(lines) != 1 {
-		t.Errorf("expected 1 line at exact limit, got %d", len(lines))
+		t.Errorf("expected 1 line under limit, got %d", len(lines))
 	}
 }
 

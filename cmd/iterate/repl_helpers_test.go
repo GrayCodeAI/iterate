@@ -107,7 +107,7 @@ func TestDetectTestCommand_NodeWithTestScript(t *testing.T) {
 
 func TestDetectTestCommand_NodeWithoutTestScript(t *testing.T) {
 	dir := t.TempDir()
-	pkgJSON := `{"name": "test"}`
+	pkgJSON := `{"name": "myapp", "version": "1.0.0"}`
 	os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkgJSON), 0o644)
 
 	cmd := detectTestCommand(dir)
