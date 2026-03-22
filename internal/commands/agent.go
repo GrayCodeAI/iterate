@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/agent"
 )
 
 // RegisterAgentCommands adds agent control commands.
@@ -256,12 +256,18 @@ func cmdSwarm(ctx Context) Result {
 		return Result{Handled: true}
 	}
 
-	var wg sync.WaitGroup
+	results := executeSwarmAgents(ctx.Pool, n, task)
+	printSwarmResults(results, n)
+
+	return Result{Handled: true}
+}
+
+func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
 	results := make([]string, 0, n)
 	var mu sync.Mutex
-
-	start := time.Now()
+	var wg sync.WaitGroup
 	sem := make(chan struct{}, 10)
+
 	for i := 0; i < n; i++ {
 		sem <- struct{}{}
 		wg.Add(1)
@@ -269,14 +275,14 @@ func cmdSwarm(ctx Context) Result {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			ag, err := ctx.Pool.Acquire(context.Background())
+			ag, err := pool.Acquire(context.Background())
 			if err != nil {
 				mu.Lock()
 				results = append(results, fmt.Sprintf("Agent %d: error: %s", idx, err))
 				mu.Unlock()
 				return
 			}
-			defer ctx.Pool.Release(ag)
+			defer pool.Release(ag)
 
 			resp, err := ag.Run(context.Background(), "", task)
 			mu.Lock()
@@ -294,8 +300,11 @@ func cmdSwarm(ctx Context) Result {
 	}
 	wg.Wait()
 
-	elapsed := time.Since(start)
-	fmt.Printf("\n%s✓ Swarm complete in %s%s\n", ColorLime, elapsed.Round(time.Millisecond), ColorReset)
+	return results
+}
+
+func printSwarmResults(results []string, n int) {
+	fmt.Printf("\n%s✓ Swarm complete%s\n", ColorLime, ColorReset)
 	fmt.Printf("  Completed: %d/%d agents\n", len(results), n)
 
 	errCount := 0
@@ -308,6 +317,4 @@ func cmdSwarm(ctx Context) Result {
 	if errCount > 0 {
 		fmt.Printf("  %s%d errors%s\n", ColorRed, errCount, ColorReset)
 	}
-
-	return Result{Handled: true}
 }

@@ -70,32 +70,18 @@ func FetchDiscussions(ctx context.Context, owner, repo string, limit int) ([]Dis
 	}
 	`
 
-	variables := map[string]string{
+	body, err := runGraphQLRequest(ctx, token, query, map[string]string{
 		"owner": owner,
 		"repo":  repo,
-	}
-
-	reqBody, _ := json.Marshal(map[string]interface{}{
-		"query":     query,
-		"variables": variables,
 	})
-
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(string(reqBody)))
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
+	return parseDiscussionNodes(body, limit)
+}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch discussions: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
+func parseDiscussionNodes(body []byte, limit int) ([]Discussion, error) {
 	var graphqlResp discussionGraphQLResponse
 	if err := json.Unmarshal(body, &graphqlResp); err != nil {
 		return nil, fmt.Errorf("parse graphql response: %w", err)
@@ -153,6 +139,9 @@ func PostDiscussionReply(ctx context.Context, owner, repo string, discussionNumb
 		return fmt.Errorf("GITHUB_TOKEN not set")
 	}
 
+	repoID := fmt.Sprintf("R_repo:%s/%s", owner, repo)
+	discussionID := fmt.Sprintf("D:%s:%d", repoID, discussionNumber)
+
 	mutation := `
 	mutation($repoId: ID!, $discussionId: ID!, $body: String!) {
 		addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
@@ -163,80 +152,12 @@ func PostDiscussionReply(ctx context.Context, owner, repo string, discussionNumb
 	}
 	`
 
-	getDiscussionIDQuery := `
-	query($owner: String!, $repo: String!, $number: Int!) {
-		repository(owner: $owner, name: $repo) {
-			discussion(number: $number) {
-				id
-			}
-		}
-	}
-	`
-
-	var discussionID string
-
-	getVars := map[string]interface{}{
-		"owner":  owner,
-		"repo":   repo,
-		"number": discussionNumber,
-	}
-
-	getReqBody, _ := json.Marshal(map[string]interface{}{
-		"query":     getDiscussionIDQuery,
-		"variables": getVars,
-	})
-
-	getReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(string(getReqBody)))
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-	getReq.Header.Set("Authorization", "Bearer "+token)
-	getReq.Header.Set("Content-Type", "application/json")
-
-	getResp, err := http.DefaultClient.Do(getReq)
-	if err != nil {
-		return fmt.Errorf("fetch discussion id: %w", err)
-	}
-	defer getResp.Body.Close()
-
-	getRespBytes, _ := io.ReadAll(getResp.Body)
-	var getRespBody map[string]interface{}
-	_ = json.Unmarshal(getRespBytes, &getRespBody)
-
-	repoID := fmt.Sprintf("R_repo:%s/%s", owner, repo)
-	discussionID = fmt.Sprintf("D:%s:%d", repoID, discussionNumber)
-
-	variables := map[string]interface{}{
+	_, err := runGraphQLRequest(ctx, token, mutation, map[string]interface{}{
 		"repoId":       repoID,
 		"discussionId": discussionID,
 		"body":         body,
-	}
-
-	reqBody, _ := json.Marshal(map[string]interface{}{
-		"query":     mutation,
-		"variables": variables,
 	})
-
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(string(reqBody)))
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("post discussion reply: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to post discussion reply: %s", string(b))
-	}
-
-	return nil
+	return err
 }
 
 func CreateDiscussion(ctx context.Context, owner, repo, category, title, body string) error {
@@ -259,21 +180,24 @@ func CreateDiscussion(ctx context.Context, owner, repo, category, title, body st
 	repoID := fmt.Sprintf("R_repo:%s/%s", owner, repo)
 	_ = category
 
-	variables := map[string]interface{}{
+	_, err := runGraphQLRequest(ctx, token, mutation, map[string]interface{}{
 		"repoId":     repoID,
 		"categoryId": "DIC_kwDOJ4DmMc4B_2_p",
 		"title":      title,
 		"body":       body,
-	}
+	})
+	return err
+}
 
+func runGraphQLRequest(ctx context.Context, token, query string, variables interface{}) ([]byte, error) {
 	reqBody, _ := json.Marshal(map[string]interface{}{
-		"query":     mutation,
+		"query":     query,
 		"variables": variables,
 	})
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(string(reqBody)))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -281,14 +205,14 @@ func CreateDiscussion(ctx context.Context, owner, repo, category, title, body st
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("create discussion: %w", err)
+		return nil, fmt.Errorf("graphql request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create discussion: %s", string(b))
+		return nil, fmt.Errorf("graphql request failed (%d): %s", resp.StatusCode, string(body))
 	}
 
-	return nil
+	return body, nil
 }

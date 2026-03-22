@@ -52,13 +52,13 @@ func appendHistory(line string) {
 	if historyFile == "" {
 		return
 	}
-	_ = os.MkdirAll(filepath.Dir(historyFile), 0o755)
+	_ = os.MkdirAll(filepath.Dir(historyFile), 0o755) // best-effort cleanup
 	f, err := os.OpenFile(historyFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return
 	}
 	fmt.Fprintln(f, line)
-	f.Close()
+	_ = f.Close() // best-effort cleanup
 
 	// Trim history file if it exceeds maxHistoryLines
 	trimHistoryFile()
@@ -75,7 +75,7 @@ func trimHistoryFile() {
 		return
 	}
 	lines = lines[len(lines)-maxHistoryLines:]
-	_ = os.WriteFile(historyFile, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+	_ = os.WriteFile(historyFile, []byte(strings.Join(lines, "\n")+"\n"), 0o600) // best-effort cleanup
 }
 
 func getInputHistory() []string {
