@@ -49,7 +49,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_BASE_URL: https://opencode.ai/zen/v1
           ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: kimi-k2.5
+          ITERATE_MODEL: mimo-v2-pro-free
           GH_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
