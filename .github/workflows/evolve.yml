@@ -41,14 +41,22 @@ jobs:
           git config user.name "iterate[bot]"
           git config user.email "iterate@users.noreply.github.com"
 
+      - name: Install opencode CLI
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Configure opencode auth
+        run: |
+          mkdir -p ~/.local/share/opencode
+          echo '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}' > ~/.local/share/opencode/auth.json
+
       - name: Build iterate
         run: go build ./cmd/iterate
 
       - name: Run evolution loop
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          OPENCODE_BASE_URL: https://opencode.ai/zen/v1
-          ITERATE_PROVIDER: opencode
+          ITERATE_PROVIDER: opencode-cli
           ITERATE_MODEL: mimo-v2-pro-free
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
