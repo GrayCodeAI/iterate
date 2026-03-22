@@ -10,6 +10,12 @@ import (
 
 // RegisterModeCommands adds agent mode and display commands.
 func RegisterModeCommands(r *Registry) {
+	registerModeCoreCommands(r)
+	registerAgentModeCommands(r)
+	registerDisplayCommands(r)
+}
+
+func registerModeCoreCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/help",
 		Aliases:     []string{"/?"},
@@ -25,7 +31,9 @@ func RegisterModeCommands(r *Registry) {
 		Category:    "mode",
 		Handler:     cmdVersion,
 	})
+}
 
+func registerAgentModeCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/code",
 		Aliases:     []string{},
@@ -49,7 +57,9 @@ func RegisterModeCommands(r *Registry) {
 		Category:    "mode",
 		Handler:     cmdArchitect,
 	})
+}
 
+func registerDisplayCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/summarize",
 		Aliases:     []string{},

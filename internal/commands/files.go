@@ -16,6 +16,12 @@ import (
 
 // RegisterFileCommands adds file and search commands.
 func RegisterFileCommands(r *Registry) {
+	registerFileContentCommands(r)
+	registerFileSearchCommands(r)
+	registerFileNavigationCommands(r)
+}
+
+func registerFileContentCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/add",
 		Aliases:     []string{},
@@ -25,27 +31,11 @@ func RegisterFileCommands(r *Registry) {
 	})
 
 	r.Register(Command{
-		Name:        "/find",
-		Aliases:     []string{},
-		Description: "fuzzy file search",
-		Category:    "files",
-		Handler:     cmdFind,
-	})
-
-	r.Register(Command{
 		Name:        "/web",
 		Aliases:     []string{},
 		Description: "fetch URL into context",
 		Category:    "files",
 		Handler:     cmdWeb,
-	})
-
-	r.Register(Command{
-		Name:        "/grep",
-		Aliases:     []string{},
-		Description: "search code in repo",
-		Category:    "files",
-		Handler:     cmdGrep,
 	})
 
 	r.Register(Command{
@@ -63,6 +53,24 @@ func RegisterFileCommands(r *Registry) {
 		Category:    "files",
 		Handler:     cmdDeps,
 	})
+}
+
+func registerFileSearchCommands(r *Registry) {
+	r.Register(Command{
+		Name:        "/find",
+		Aliases:     []string{},
+		Description: "fuzzy file search",
+		Category:    "files",
+		Handler:     cmdFind,
+	})
+
+	r.Register(Command{
+		Name:        "/grep",
+		Aliases:     []string{},
+		Description: "search code in repo",
+		Category:    "files",
+		Handler:     cmdGrep,
+	})
 
 	r.Register(Command{
 		Name:        "/search",
@@ -72,6 +80,16 @@ func RegisterFileCommands(r *Registry) {
 		Handler:     cmdSearch,
 	})
 
+	r.Register(Command{
+		Name:        "/search-replace",
+		Aliases:     []string{},
+		Description: "find and replace across repo",
+		Category:    "files",
+		Handler:     cmdSearchReplace,
+	})
+}
+
+func registerFileNavigationCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/pwd",
 		Aliases:     []string{},
@@ -94,14 +112,6 @@ func RegisterFileCommands(r *Registry) {
 		Description: "list directory",
 		Category:    "files",
 		Handler:     cmdLs,
-	})
-
-	r.Register(Command{
-		Name:        "/search-replace",
-		Aliases:     []string{},
-		Description: "find and replace across repo",
-		Category:    "files",
-		Handler:     cmdSearchReplace,
 	})
 
 	r.Register(Command{
