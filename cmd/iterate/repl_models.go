@@ -10,6 +10,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // selectModel shows an interactive provider+model picker. Returns new provider or nil on cancel.
@@ -17,7 +18,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 	providers := []string{"anthropic", "openai", "gemini", "groq", "ollama"}
 
 	fmt.Println()
-	providerName, ok := selectItem("Select provider", providers)
+	providerName, ok := selector.SelectItem("Select provider", providers)
 	if !ok {
 		return nil, currentThinking
 	}
@@ -27,7 +28,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 		return selectOllamaModel(currentThinking)
 	}
 
-	apiKey, ok := promptLine("API key (Enter to use env var, ESC to cancel):")
+	apiKey, ok := selector.PromptLine("API key (Enter to use env var, ESC to cancel):")
 	if !ok {
 		return nil, currentThinking
 	}
@@ -88,7 +89,7 @@ func promptOllamaHost(hosts []ollamaHost) string {
 	}
 	labels = append(labels, "enter URL manually")
 
-	choice, ok := selectItem("Select Ollama host", labels)
+	choice, ok := selector.SelectItem("Select Ollama host", labels)
 	if !ok {
 		return "cancel"
 	}
@@ -110,7 +111,7 @@ func promptOllamaURL() string {
 	if currentURL == "" {
 		currentURL = "http://localhost:11434/v1"
 	}
-	url, ok := promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
+	url, ok := selector.PromptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
 	if !ok {
 		return ""
 	}
@@ -128,14 +129,14 @@ func promptOllamaModelSelection(baseURL string) bool {
 
 	models, err := fetchOllamaModels(tagsURL)
 	if err != nil || len(models) == 0 {
-		modelName, ok := promptLine("Enter model name:")
+		modelName, ok := selector.PromptLine("Enter model name:")
 		if !ok || modelName == "" {
 			return false
 		}
 		os.Setenv("ITERATE_MODEL", modelName)
 		return true
 	}
-	modelName, ok := selectItem("Select model", models)
+	modelName, ok := selector.SelectItem("Select model", models)
 	if !ok {
 		return false
 	}

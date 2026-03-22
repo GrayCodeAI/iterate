@@ -14,6 +14,7 @@ import (
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/commands"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // Color variables — reassignable for /theme support
@@ -25,6 +26,10 @@ var (
 	colorBold   = "\033[1m"
 	colorCyan   = "\033[36m"
 	colorRed    = "\033[31m"
+	colorGreen  = "\033[38;5;114m"
+	colorAmber  = "\033[38;5;221m"
+	colorBlue   = "\033[38;5;75m"
+	colorPurple = "\033[38;5;141m"
 )
 
 // replRepoPath is the repo path used in the current REPL session (for prompt display).
@@ -152,7 +157,7 @@ func applyLoadedConfig(loadedCfg iterConfig, thinking iteragent.ThinkingLevel) i
 }
 
 func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.ThinkingLevel {
-	initHistory()
+	selector.InitHistory()
 	initAuditLog()
 	setupSigintHandler()
 
@@ -160,6 +165,8 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 	thinking = applyLoadedConfig(loadedCfg, thinking)
 
 	replRepoPath = repoPath
+	selector.RepoPath = repoPath
+	selector.SafeMode = cfg.SafeMode
 	return thinking
 }
 
@@ -178,7 +185,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	}
 
 	for {
-		line, ok := readInput()
+		line, ok := selector.ReadInput()
 		if !ok {
 			break
 		}
@@ -326,7 +333,7 @@ func printHeaderGit(repoPath string) {
 		}
 	}
 
-	staged, unstaged := gitStatus()
+	staged, unstaged := selector.GitStatus()
 	if staged+unstaged > 0 {
 		if staged > 0 && unstaged > 0 {
 			fmt.Printf("  %s+%d staged%s  %s±%d unstaged%s", colorGreen, staged, colorReset, colorYellow, unstaged, colorReset)
@@ -403,7 +410,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		SessionOutputTokens: &sess.OutputTokens,
 		SessionCacheRead:    &sess.CacheRead,
 		SessionCacheWrite:   &sess.CacheWrite,
-		InputHistory:        &inputHistory,
+		InputHistory:        selector.InputHistoryRef,
 		StopWatch:           stopWatch,
 		Pool:                agentPool,
 		Session: commands.SessionCallbacks{
@@ -412,12 +419,12 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			ListSessions:  listSessions,
 			AddBookmark:   addBookmark,
 			LoadBookmarks: loadBookmarksWrapper,
-			SelectItem:    selectItem,
+			SelectItem:    selector.SelectItem,
 		},
 		REPL: commands.REPLCallbacks{
 			StreamAndPrint: streamAndPrint,
 			RunShell:       runShell,
-			PromptLine:     promptLine,
+			PromptLine:     selector.PromptLine,
 		},
 		State: commands.StateAccessors{
 			IsDenied:             isDenied,
