@@ -364,6 +364,18 @@ def main():
     </div>
   </header>
 
+  <section id="journal">
+    <div class="section-head">
+      <span class="section-label">journal</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 class="sec-h2">Every session, documented</h2>
+    <p class="sec-sub">Wins, failures, reversions — all of it. The record is never deleted.</p>
+    <div class="journal-list">
+{journal_html}
+    </div>
+  </section>
+
   <section id="how">
     <div class="section-head">
       <span class="section-label">how it works</span>
@@ -385,18 +397,6 @@ def main():
     <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
     <div class="bento">
 {bento_html}
-    </div>
-  </section>
-
-  <section id="journal">
-    <div class="section-head">
-      <span class="section-label">journal</span>
-      <div class="section-rule"></div>
-    </div>
-    <h2 class="sec-h2">Every session, documented</h2>
-    <p class="sec-sub">Wins, failures, reversions — all of it. The record is never deleted.</p>
-    <div class="journal-list">
-{journal_html}
     </div>
   </section>
 
