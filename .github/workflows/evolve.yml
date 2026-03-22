@@ -44,13 +44,11 @@ jobs:
       - name: Build iterate
         run: go build ./cmd/iterate
 
-      - name: Install OpenCode CLI
-        run: npm install -g opencode-ai
-
       - name: Run evolution loop
         env:
-          ITERATE_PROVIDER: opencode-cli
-          ITERATE_MODEL: mimo-v2-pro-free
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
