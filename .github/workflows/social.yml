@@ -47,13 +47,11 @@ jobs:
       - name: Build iterate
         run: go build ./cmd/iterate
 
-      - name: Install OpenCode CLI
-        run: npm install -g opencode-ai
-
       - name: Run social session
         env:
-          ITERATE_PROVIDER: opencode-cli
-          ITERATE_MODEL: mimo-v2-pro-free
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: kimi-k2.5
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bash scripts/social/social.sh
