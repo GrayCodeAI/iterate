@@ -181,13 +181,15 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 			dayPattern := regexp.MustCompile(`^## Day \d+`)
 			extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
 		}
-		journal, err := os.ReadFile(filepath.Join(e.repoPath, "docs/JOURNAL.md"))
+		journalPath := filepath.Join(e.repoPath, "docs/JOURNAL.md")
+		_ = os.MkdirAll(filepath.Dir(journalPath), 0o755)
+		journal, err := os.ReadFile(journalPath)
 		if err != nil {
 			e.logger.Warn("failed to read JOURNAL.md for journal update", "err", err)
 		}
 		header := "# iterate Evolution Journal\n"
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
-		_ = os.WriteFile(filepath.Join(e.repoPath, "docs/JOURNAL.md"), []byte(newContent), 0o644) // best-effort; journal is append-mostly
+		_ = os.WriteFile(journalPath, []byte(newContent), 0o644) // best-effort; journal is append-mostly
 	} else {
 		e.logger.Warn("agent output does not contain '## Day' — skipping journal write")
 	}

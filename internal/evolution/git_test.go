@@ -339,6 +339,7 @@ func TestVerifyProtected_CleanRepo(t *testing.T) {
 
 func TestPersistJournalEntry_Valid(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, "DAY_COUNT"), []byte("7\n"), 0o644)
 	e := New(dir, slog.Default())
@@ -358,6 +359,7 @@ func TestPersistJournalEntry_Valid(t *testing.T) {
 
 func TestPersistJournalEntry_NoDayMarker(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 
@@ -373,6 +375,7 @@ func TestPersistJournalEntry_NoDayMarker(t *testing.T) {
 
 func TestPersistJournalEntry_ExtractsFromMiddle(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 
@@ -391,6 +394,7 @@ func TestPersistJournalEntry_ExtractsFromMiddle(t *testing.T) {
 
 func TestPersistJournalEntry_ZeroDay(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 

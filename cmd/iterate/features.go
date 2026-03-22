@@ -208,6 +208,7 @@ func appendLearning(repoPath, fact string) error {
 
 func appendMemo(repoPath, text string) error {
 	path := filepath.Join(repoPath, "docs/JOURNAL.md")
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err

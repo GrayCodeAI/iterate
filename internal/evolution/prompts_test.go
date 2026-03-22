@@ -86,6 +86,7 @@ func TestIsProtected_SocialScript(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsIdentity(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/PERSONALITY.md"), []byte("Friendly"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 
@@ -103,6 +104,7 @@ func TestBuildSystemPrompt_ContainsIdentity(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsToolFormat(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/PERSONALITY.md"), []byte("p"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 
@@ -120,6 +122,7 @@ func TestBuildSystemPrompt_ContainsToolFormat(t *testing.T) {
 
 func TestBuildSystemPrompt_ContainsBashFormat(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/PERSONALITY.md"), []byte("p"), 0o644)
 	os.MkdirAll(filepath.Join(dir, "skills"), 0o755)
 

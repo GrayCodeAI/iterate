@@ -335,6 +335,7 @@ func TestInitProject_CreatesFiles(t *testing.T) {
 
 func TestInitProject_SkipsExisting(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/IDENTITY.md"), []byte("existing"), 0o644)
 
 	created := initProject(dir, "MyProject")
