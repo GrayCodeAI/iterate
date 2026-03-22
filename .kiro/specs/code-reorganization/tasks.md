@@ -6,12 +6,12 @@ Migrate `cmd/iterate/` from 50 files to ≤ 5 files by extracting focused `inter
 
 ## Tasks
 
-- [-] 1. Capture pre-reorganization baseline
+- [x] 1. Capture pre-reorganization baseline
   - Capture `./iterate --help` output to `cmd/iterate/testdata/help_output.golden`
   - Record the passing test count with `go test -v ./... 2>&1 | grep -c "^--- PASS"` and save to a scratch note
   - _Requirements: 6.1, 9.4_
 
-- [~] 2. Create `internal/ui` package
+- [-] 2. Create `internal/ui` package
   - [ ] 2.1 Create `internal/ui/ui.go` with color constants and print helpers
     - Move `ColorReset`, `ColorLime`, `ColorYellow`, `ColorDim`, `ColorBold`, `ColorCyan`, `ColorRed` from `internal/commands/registry.go`
     - Move `PrintSuccess`, `PrintError`, `PrintDim` from `internal/commands/registry.go`
