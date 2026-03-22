@@ -52,8 +52,8 @@ acquire_lock
 
 log "=== iterate evolution cycle started ==="
 
-# ── Guard: require API key (only for REST providers) ──
-if [[ -z "${OPENCODE_API_KEY:-}" ]] && [[ "${ITERATE_PROVIDER:-}" != "opencode-cli" ]]; then
+# ── Guard: require API key ──
+if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   log "ERROR: OPENCODE_API_KEY is not set. Add it as a GitHub Actions secret."
   exit 1
 fi
@@ -130,7 +130,7 @@ fi
 # Phase A: Planning
 log "Phase A: Planning..."
 ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
-  2>&1 | tee -a "$LOG_FILE" || log "Planning phase exited with status $?"
+  2>>"$LOG_FILE" || log "Planning phase exited with status $?"
 
 if [[ ! -f "$PLAN_FILE" ]]; then
   log "WARNING: SESSION_PLAN.md not created — writing fallback plan"

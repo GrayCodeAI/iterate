@@ -29,45 +29,32 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-          cache: false
 
       - name: Setup iteragent path
         run: |
           cd $GITHUB_WORKSPACE
           mkdir -p ..
           cp -r iteragent-pkg ../iteragent
-          grep -c "opencode-cli" ../iteragent/provider.go && echo "opencode-cli found in provider.go" || echo "opencode-cli NOT found"
 
       - name: Configure git
         run: |
           git config user.name "iterate[bot]"
           git config user.email "iterate@users.noreply.github.com"
 
-      - name: Install opencode CLI
-        run: |
-          curl -fsSL https://opencode.ai/install | bash
-          echo "$HOME/.opencode/bin" >> $GITHUB_PATH
-
-      - name: Configure opencode auth
-        run: |
-          mkdir -p ~/.local/share/opencode
-          echo '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}' > ~/.local/share/opencode/auth.json
-          opencode run --model opencode/mimo-v2-pro-free "say hi" 2>&1 | head -5 || echo "opencode test call failed"
-
       - name: Build iterate
         run: go build ./cmd/iterate
 
       - name: Run evolution loop
         env:
-          ITERATE_PROVIDER: opencode-cli
-          ITERATE_MODEL: mimo-v2-pro-free
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_BASE_URL: https://opencode.ai/zen/v1
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          which opencode || echo "opencode not found in PATH"
-          opencode --version || echo "opencode version check failed"
-          bash scripts/evolution/evolve.sh 2>&1
+          bash scripts/evolution/evolve.sh
 
       - name: Show evolution log
         if: always()
