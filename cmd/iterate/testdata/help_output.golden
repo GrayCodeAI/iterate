@@ -1,0 +1,33 @@
+Usage of ./iterate:
+  -api-key string
+    	API key (or set OPENCODE_API_KEY, GEMINI_API_KEY, etc.)
+  -chat
+    	Start interactive REPL (default when no other mode set)
+  -compact
+    	Compact loaded session before running
+  -evolve
+    	Run one evolution session (non-interactive)
+  -gh-owner string
+    	GitHub repo owner
+  -gh-repo string
+    	GitHub repo name
+  -issue-limit int
+    	Max community issues to include (default 5)
+  -load-session string
+    	Load agent messages from JSON file before run
+  -model string
+    	Model to use
+  -phase string
+    	Evolution phase: plan, implement, communicate, or "" (all)
+  -provider string
+    	Provider to use (anthropic, openai, groq, gemini) (default "gemini")
+  -reply-issues
+    	Post bot replies to addressed issues (default true)
+  -repo string
+    	Path to the repo iterate will evolve (default ".")
+  -save-session string
+    	Save agent messages to JSON file after run
+  -social
+    	Run social loop only (no evolution)
+  -thinking string
+    	Extended thinking depth: off, minimal, low, medium, high (default "off")
