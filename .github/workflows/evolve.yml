@@ -64,7 +64,7 @@ jobs:
         run: |
           which opencode || echo "opencode not found in PATH"
           opencode --version || echo "opencode version check failed"
-          bash scripts/evolution/evolve.sh
+          bash scripts/evolution/evolve.sh 2>&1
 
       - name: Show evolution log
         if: always()
