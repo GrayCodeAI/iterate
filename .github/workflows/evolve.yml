@@ -36,6 +36,7 @@ jobs:
           cd $GITHUB_WORKSPACE
           mkdir -p ..
           cp -r iteragent-pkg ../iteragent
+          grep -c "opencode-cli" ../iteragent/provider.go && echo "opencode-cli found in provider.go" || echo "opencode-cli NOT found"
 
       - name: Configure git
         run: |
