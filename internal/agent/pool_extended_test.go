@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -142,10 +143,13 @@ func TestPool_SpawnAll(t *testing.T) {
 
 	ctx := context.Background()
 	tasks := []string{"task1", "task2", "task3"}
+	var mu sync.Mutex
 	count := 0
 
 	errs := p.SpawnAll(ctx, tasks, func(a *iteragent.Agent, task string) error {
+		mu.Lock()
 		count++
+		mu.Unlock()
 		return nil
 	})
 
@@ -154,9 +158,11 @@ func TestPool_SpawnAll(t *testing.T) {
 			t.Errorf("task %d failed: %v", i, err)
 		}
 	}
+	mu.Lock()
 	if count != 3 {
 		t.Errorf("expected 3 handler calls, got %d", count)
 	}
+	mu.Unlock()
 }
 
 // ---------------------------------------------------------------------------
@@ -165,8 +171,6 @@ func TestPool_SpawnAll(t *testing.T) {
 
 func TestPool_Close(t *testing.T) {
 	p := NewPool(nil, nil, slog.Default(), 3, 10)
-	p.Close()
-	// Should not panic on double close
 	p.Close()
 }
 

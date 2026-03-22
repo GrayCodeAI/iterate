@@ -15,6 +15,12 @@ import (
 
 // RegisterEvolutionCommands adds evolution-related commands.
 func RegisterEvolutionCommands(r *Registry) {
+	registerEvolutionAnalysisCommands(r)
+	registerEvolutionLifecycleCommands(r)
+	registerEvolutionGenerationCommands(r)
+}
+
+func registerEvolutionAnalysisCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/coverage",
 		Aliases:     []string{},
@@ -30,7 +36,9 @@ func RegisterEvolutionCommands(r *Registry) {
 		Category:    "evolution",
 		Handler:     cmdMutants,
 	})
+}
 
+func registerEvolutionLifecycleCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/day",
 		Aliases:     []string{},
@@ -56,22 +64,6 @@ func RegisterEvolutionCommands(r *Registry) {
 	})
 
 	r.Register(Command{
-		Name:        "/snapshot",
-		Aliases:     []string{},
-		Description: "save conversation snapshot",
-		Category:    "evolution",
-		Handler:     cmdSnapshot,
-	})
-
-	r.Register(Command{
-		Name:        "/snapshots",
-		Aliases:     []string{},
-		Description: "list saved snapshots",
-		Category:    "evolution",
-		Handler:     cmdSnapshots,
-	})
-
-	r.Register(Command{
 		Name:        "/evolve-now",
 		Aliases:     []string{},
 		Description: "run full evolution loop",
@@ -85,6 +77,24 @@ func RegisterEvolutionCommands(r *Registry) {
 		Description: "analyze and improve own code",
 		Category:    "evolution",
 		Handler:     cmdSelfImprove,
+	})
+}
+
+func registerEvolutionGenerationCommands(r *Registry) {
+	r.Register(Command{
+		Name:        "/snapshot",
+		Aliases:     []string{},
+		Description: "save conversation snapshot",
+		Category:    "evolution",
+		Handler:     cmdSnapshot,
+	})
+
+	r.Register(Command{
+		Name:        "/snapshots",
+		Aliases:     []string{},
+		Description: "list saved snapshots",
+		Category:    "evolution",
+		Handler:     cmdSnapshots,
 	})
 
 	r.Register(Command{
