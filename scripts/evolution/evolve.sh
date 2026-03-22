@@ -144,7 +144,7 @@ echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 # Check if last CI run failed and write status for planning agent
 GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
 if command -v gh &>/dev/null; then
-  LAST_CI=$(gh run list --repo "$GITHUB_REPO" --workflow test.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
+  LAST_CI=$(gh run list --repo "$GITHUB_REPO" --workflow ci.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
   if [[ "$LAST_CI" == "failure" ]]; then
     echo "🔴 PREVIOUS CI FAILED. Fix broken tests FIRST before any new work." > "${REPOPATH}/.iterate/ci_status.txt"
     log "WARNING: last CI run failed"
@@ -158,13 +158,14 @@ if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   python3 -c "
 import re, sys
 day = sys.argv[1]
-with open('JOURNAL.md', 'r') as f:
+journal_path = 'docs/JOURNAL.md'
+with open(journal_path, 'r') as f:
     content = f.read()
 # Remove fallback 'Day N — HH:MM — Auto-evolution' entries
 pattern = r'^## Day ' + day + r'[^\n]*Auto-evolution[^\n]*\n\nEvolution session completed\.\n\n'
 cleaned = re.sub(pattern, '', content, flags=re.MULTILINE)
 if cleaned != content:
-    with open('JOURNAL.md', 'w') as f:
+    with open(journal_path, 'w') as f:
         f.write(cleaned)
     print('[evolve.sh] Removed placeholder Day %s entry — agent will write real one' % day)
 " "$DAY"
