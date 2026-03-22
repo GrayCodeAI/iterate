@@ -107,98 +107,128 @@ func cmdPR(ctx Context) Result {
 	sub := ctx.Arg(1)
 	switch sub {
 	case "create":
-		title := ""
-		if ctx.HasArg(2) {
-			title = strings.Join(ctx.Parts[2:], " ")
-		}
-		args := []string{"pr", "create", "--fill"}
-		if title != "" {
-			args = []string{"pr", "create", "--title", title, "--body", "Created via iterate"}
-		}
-		cmd := exec.Command("gh", args...)
-		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
-		fmt.Println(strings.TrimSpace(string(output)))
-		if err != nil {
-			PrintError("PR creation failed")
-		}
+		return cmdPRCreate(ctx)
 	case "list":
-		cmd := exec.Command("gh", "pr", "list", "--limit", "20")
-		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
-		fmt.Println(strings.TrimSpace(string(output)))
-		if err != nil {
-			PrintError("PR list failed")
-		}
+		return cmdPRListInline(ctx)
 	case "view":
-		prNum := ""
-		if ctx.HasArg(2) {
-			prNum = ctx.Arg(2)
-		}
-		args := []string{"pr", "view"}
-		if prNum != "" {
-			args = append(args, prNum)
-		}
-		cmd := exec.Command("gh", args...)
-		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
-		fmt.Println(strings.TrimSpace(string(output)))
-		if err != nil {
-			PrintError("PR view failed")
-		}
+		return cmdPRView(ctx)
 	case "checkout":
-		if !ctx.HasArg(2) {
-			fmt.Println("Usage: /pr checkout <number>")
-			return Result{Handled: true}
-		}
-		cmd := exec.Command("gh", "pr", "checkout", ctx.Arg(2))
-		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
-		fmt.Println(strings.TrimSpace(string(output)))
-		if err != nil {
-			PrintError("PR checkout failed")
-		}
+		return cmdPRCheckoutInline(ctx)
 	case "diff":
-		prNum := ""
-		if ctx.HasArg(2) {
-			prNum = ctx.Arg(2)
-		}
-		args := []string{"pr", "diff"}
-		if prNum != "" {
-			args = append(args, prNum)
-		}
-		cmd := exec.Command("gh", args...)
-		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
-		fmt.Println(strings.TrimSpace(string(output)))
-		if err != nil {
-			PrintError("PR diff failed")
-		}
+		return cmdPRDiff(ctx)
 	case "review":
-		prNum := ""
-		if ctx.HasArg(2) {
-			prNum = ctx.Arg(2)
-		}
-		args := []string{"pr", "diff"}
-		if prNum != "" {
-			args = append(args, prNum)
-		}
-		diffCmd := exec.Command("gh", args...)
-		diffCmd.Dir = ctx.RepoPath
-		diffOut, err := diffCmd.CombinedOutput()
-		if err != nil {
-			PrintError("failed to get PR diff: %s", err)
-			return Result{Handled: true}
-		}
-		prompt := fmt.Sprintf("Review this PR diff. Look for: bugs, security issues, "+
-			"missing tests, and style problems. Be concise.\n\n```diff\n%s\n```",
-			string(diffOut))
-		if ctx.REPL.StreamAndPrint != nil {
-			ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
-		}
+		return cmdPRReviewInline(ctx)
 	default:
 		fmt.Printf("Unknown /pr subcommand: %s\n", sub)
 		fmt.Println("Available: create, list, view, checkout, diff, review")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRCreate(ctx Context) Result {
+	title := ""
+	if ctx.HasArg(2) {
+		title = strings.Join(ctx.Parts[2:], " ")
+	}
+	args := []string{"pr", "create", "--fill"}
+	if title != "" {
+		args = []string{"pr", "create", "--title", title, "--body", "Created via iterate"}
+	}
+	cmd := exec.Command("gh", args...)
+	cmd.Dir = ctx.RepoPath
+	output, err := cmd.CombinedOutput()
+	fmt.Println(strings.TrimSpace(string(output)))
+	if err != nil {
+		PrintError("PR creation failed")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRListInline(ctx Context) Result {
+	cmd := exec.Command("gh", "pr", "list", "--limit", "20")
+	cmd.Dir = ctx.RepoPath
+	output, err := cmd.CombinedOutput()
+	fmt.Println(strings.TrimSpace(string(output)))
+	if err != nil {
+		PrintError("PR list failed")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRView(ctx Context) Result {
+	prNum := ""
+	if ctx.HasArg(2) {
+		prNum = ctx.Arg(2)
+	}
+	args := []string{"pr", "view"}
+	if prNum != "" {
+		args = append(args, prNum)
+	}
+	cmd := exec.Command("gh", args...)
+	cmd.Dir = ctx.RepoPath
+	output, err := cmd.CombinedOutput()
+	fmt.Println(strings.TrimSpace(string(output)))
+	if err != nil {
+		PrintError("PR view failed")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRCheckoutInline(ctx Context) Result {
+	if !ctx.HasArg(2) {
+		fmt.Println("Usage: /pr checkout <number>")
+		return Result{Handled: true}
+	}
+	cmd := exec.Command("gh", "pr", "checkout", ctx.Arg(2))
+	cmd.Dir = ctx.RepoPath
+	output, err := cmd.CombinedOutput()
+	fmt.Println(strings.TrimSpace(string(output)))
+	if err != nil {
+		PrintError("PR checkout failed")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRDiff(ctx Context) Result {
+	prNum := ""
+	if ctx.HasArg(2) {
+		prNum = ctx.Arg(2)
+	}
+	args := []string{"pr", "diff"}
+	if prNum != "" {
+		args = append(args, prNum)
+	}
+	cmd := exec.Command("gh", args...)
+	cmd.Dir = ctx.RepoPath
+	output, err := cmd.CombinedOutput()
+	fmt.Println(strings.TrimSpace(string(output)))
+	if err != nil {
+		PrintError("PR diff failed")
+	}
+	return Result{Handled: true}
+}
+
+func cmdPRReviewInline(ctx Context) Result {
+	prNum := ""
+	if ctx.HasArg(2) {
+		prNum = ctx.Arg(2)
+	}
+	args := []string{"pr", "diff"}
+	if prNum != "" {
+		args = append(args, prNum)
+	}
+	diffCmd := exec.Command("gh", args...)
+	diffCmd.Dir = ctx.RepoPath
+	diffOut, err := diffCmd.CombinedOutput()
+	if err != nil {
+		PrintError("failed to get PR diff: %s", err)
+		return Result{Handled: true}
+	}
+	prompt := fmt.Sprintf("Review this PR diff. Look for: bugs, security issues, "+
+		"missing tests, and style problems. Be concise.\n\n```diff\n%s\n```",
+		string(diffOut))
+	if ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
 	}
 	return Result{Handled: true}
 }
