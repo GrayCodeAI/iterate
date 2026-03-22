@@ -89,7 +89,7 @@ func formatToolCallResult(result string, elapsed time.Duration) string {
 
 // logTokenDelta prints the per-request token usage delta to the status line.
 func logTokenDelta(beforeTokens int) {
-	delta := sessionTokens - beforeTokens
+	delta := sess.Tokens - beforeTokens
 	if delta <= 0 {
 		return
 	}
@@ -103,9 +103,9 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	// Create a cancellable context for this request so Ctrl+C can abort it.
 	reqCtx, cancel := context.WithCancel(ctx)
-	requestCancel = cancel
+	sess.RequestCancel = cancel
 	defer func() {
-		requestCancel = nil
+		sess.RequestCancel = nil
 		cancel()
 	}()
 
@@ -138,7 +138,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	var fullContent string
 	var toolStart time.Time
-	beforeTokens := sessionTokens
+	beforeTokens := sess.Tokens
 
 	for e := range events {
 		switch iteragent.EventType(e.Type) {
@@ -195,16 +195,16 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	if len(a.Messages) > 0 {
 		last := a.Messages[len(a.Messages)-1]
 		if last.Usage != nil {
-			sessionInputTokens += last.Usage.InputTokens
-			sessionOutputTokens += last.Usage.OutputTokens
-			sessionCacheRead += last.Usage.CacheRead
-			sessionCacheWrite += last.Usage.CacheWrite
-			sessionTokens += last.Usage.TotalTokens
+			sess.InputTokens += last.Usage.InputTokens
+			sess.OutputTokens += last.Usage.OutputTokens
+			sess.CacheRead += last.Usage.CacheRead
+			sess.CacheWrite += last.Usage.CacheWrite
+			sess.Tokens += last.Usage.TotalTokens
 		}
 	} else {
 		approxTokens := len(fullContent) / 4
-		sessionTokens += approxTokens
-		sessionOutputTokens += approxTokens
+		sess.Tokens += approxTokens
+		sess.OutputTokens += approxTokens
 	}
 
 	fmt.Println()
@@ -213,5 +213,5 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	printStatusLine(elapsed)
 	fmt.Println()
 
-	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sessionTokens)
+	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens)
 }

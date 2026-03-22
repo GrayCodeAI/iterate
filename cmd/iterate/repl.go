@@ -30,18 +30,6 @@ var (
 // replRepoPath is the repo path used in the current REPL session (for prompt display).
 var replRepoPath string
 
-// requestCancel cancels the currently in-flight agent request (set during streamAndPrint).
-var requestCancel context.CancelFunc
-
-// sessionTokens tracks approximate tokens used this session.
-var sessionTokens int
-
-// Detailed session token counters (from Usage metadata when available).
-var sessionInputTokens int
-var sessionOutputTokens int
-var sessionCacheRead int
-var sessionCacheWrite int
-
 // iterateVersion is the current version string.
 const iterateVersion = "dev"
 
@@ -83,13 +71,13 @@ func replHooks() iteragent.AgentHooks {
 	return iteragent.AgentHooks{
 		BeforeTurn: func(turn int, messages []iteragent.Message) {
 			turnStart = time.Now()
-			if debugMode {
+			if cfg.DebugMode {
 				fmt.Printf("%s[debug] turn %d — %d messages in context%s\n",
 					colorDim, turn, len(messages), colorReset)
 			}
 		},
 		AfterTurn: func(turn int, response string) {
-			if debugMode {
+			if cfg.DebugMode {
 				elapsed := time.Since(turnStart).Round(time.Millisecond)
 				fmt.Printf("%s[debug] turn %d done in %s (%d chars)%s\n",
 					colorDim, turn, elapsed, len(response), colorReset)
@@ -97,12 +85,12 @@ func replHooks() iteragent.AgentHooks {
 		},
 		OnToolStart: func(toolName string, args map[string]string) {
 			toolStart = time.Now()
-			if debugMode {
+			if cfg.DebugMode {
 				fmt.Printf("%s[debug] → %s%s\n", colorDim, toolName, colorReset)
 			}
 		},
 		OnToolEnd: func(toolName string, result string, err error) {
-			if debugMode {
+			if cfg.DebugMode {
 				elapsed := time.Since(toolStart).Round(time.Millisecond)
 				status := "ok"
 				if err != nil {
@@ -125,45 +113,45 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 	signal.Notify(sigCh, syscall.SIGINT)
 	go func() {
 		for range sigCh {
-			if requestCancel != nil {
-				requestCancel()
+			if sess.RequestCancel != nil {
+				sess.RequestCancel()
 				fmt.Printf("\r\033[K%s[cancelled]%s\n", colorYellow, colorReset)
 			}
 		}
 	}()
 
-	cfg := loadConfig()
-	safeMode = cfg.SafeMode
-	notifyEnabled = cfg.Notify
-	if cfg.Theme != "" {
-		if t, ok := themes[cfg.Theme]; ok {
+	loadedCfg := loadConfig()
+	cfg.SafeMode = loadedCfg.SafeMode
+	cfg.NotifyEnabled = loadedCfg.Notify
+	if loadedCfg.Theme != "" {
+		if t, ok := themes[loadedCfg.Theme]; ok {
 			applyTheme(t)
 		}
 	}
-	if len(cfg.DeniedTools) > 0 {
+	if len(loadedCfg.DeniedTools) > 0 {
 		deniedToolsMu.Lock()
-		deniedTools = make(map[string]bool, len(cfg.DeniedTools))
-		for _, t := range cfg.DeniedTools {
+		deniedTools = make(map[string]bool, len(loadedCfg.DeniedTools))
+		for _, t := range loadedCfg.DeniedTools {
 			deniedTools[t] = true
 		}
 		deniedToolsMu.Unlock()
 	}
 
 	// Seed runtime config from persisted values so /set overrides start from saved state.
-	if cfg.Temperature > 0 {
-		t := float32(cfg.Temperature)
+	if loadedCfg.Temperature > 0 {
+		t := float32(loadedCfg.Temperature)
 		rtConfig.Temperature = &t
 	}
-	if cfg.MaxTokens > 0 {
-		rtConfig.MaxTokens = &cfg.MaxTokens
+	if loadedCfg.MaxTokens > 0 {
+		rtConfig.MaxTokens = &loadedCfg.MaxTokens
 	}
-	if cfg.CacheEnabled {
+	if loadedCfg.CacheEnabled {
 		enabled := true
 		rtConfig.CacheEnabled = &enabled
 	}
 	// Apply persisted ThinkingLevel when the caller passed the default "off".
-	if thinking == iteragent.ThinkingLevelOff && cfg.ThinkingLevel != "" {
-		thinking = iteragent.ThinkingLevel(cfg.ThinkingLevel)
+	if thinking == iteragent.ThinkingLevelOff && loadedCfg.ThinkingLevel != "" {
+		thinking = iteragent.ThinkingLevel(loadedCfg.ThinkingLevel)
 	}
 
 	replRepoPath = repoPath
@@ -257,7 +245,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 
 	// Ctrl+C exit — auto-save and stop watch
 	stopWatch()
-	elapsed := time.Since(sessionStart).Round(time.Second)
+	elapsed := time.Since(sess.Start).Round(time.Second)
 	if len(a.Messages) > 0 {
 		_ = saveSession("autosave", a.Messages)
 	}
@@ -266,9 +254,9 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		colorDim, colorReset,
 		colorCyan, elapsed, colorReset,
 		colorDim, colorReset,
-		colorDim, sessionMessages, colorReset,
+		colorDim, sess.Messages, colorReset,
 		colorDim, colorReset,
-		colorPurple, sessionInputTokens+sessionOutputTokens, colorReset)
+		colorPurple, sess.InputTokens+sess.OutputTokens, colorReset)
 	if len(a.Messages) > 0 {
 		fmt.Printf("%s  autosaved · /load autosave to restore%s\n", colorDim, colorReset)
 	}
@@ -332,7 +320,7 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 		thinkingStr = fmt.Sprintf("  %sthinking:%s%s%s", colorDim, colorCyan, thinking, colorReset)
 	}
 	safeModeStr := ""
-	if safeMode {
+	if cfg.SafeMode {
 		safeModeStr = fmt.Sprintf("  %s🔒 safe mode%s", colorCyan, colorReset)
 	}
 	fmt.Printf("  %s%s%s%s%s\n", colorDim, modelName, thinkingStr, safeModeStr, colorReset)
@@ -377,12 +365,13 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 		Provider:            p,
 		Agent:               a,
 		Thinking:            thinking,
-		SafeMode:            &safeMode,
+		SafeMode:            &cfg.SafeMode,
+		AutoCommitEnabled:   &cfg.AutoCommitEnabled,
 		DeniedTools:         nil,
-		SessionInputTokens:  &sessionInputTokens,
-		SessionOutputTokens: &sessionOutputTokens,
-		SessionCacheRead:    &sessionCacheRead,
-		SessionCacheWrite:   &sessionCacheWrite,
+		SessionInputTokens:  &sess.InputTokens,
+		SessionOutputTokens: &sess.OutputTokens,
+		SessionCacheRead:    &sess.CacheRead,
+		SessionCacheWrite:   &sess.CacheWrite,
 		InputHistory:        &inputHistory,
 		StopWatch:           stopWatch,
 		Pool:                agentPool,
