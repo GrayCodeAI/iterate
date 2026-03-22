@@ -105,15 +105,7 @@ func fuzzyHistorySearch() string {
 	if len(hist) == 0 {
 		return ""
 	}
-	// Deduplicate and reverse (most recent first)
-	seen := map[string]bool{}
-	var unique []string
-	for i := len(hist) - 1; i >= 0; i-- {
-		if !seen[hist[i]] {
-			seen[hist[i]] = true
-			unique = append(unique, hist[i])
-		}
-	}
+	unique := deduplicateHistory(hist)
 
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
@@ -126,48 +118,11 @@ func fuzzyHistorySearch() string {
 	cursor := 0
 
 	filtered := func() []string {
-		if len(query) == 0 {
-			return unique
-		}
-		q := strings.ToLower(string(query))
-		var out []string
-		for _, h := range unique {
-			if strings.Contains(strings.ToLower(h), q) {
-				out = append(out, h)
-			}
-		}
-		return out
+		return filterHistoryEntries(unique, string(query))
 	}
 
 	draw := func(first bool) {
-		items := filtered()
-		visible := maxVisible
-		if len(items) < visible {
-			visible = len(items)
-		}
-		if cursor >= len(items) {
-			cursor = 0
-		}
-
-		if !first {
-			lines := visible + 1
-			if len(items) > maxVisible {
-				lines++
-			}
-			fmt.Printf("\033[%dA\033[J", lines)
-		}
-		fmt.Printf("%s ctrl+r %s %s%s%s\r\n",
-			colorDim, colorReset, colorYellow, string(query), colorReset)
-		for i := 0; i < visible; i++ {
-			if i == cursor {
-				fmt.Printf(" %s›%s %s%s%s\r\n", colorLime+colorBold, colorReset, colorBold, items[i], colorReset)
-			} else {
-				fmt.Printf("   %s%s%s\r\n", colorDim, items[i], colorReset)
-			}
-		}
-		if len(items) > maxVisible {
-			fmt.Printf(" %s%d/%d%s\r\n", colorDim, visible, len(items), colorReset)
-		}
+		drawHistoryUI(filtered(), cursor, query, first)
 	}
 
 	draw(true)
@@ -178,49 +133,117 @@ func fuzzyHistorySearch() string {
 			return ""
 		}
 		items := filtered()
-		switch {
-		case b[0] == '\r' || b[0] == '\n':
-			// Clear menu
-			lines := len(items)
-			if len(items) > maxVisible {
-				lines = maxVisible + 1
-			}
-			fmt.Printf("\033[%dA\033[J", lines+1)
-			if cursor < len(items) {
-				return items[cursor]
-			}
-			return ""
-		case b[0] == 3 || b[0] == 18: // Ctrl+C or Ctrl+R again — cancel
-			lines := len(items)
-			if len(items) > maxVisible {
-				lines = maxVisible + 1
-			}
-			fmt.Printf("\033[%dA\033[J", lines+1)
-			return ""
-		case b[0] == 27 && n >= 3 && b[1] == '[':
-			switch b[2] {
-			case 'A': // up
-				if cursor > 0 {
-					cursor--
-				}
-			case 'B': // down
-				if cursor < len(items)-1 {
-					cursor++
-				}
-			}
-			draw(false)
-		case b[0] == 127 || b[0] == 8: // backspace
-			if len(query) > 0 {
-				query = query[:len(query)-1]
-				cursor = 0
-				draw(false)
-			}
-		default:
-			if b[0] >= 32 {
-				query = append(query, b[:n]...)
-				cursor = 0
-				draw(false)
-			}
+		done, result := handleHistoryKeyInput(b, n, items, &query, &cursor, draw)
+		if done {
+			return result
 		}
 	}
+}
+
+// deduplicateHistory returns history entries in reverse order (most recent first), deduplicated.
+func deduplicateHistory(hist []string) []string {
+	seen := map[string]bool{}
+	var unique []string
+	for i := len(hist) - 1; i >= 0; i-- {
+		if !seen[hist[i]] {
+			seen[hist[i]] = true
+			unique = append(unique, hist[i])
+		}
+	}
+	return unique
+}
+
+// filterHistoryEntries returns entries matching the query (case-insensitive substring).
+func filterHistoryEntries(entries []string, query string) []string {
+	if query == "" {
+		return entries
+	}
+	q := strings.ToLower(query)
+	var out []string
+	for _, h := range entries {
+		if strings.Contains(strings.ToLower(h), q) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// drawHistoryUI renders the fuzzy history search interface.
+func drawHistoryUI(items []string, cursor int, query []byte, first bool) {
+	visible := maxVisible
+	if len(items) < visible {
+		visible = len(items)
+	}
+	if cursor >= len(items) {
+		cursor = 0
+	}
+
+	if !first {
+		lines := visible + 1
+		if len(items) > maxVisible {
+			lines++
+		}
+		fmt.Printf("\033[%dA\033[J", lines)
+	}
+	fmt.Printf("%s ctrl+r %s %s%s%s\r\n",
+		colorDim, colorReset, colorYellow, string(query), colorReset)
+	for i := 0; i < visible; i++ {
+		if i == cursor {
+			fmt.Printf(" %s›%s %s%s%s\r\n", colorLime+colorBold, colorReset, colorBold, items[i], colorReset)
+		} else {
+			fmt.Printf("   %s%s%s\r\n", colorDim, items[i], colorReset)
+		}
+	}
+	if len(items) > maxVisible {
+		fmt.Printf(" %s%d/%d%s\r\n", colorDim, visible, len(items), colorReset)
+	}
+}
+
+// handleHistoryKeyInput processes a keypress in the history search and returns (done, result).
+func handleHistoryKeyInput(b []byte, n int, items []string, query *[]byte, cursor *int, draw func(bool)) (done bool, result string) {
+	switch {
+	case b[0] == '\r' || b[0] == '\n':
+		clearHistoryMenu(items)
+		if *cursor < len(items) {
+			return true, items[*cursor]
+		}
+		return true, ""
+	case b[0] == 3 || b[0] == 18:
+		clearHistoryMenu(items)
+		return true, ""
+	case b[0] == 27 && n >= 3 && b[1] == '[':
+		switch b[2] {
+		case 'A':
+			if *cursor > 0 {
+				*cursor--
+			}
+		case 'B':
+			if *cursor < len(items)-1 {
+				*cursor++
+			}
+		}
+		draw(false)
+	case b[0] == 127 || b[0] == 8:
+		if len(*query) > 0 {
+			*query = (*query)[:len(*query)-1]
+			*cursor = 0
+			draw(false)
+		}
+	default:
+		if b[0] >= 32 {
+			*query = append(*query, b[:n]...)
+			*cursor = 0
+			draw(false)
+		}
+	}
+	return false, ""
+}
+
+// clearHistoryMenu clears the history search UI from the terminal.
+func clearHistoryMenu(items []string) {
+	lines := len(items)
+	if len(items) > maxVisible {
+		lines = maxVisible + 1
+	}
+	fmt.Printf("\033[%dA\033[J", lines+1)
 }

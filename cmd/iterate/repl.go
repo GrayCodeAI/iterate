@@ -181,52 +181,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 			continue
 		}
 
-		// /model and /provider handled here so they can swap provider+agent.
-		if line == "/model" || strings.HasPrefix(line, "/model ") {
-			newP, newThinking := selectModel(thinking)
-			if newP != nil {
-				p = newP
-				thinking = newThinking
-				_ = a.Close()
-				a = makeAgent(p, repoPath, thinking, logger)
-				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
-				saveConfig(iterConfig{
-					Provider:      os.Getenv("ITERATE_PROVIDER"),
-					Model:         os.Getenv("ITERATE_MODEL"),
-					OllamaBaseURL: os.Getenv("OLLAMA_BASE_URL"),
-				})
-			}
-			continue
-		}
-		if strings.HasPrefix(line, "/provider") {
-			parts := strings.Fields(line)
-			if len(parts) == 1 {
-				fmt.Printf("Current provider: %s%s%s\n", colorLime, p.Name(), colorReset)
-				fmt.Println("Usage: /provider <name>  (anthropic, openai, gemini, groq, ollama, …)")
-			} else {
-				providerName := parts[1]
-				apiKey := ""
-				if len(parts) >= 3 {
-					apiKey = parts[2]
-				}
-				var err error
-				var newP iteragent.Provider
-				if apiKey != "" {
-					newP, err = iteragent.NewProvider(providerName, apiKey)
-				} else {
-					newP, err = iteragent.NewProvider(providerName)
-				}
-				if err != nil {
-					slog.Error("provider switch failed", "provider", providerName, "error", err)
-					fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
-				} else {
-					p = newP
-					os.Setenv("ITERATE_PROVIDER", providerName)
-					_ = a.Close()
-					a = makeAgent(p, repoPath, thinking, logger)
-					fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, p.Name(), colorReset)
-				}
-			}
+		if handled := handleModelProviderSwitch(line, &p, &thinking, &a, repoPath, logger); handled {
 			continue
 		}
 
@@ -243,8 +198,64 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 		streamAndPrint(ctx, a, line, repoPath)
 	}
 
-	// Ctrl+C exit — auto-save and stop watch
 	stopWatch()
+	printSessionSummary(a, repoPath)
+}
+
+// handleModelProviderSwitch processes /model and /provider commands, returning true if handled.
+func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *iteragent.ThinkingLevel, a **iteragent.Agent, repoPath string, logger *slog.Logger) bool {
+	if line == "/model" || strings.HasPrefix(line, "/model ") {
+		newP, newThinking := selectModel(*thinking)
+		if newP != nil {
+			*p = newP
+			*thinking = newThinking
+			_ = (*a).Close()
+			*a = makeAgent(*p, repoPath, *thinking, logger)
+			fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
+			saveConfig(iterConfig{
+				Provider:      os.Getenv("ITERATE_PROVIDER"),
+				Model:         os.Getenv("ITERATE_MODEL"),
+				OllamaBaseURL: os.Getenv("OLLAMA_BASE_URL"),
+			})
+		}
+		return true
+	}
+	if strings.HasPrefix(line, "/provider") {
+		parts := strings.Fields(line)
+		if len(parts) == 1 {
+			fmt.Printf("Current provider: %s%s%s\n", colorLime, (*p).Name(), colorReset)
+			fmt.Println("Usage: /provider <name>  (anthropic, openai, gemini, groq, ollama, …)")
+		} else {
+			providerName := parts[1]
+			apiKey := ""
+			if len(parts) >= 3 {
+				apiKey = parts[2]
+			}
+			var err error
+			var newP iteragent.Provider
+			if apiKey != "" {
+				newP, err = iteragent.NewProvider(providerName, apiKey)
+			} else {
+				newP, err = iteragent.NewProvider(providerName)
+			}
+			if err != nil {
+				slog.Error("provider switch failed", "provider", providerName, "error", err)
+				fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+			} else {
+				*p = newP
+				os.Setenv("ITERATE_PROVIDER", providerName)
+				_ = (*a).Close()
+				*a = makeAgent(*p, repoPath, *thinking, logger)
+				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// printSessionSummary prints final session statistics and goodbye message.
+func printSessionSummary(a *iteragent.Agent, repoPath string) {
 	elapsed := time.Since(sess.Start).Round(time.Second)
 	if len(a.Messages) > 0 {
 		_ = saveSession("autosave", a.Messages)

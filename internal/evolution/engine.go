@@ -238,7 +238,6 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	if !hasChanges {
 		e.logger.Info("no changes detected, skipping PR flow")
 		result.Status = "no_changes"
-		// Don't write journal — agent ran but produced no code changes.
 		return result, nil
 	}
 
@@ -249,11 +248,22 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.logger.Info("tests failed, reverting changes")
 		result.Status = "reverted"
 		_ = e.revert(ctx)
-		// Don't write journal — changes were reverted, nothing shipped.
 		return result, nil
 	}
 
 	e.logger.Info("tests passed, creating feature branch")
+	if err := e.handleCommitAndPR(ctx, day, output, p, result); err != nil {
+		return result, nil
+	}
+
+	e.handlePRReviewAndMerge(ctx, p, tools, skills, output, result)
+
+	e.logger.Info("evolution run completed", "status", result.Status, "duration", result.FinishedAt.Sub(result.StartedAt).String())
+	return result, nil
+}
+
+// handleCommitAndPR creates a branch, commits, pushes, and creates a PR.
+func (e *Engine) handleCommitAndPR(ctx context.Context, day int, output string, p iteragent.Provider, result *RunResult) error {
 	branchName, err := e.createFeatureBranch(ctx, day)
 	if err != nil {
 		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
@@ -263,7 +273,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 			result.Status = "commit_failed"
 		}
 		e.appendJournal(result, output, p.Name(), true)
-		return result, nil
+		return fmt.Errorf("branch creation failed")
 	}
 	e.logger.Info("feature branch created", "branch", branchName)
 
@@ -276,7 +286,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 			result.Status = "commit_failed"
 		}
 		e.appendJournal(result, output, p.Name(), true)
-		return result, nil
+		return fmt.Errorf("commit failed")
 	}
 	e.logger.Info("changes committed")
 
@@ -286,10 +296,15 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		_ = e.switchToMain(ctx)
 		result.Status = "committed"
 		e.appendJournal(result, output, p.Name(), true)
-		return result, nil
+		return fmt.Errorf("push failed")
 	}
 	e.logger.Info("branch pushed")
 
+	return e.createPRFromBranch(ctx, day, output, commitMsg, p, result)
+}
+
+// createPRFromBranch builds PR body and creates the pull request.
+func (e *Engine) createPRFromBranch(ctx context.Context, day int, output string, commitMsg string, p iteragent.Provider, result *RunResult) error {
 	e.logger.Info("creating PR")
 
 	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
@@ -308,9 +323,14 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		_ = e.switchToMain(ctx)
 		result.Status = "committed"
 		e.appendJournal(result, output, p.Name(), true)
-		return result, nil
+		return fmt.Errorf("PR creation failed")
 	}
+	return nil
+}
 
+// handlePRReviewAndMerge reviews the PR, merges if approved, and records the result.
+func (e *Engine) handlePRReviewAndMerge(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, skills *iteragent.SkillSet, output string, result *RunResult) {
+	systemPrompt := buildSystemPrompt(e.repoPath, "")
 	if err := e.reviewPR(ctx, p, tools, systemPrompt, skills); err != nil {
 		e.logger.Warn("PR review had issues", "err", err)
 	}
@@ -319,17 +339,14 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		e.logger.Warn("PR merge failed, will retry next session", "err", err)
 		result.Status = "merge_pending"
 		e.appendJournal(result, output, p.Name(), true)
-		return result, nil
+		return
 	}
 
 	result.Status = "merged"
-	result.PRNumber = prNum
+	result.PRNumber = e.prNumber
 	result.PRURL = e.prURL
-	_ = e.appendLearningJSONL(prTitle, "evolution", buildUserMessage(e.repoPath, "", issues), "")
+	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(output)), "evolution", buildUserMessage(e.repoPath, "", ""), "")
 	e.appendJournal(result, output, p.Name(), true)
 
 	_ = e.switchToMain(ctx)
-
-	e.logger.Info("evolution run completed", "status", result.Status, "duration", result.FinishedAt.Sub(result.StartedAt).String())
-	return result, nil
 }

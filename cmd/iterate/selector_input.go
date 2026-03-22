@@ -27,13 +27,11 @@ func readInput() (string, bool) {
 
 	var buf []byte
 	b := make([]byte, 4)
-	// histIdx: index into history for up/down; len(inputHistory) = "current line"
 	histSnapshot := getInputHistory()
 	histIdx := len(histSnapshot)
-	savedBuf := []byte(nil) // saved draft when navigating history
+	savedBuf := []byte(nil)
 
 	replacePrompt := func(newText string) {
-		// Erase current content and reprint
 		for range buf {
 			fmt.Print("\b \b")
 		}
@@ -47,102 +45,133 @@ func readInput() (string, bool) {
 			return "", false
 		}
 
-		switch {
-		case b[0] == '\r' || b[0] == '\n':
-			// Enter — submit (or continue if line ends with \)
-			fmt.Print("\r\n")
-			result := string(buf)
-			if strings.HasSuffix(strings.TrimRight(result, " "), "\\") {
-				// Backslash continuation: strip trailing \ and prompt for more
-				result = strings.TrimRight(result, " ")
-				result = result[:len(result)-1] + "\n"
-				buf = []byte(result)
-				fmt.Printf("%s  ...%s ", colorDim, colorReset)
-				continue
-			}
-			result = strings.TrimSpace(result)
-			appendHistory(result)
-			return result, true
+		done, result, ok := handleRawInput(b, n, &buf, &histSnapshot, &histIdx, &savedBuf, replacePrompt, fd, oldState)
+		if done {
+			return result, ok
+		}
+	}
+}
 
-		case b[0] == 3: // Ctrl+C
-			fmt.Print("\r\n")
-			return "", false
+// handleRawInput processes a single raw-mode key event and returns (done, text, ok).
+func handleRawInput(b []byte, n int, buf *[]byte, histSnapshot *[]string, histIdx *int, savedBuf *[]byte, replacePrompt func(string), fd int, oldState *term.State) (done bool, result string, ok bool) {
+	switch {
+	case b[0] == '\r' || b[0] == '\n':
+		return handleLineSubmit(buf, histSnapshot, histIdx, savedBuf)
 
-		case b[0] == 18: // Ctrl+R — fuzzy history search
-			term.Restore(fd, oldState)
-			chosen := fuzzyHistorySearch()
-			term.MakeRaw(fd) //nolint
-			if chosen != "" {
-				replacePrompt(chosen)
-				histSnapshot = getInputHistory()
-				histIdx = len(histSnapshot)
+	case b[0] == 3:
+		fmt.Print("\r\n")
+		return true, "", false
+
+	case b[0] == 18:
+		return handleFuzzyHistorySearch(buf, histSnapshot, histIdx, replacePrompt, fd, oldState)
+
+	case b[0] == 4:
+		fmt.Print("\r\n")
+		return true, "", false
+
+	case n >= 2 && b[0] == 13 && b[1] == 10:
+		*buf = append(*buf, '\n')
+		fmt.Print("\r\n")
+		return false, "", false
+
+	case b[0] == 27 && n >= 3 && b[1] == '[':
+		handleArrowKeys(b[2], buf, histSnapshot, histIdx, savedBuf, replacePrompt)
+		return false, "", false
+
+	case b[0] == 27 && n == 1:
+		return false, "", false
+
+	case b[0] == '\t':
+		handleTabCompletion(buf)
+		return false, "", false
+
+	case b[0] == 127 || b[0] == 8:
+		if len(*buf) > 0 {
+			*buf = (*buf)[:len(*buf)-1]
+			fmt.Print("\b \b")
+		}
+		return false, "", false
+
+	default:
+		if b[0] >= 32 {
+			*buf = append(*buf, b[:n]...)
+			fmt.Printf("%s", string(b[:n]))
+		}
+		return false, "", false
+	}
+}
+
+// handleLineSubmit processes Enter key, handling backslash continuation.
+func handleLineSubmit(buf *[]byte, histSnapshot *[]string, histIdx *int, savedBuf *[]byte) (done bool, result string, ok bool) {
+	fmt.Print("\r\n")
+	text := string(*buf)
+	if strings.HasSuffix(strings.TrimRight(text, " "), "\\") {
+		text = strings.TrimRight(text, " ")
+		text = text[:len(text)-1] + "\n"
+		*buf = []byte(text)
+		fmt.Printf("%s  ...%s ", colorDim, colorReset)
+		return false, "", false
+	}
+	text = strings.TrimSpace(text)
+	appendHistory(text)
+	return true, text, true
+}
+
+// handleFuzzyHistorySearch handles Ctrl+R for interactive history search.
+func handleFuzzyHistorySearch(buf *[]byte, histSnapshot *[]string, histIdx *int, replacePrompt func(string), fd int, oldState *term.State) (done bool, result string, ok bool) {
+	term.Restore(fd, oldState)
+	chosen := fuzzyHistorySearch()
+	term.MakeRaw(fd) //nolint
+	if chosen != "" {
+		replacePrompt(chosen)
+		*histSnapshot = getInputHistory()
+		*histIdx = len(*histSnapshot)
+	} else {
+		fmt.Printf("\r")
+		printPrompt()
+		fmt.Printf("%s", string(*buf))
+	}
+	return false, "", false
+}
+
+// handleArrowKeys processes Up/Down arrow for history navigation.
+func handleArrowKeys(key byte, buf *[]byte, histSnapshot *[]string, histIdx *int, savedBuf *[]byte, replacePrompt func(string)) {
+	switch key {
+	case 'A':
+		if *histIdx == len(*histSnapshot) {
+			*savedBuf = append([]byte(nil), *buf...)
+		}
+		if *histIdx > 0 {
+			*histIdx--
+			replacePrompt((*histSnapshot)[*histIdx])
+		}
+	case 'B':
+		if *histIdx < len(*histSnapshot) {
+			*histIdx++
+			if *histIdx == len(*histSnapshot) {
+				replacePrompt(string(*savedBuf))
 			} else {
-				// Reprint prompt and current buf
-				fmt.Printf("\r")
-				printPrompt()
-				fmt.Printf("%s", string(buf))
-			}
-
-		case b[0] == 4: // Ctrl+D EOF
-			fmt.Print("\r\n")
-			return "", false
-
-		case n >= 2 && b[0] == 13 && b[1] == 10: // Shift+Enter on some terminals
-			buf = append(buf, '\n')
-			fmt.Print("\r\n")
-
-		case b[0] == 27 && n >= 3 && b[1] == '[':
-			switch b[2] {
-			case 'A': // Up arrow — go back in history
-				if histIdx == len(histSnapshot) {
-					savedBuf = append([]byte(nil), buf...) // save current draft
-				}
-				if histIdx > 0 {
-					histIdx--
-					replacePrompt(histSnapshot[histIdx])
-				}
-			case 'B': // Down arrow — go forward in history
-				if histIdx < len(histSnapshot) {
-					histIdx++
-					if histIdx == len(histSnapshot) {
-						replacePrompt(string(savedBuf))
-					} else {
-						replacePrompt(histSnapshot[histIdx])
-					}
-				}
-			}
-		case b[0] == 27 && n == 1:
-			// bare ESC — ignore
-
-		case b[0] == '\t': // Tab — autocomplete slash commands, arguments, or file paths
-			current := string(buf)
-			var completion string
-			if strings.HasPrefix(current, "/") {
-				completion = tabCompleteWithArgs(current)
-			} else {
-				completion = completeFilePath(current)
-			}
-			if completion != "" && completion != current {
-				// Erase current input and print completion
-				for range buf {
-					fmt.Print("\b \b")
-				}
-				buf = []byte(completion)
-				fmt.Printf("%s", completion)
-			}
-		case b[0] == 127 || b[0] == 8: // backspace
-			if len(buf) > 0 {
-				// Handle multi-byte UTF-8 backspace
-				buf = buf[:len(buf)-1]
-				fmt.Print("\b \b")
-			}
-
-		default:
-			if b[0] >= 32 {
-				buf = append(buf, b[:n]...)
-				fmt.Printf("%s", string(b[:n]))
+				replacePrompt((*histSnapshot)[*histIdx])
 			}
 		}
+	}
+}
+
+// handleTabCompletion processes Tab key for command/file completion.
+func handleTabCompletion(buf *[]byte) {
+	current := string(*buf)
+	var completion string
+	if strings.HasPrefix(current, "/") {
+		completion = tabCompleteWithArgs(current)
+	} else {
+		completion = completeFilePath(current)
+	}
+	if completion != "" && completion != current {
+		for range *buf {
+			fmt.Print("\b \b")
+		}
+		*buf = []byte(completion)
+		fmt.Printf("%s", completion)
 	}
 }
 
