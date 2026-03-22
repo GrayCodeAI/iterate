@@ -503,7 +503,7 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 		}
 		header := "# iterate Evolution Journal\n"
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
-		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644)
+		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644) // best-effort; journal is append-mostly
 	} else {
 		e.logger.Warn("agent output does not contain '## Day' — skipping journal write")
 	}

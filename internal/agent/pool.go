@@ -131,7 +131,7 @@ func (p *Pool) Release(agent *iteragent.Agent) {
 	case p.available <- agent:
 	default:
 		// Pool full, close the agent
-		_ = agent.Close()
+		_ = agent.Close() // best-effort cleanup
 	}
 }
 
@@ -176,7 +176,7 @@ func (p *Pool) Close() {
 	p.rateLimiter.Stop()
 	p.mu.Lock()
 	for _, agent := range p.agents {
-		_ = agent.Close()
+		_ = agent.Close() // best-effort cleanup
 	}
 	p.agents = nil
 	p.mu.Unlock()

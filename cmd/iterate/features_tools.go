@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -267,8 +268,13 @@ func loadAliases() aliasMap {
 
 func saveAliases(m aliasMap) {
 	data, _ := json.MarshalIndent(m, "", "  ")
-	_ = os.MkdirAll(filepath.Dir(aliasesPath()), 0o755)
-	_ = os.WriteFile(aliasesPath(), data, 0o644)
+	if err := os.MkdirAll(filepath.Dir(aliasesPath()), 0o755); err != nil {
+		slog.Warn("failed to create aliases dir", "err", err)
+		return
+	}
+	if err := os.WriteFile(aliasesPath(), data, 0o644); err != nil {
+		slog.Warn("failed to write aliases file", "err", err)
+	}
 }
 
 // resolveAlias expands an alias if one exists, otherwise returns line unchanged.
@@ -309,14 +315,21 @@ func loadMCPServers() []mcpServer {
 		return nil
 	}
 	var servers []mcpServer
-	json.Unmarshal(data, &servers)
+	if err := json.Unmarshal(data, &servers); err != nil {
+		slog.Warn("failed to parse mcp servers", "err", err)
+	}
 	return servers
 }
 
 func saveMCPServers(servers []mcpServer) {
 	data, _ := json.MarshalIndent(servers, "", "  ")
-	_ = os.MkdirAll(filepath.Dir(mcpConfigPath()), 0o755)
-	_ = os.WriteFile(mcpConfigPath(), data, 0o644)
+	if err := os.MkdirAll(filepath.Dir(mcpConfigPath()), 0o755); err != nil {
+		slog.Warn("failed to create mcp config dir", "err", err)
+		return
+	}
+	if err := os.WriteFile(mcpConfigPath(), data, 0o644); err != nil {
+		slog.Warn("failed to write mcp config file", "err", err)
+	}
 }
 
 // ---------------------------------------------------------------------------

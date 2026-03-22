@@ -346,7 +346,6 @@ func selectItem(title string, items []string) (string, bool) {
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		// fallback: just return first item
 		return items[0], true
 	}
 	defer term.Restore(fd, oldState)
@@ -385,6 +384,10 @@ func selectItem(title string, items []string) (string, bool) {
 
 	drawMenu(true)
 
+	return handleSelectInput(items, &cursor, &offset, height, drawMenu)
+}
+
+func handleSelectInput(items []string, cursor, offset *int, height int, drawMenu func(bool)) (string, bool) {
 	buf := make([]byte, 4)
 	for {
 		n, err := os.Stdin.Read(buf)
@@ -394,40 +397,40 @@ func selectItem(title string, items []string) (string, bool) {
 
 		switch {
 		case buf[0] == '\r' || buf[0] == '\n':
-			lines := height + 1
-			if len(items) > maxVisible {
-				lines++
-			}
-			fmt.Printf("\033[%dA\033[J", lines)
-			fmt.Printf(" %s›%s %s\r\n\r\n", colorLime+colorBold, colorReset, items[cursor])
-			return items[cursor], true
+			cleanupSelectUI(height, len(items))
+			fmt.Printf(" %s›%s %s\r\n\r\n", colorLime+colorBold, colorReset, items[*cursor])
+			return items[*cursor], true
 
-		case buf[0] == 3 || (buf[0] == 27 && n == 1): // Ctrl+C or bare ESC
-			lines := height + 1
-			if len(items) > maxVisible {
-				lines++
-			}
-			fmt.Printf("\033[%dA\033[J", lines)
+		case buf[0] == 3 || (buf[0] == 27 && n == 1):
+			cleanupSelectUI(height, len(items))
 			return "", false
 
 		case n >= 3 && buf[0] == 27 && buf[1] == '[':
 			switch buf[2] {
-			case 'A': // up
-				if cursor > 0 {
-					cursor--
-					if cursor < offset {
-						offset = cursor
+			case 'A':
+				if *cursor > 0 {
+					*cursor--
+					if *cursor < *offset {
+						*offset = *cursor
 					}
 				}
-			case 'B': // down
-				if cursor < len(items)-1 {
-					cursor++
-					if cursor >= offset+height {
-						offset = cursor - height + 1
+			case 'B':
+				if *cursor < len(items)-1 {
+					*cursor++
+					if *cursor >= *offset+height {
+						*offset = *cursor - height + 1
 					}
 				}
 			}
 			drawMenu(false)
 		}
 	}
+}
+
+func cleanupSelectUI(height, itemCount int) {
+	lines := height + 1
+	if itemCount > maxVisible {
+		lines++
+	}
+	fmt.Printf("\033[%dA\033[J", lines)
 }

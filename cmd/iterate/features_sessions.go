@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ var auditLogPath string
 func initAuditLog() {
 	home, _ := os.UserHomeDir()
 	auditLogPath = filepath.Join(home, ".iterate", "audit.log")
-	_ = os.MkdirAll(filepath.Dir(auditLogPath), 0o755)
+	_ = os.MkdirAll(filepath.Dir(auditLogPath), 0o755) // best-effort cleanup
 }
 
 func logAudit(toolName string, args map[string]interface{}, result string) {
@@ -51,7 +52,9 @@ func sessionsDir() string {
 
 func saveSession(name string, messages []iteragent.Message) error {
 	dir := sessionsDir()
-	_ = os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create sessions dir: %w", err)
+	}
 	path := filepath.Join(dir, name+".json")
 	data, err := json.MarshalIndent(messages, "", "  ")
 	if err != nil {
@@ -114,7 +117,9 @@ func loadBookmarks() []Bookmark {
 
 func saveBookmarks(bms []Bookmark) {
 	data, _ := json.MarshalIndent(bms, "", "  ")
-	_ = os.WriteFile(bookmarksPath(), data, 0o644)
+	if err := os.WriteFile(bookmarksPath(), data, 0o644); err != nil {
+		slog.Warn("failed to write bookmarks file", "err", err)
+	}
 }
 
 func addBookmark(name string, messages []iteragent.Message) {

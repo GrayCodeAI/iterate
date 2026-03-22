@@ -170,7 +170,7 @@ func runEvolutionPhase(ctx context.Context, f mainFlags, p iteragent.Provider, e
 
 func handleEvolutionCleanup(ctx context.Context, f mainFlags, absRepo string, result *evolution.RunResult, sessionMessages []iteragent.Message, rawIssues map[community.IssueType][]community.Issue, p iteragent.Provider, logger *slog.Logger) {
 	autoSavePath := filepath.Join(absRepo, ".iterate", "last-session.json")
-	_ = os.MkdirAll(filepath.Dir(autoSavePath), 0o755)
+	_ = os.MkdirAll(filepath.Dir(autoSavePath), 0o755) // best-effort cleanup
 	if err := saveSessionToFile(autoSavePath, sessionMessages); err != nil {
 		logger.Warn("auto-save session failed", "err", err)
 	}
