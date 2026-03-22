@@ -9,9 +9,13 @@ REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
 PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
 PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
-SPONSORS_FILE="/tmp/sponsor_logins_$$.json"
+SPONSORS_FILE="/tmp/sponsor_logins.json"
 PID_FILE="${REPOPATH}/.iterate/evolve.pid"
 LOCK_TIMEOUT=3600  # 1 hour max lock
+
+log() {
+  echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
 
 # ── Step -1: Concurrent run lock (prevent overlapping evolutions) ──
 acquire_lock() {
@@ -48,10 +52,6 @@ trap release_lock EXIT
 
 mkdir -p "${REPOPATH}/.iterate"
 acquire_lock
-
-log() {
-  echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
-}
 
 log "=== iterate evolution cycle started ==="
 

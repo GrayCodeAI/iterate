@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -291,16 +292,16 @@ func TestFirstLine_Empty(t *testing.T) {
 }
 
 func TestTruncate_Short(t *testing.T) {
-	if got := truncate("hello", 10); got != "hello" {
+	if got := util.Truncate("hello", 10); got != "hello" {
 		t.Errorf("short string should not be truncated, got %q", got)
 	}
 }
 
 func TestTruncate_Long(t *testing.T) {
 	long := strings.Repeat("x", 100)
-	got := truncate(long, 10)
-	if !strings.HasSuffix(got, "...[truncated]") {
-		t.Errorf("long string should end with ...[truncated], got %q", got)
+	got := util.Truncate(long, 10)
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("long string should end with …, got %q", got)
 	}
 	if len(got) > 30 {
 		t.Errorf("truncated string too long: %d chars", len(got))

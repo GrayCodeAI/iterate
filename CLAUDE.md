@@ -19,37 +19,65 @@ make chat               # start interactive REPL
 
 ```
 iterate/
-  cmd/iterate/          # CLI entry point
-    main.go             # flags, provider init, mode dispatch
-    repl.go             # REPL loop, streamAndPrint, handleCommand, replHooks()
-    selector.go         # raw-mode input, tab completion, selectItem
-    features.go         # helpers: sessions, bookmarks, git, memory, themes…
-    config.go           # iterConfig (JSON+TOML), glob/dir permissions, session changes
-    highlight.go        # markdown + syntax rendering
-    commands_project.go # /health, /tree, /index, /pkgdoc, generateIterateMD
-    commands_git.go     # /pr subcommand dispatcher, enhanced /diff
-    pricing.go          # per-model cost table, /cost breakdown
-    memory_project.go   # per-project .iterate/memory.json for /remember
+  cmd/iterate/                            # CLI entry point
+    main.go                               # flags, provider init, mode dispatch
+    repl.go                               # thin REPL loop (~400 lines)
+    repl_streaming.go                     # streaming token output
+    repl_helpers.go                       # REPL utility functions
+    repl_models.go                        # model switching logic
+    selector.go                           # raw-mode input, tab completion, selectItem
+    highlight.go                          # markdown + syntax rendering
+    pricing.go                            # per-model cost table, /cost breakdown
+    config.go                             # iterConfig (JSON+TOML), glob/dir permissions
+    memory_project.go                     # per-project .iterate/memory.json for /remember
+    features.go                           # feature helpers (~400 lines)
+    features_sessions.go                  # session save/load/compact
+    features_search.go                    # /find, /grep
+    features_prompts.go                   # prompt management
+    features_tools.go                     # tool listing and info
+    features_watch.go                     # file watching
+    features_git_helpers.go               # git helper functions
+    commands_project.go                   # /health, /tree, /index, /pkgdoc
+    commands_git.go                       # /pr subcommand dispatcher, enhanced /diff
   internal/
-    evolution/          # core engine: plan→implement→communicate
-    community/          # GitHub issues + discussions fetcher
-    social/             # social interaction engine
+    agent/                                # agent pool, mutation testing
+    commands/                             # 100+ modular commands
+      registry.go                         # command type defs and registration
+      register.go                         # command registration helpers
+      agent.go                            # /help, /clear, /model, /thinking, etc.
+      dev.go                              # /test, /build, /lint, /fix, /coverage
+      evolution.go                        # /phase, /self-improve, /evolve-now
+      files.go                            # /find, /grep, /tree, /index
+      git.go                              # /diff, /status, /commit, /log, /branch, etc.
+      github.go                           # /pr list/view/diff/review/create/comment
+      memory.go                           # /remember, /memories, /forget, /learn, /memo
+      mode.go                             # /safe, /multi, /thinking
+      safety.go                           # safety checks and confirmations
+      session.go                          # /save, /load, /context, /tokens, /cost, /compact
+      utility.go                          # /version, /stats, /changes, /history
+      legacy.go                           # legacy command aliases
+      project_helpers.go                  # project-type detection helpers
+    community/                            # GitHub issues + discussions fetcher
+    evolution/                            # core engine: plan→implement→communicate
+    social/                               # social interaction engine
+    util/                                 # shared utilities
+      truncate.go                         # string truncation helpers
   scripts/
-    evolve.sh           # main evolution pipeline (called by CI)
-    evolve-local.sh     # local evolution helper
-    build_site.py       # generates docs/index.html from JOURNAL.md
-    format_issues.py    # formats GitHub issues for agent context
-  skills/               # structured skill files (SKILL.md per skill)
+    evolve.sh                             # main evolution pipeline (called by CI)
+    evolve-local.sh                       # local evolution helper
+    build_site.py                         # generates docs/index.html from JOURNAL.md
+    format_issues.py                      # formats GitHub issues for agent context
+  skills/                                 # structured skill files (SKILL.md per skill)
     evolve/SKILL.md
     self-assess/SKILL.md
     communicate/SKILL.md
     research/SKILL.md
     social/SKILL.md
     release/SKILL.md
-  memory/               # persistent evolution memory layer
-    learnings.jsonl     # append-only lesson log
-    active_learnings.md # synthesized from learnings.jsonl
-  docs/                 # GitHub Pages site (auto-generated)
+  memory/                                 # persistent evolution memory layer
+    learnings.jsonl                       # append-only lesson log
+    active_learnings.md                   # synthesized from learnings.jsonl
+  docs/                                   # GitHub Pages site (auto-generated)
 ```
 
 ## Evolution Loop

@@ -154,10 +154,12 @@ func TestCmdFork_SavesAndResets(t *testing.T) {
 	ctx := Context{
 		Agent: agent,
 		Parts: []string{"/fork"},
-		SaveSession: func(name string, m []iteragent.Message) error {
-			savedName = name
-			savedMsgs = m
-			return nil
+		Session: SessionCallbacks{
+			SaveSession: func(name string, m []iteragent.Message) error {
+				savedName = name
+				savedMsgs = m
+				return nil
+			},
 		},
 	}
 
@@ -194,9 +196,11 @@ func TestCmdFork_EmptyConversation(t *testing.T) {
 	ctx := Context{
 		Agent: agent,
 		Parts: []string{"/fork"},
-		SaveSession: func(name string, m []iteragent.Message) error {
-			saved = true
-			return nil
+		Session: SessionCallbacks{
+			SaveSession: func(name string, m []iteragent.Message) error {
+				saved = true
+				return nil
+			},
 		},
 	}
 

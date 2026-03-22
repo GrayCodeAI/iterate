@@ -99,172 +99,19 @@ func handlePR(ctx context.Context, line string, a *iteragent.Agent, repoPath str
 
 	switch parsed.sub {
 	case prSubList:
-		cmd := exec.Command("gh", "pr", "list", "--limit", "20")
-		cmd.Dir = repoPath
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
-		}
-		fmt.Println()
-
+		handlePRList(repoPath)
 	case prSubView:
-		if parsed.number == "" {
-			var ok bool
-			parsed.number, ok = promptLine("PR number:")
-			if !ok || parsed.number == "" {
-				return
-			}
-		}
-		cmd := exec.Command("gh", "pr", "view", parsed.number)
-		cmd.Dir = repoPath
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
-		fmt.Println()
-
+		handlePRView(repoPath, parsed.number)
 	case prSubDiff:
-		if parsed.number == "" {
-			var ok bool
-			parsed.number, ok = promptLine("PR number:")
-			if !ok || parsed.number == "" {
-				return
-			}
-		}
-		out, err := exec.Command("gh", "pr", "diff", parsed.number).Output()
-		if err != nil {
-			fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
-			return
-		}
-		diff := string(out)
-		if len(diff) > 8000 {
-			diff = diff[:8000] + "\n…[truncated]"
-		}
-		fmt.Printf("%s── PR #%s diff ────────────────────%s\n%s%s──────────────────────────────────%s\n\n",
-			colorDim, parsed.number, colorReset, diff, colorDim, colorReset)
-
+		handlePRDiff(repoPath, parsed.number)
 	case prSubReview:
-		if parsed.number == "" {
-			var ok bool
-			parsed.number, ok = promptLine("PR number:")
-			if !ok || parsed.number == "" {
-				return
-			}
-		}
-		out, err := exec.Command("gh", "pr", "diff", parsed.number).Output()
-		if err != nil {
-			fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
-			return
-		}
-		diff := string(out)
-		if len(diff) > 8000 {
-			diff = diff[:8000] + "\n…[truncated]"
-		}
-		prompt := buildPRReviewPrompt(parsed.number, diff)
-		streamAndPrint(ctx, a, prompt, repoPath)
-
+		handlePRReview(repoPath, parsed.number, a, ctx)
 	case prSubComment:
-		if parsed.number == "" {
-			var ok bool
-			parsed.number, ok = promptLine("PR number:")
-			if !ok || parsed.number == "" {
-				return
-			}
-		}
-		if parsed.text == "" {
-			var ok bool
-			parsed.text, ok = promptLine("Comment:")
-			if !ok || parsed.text == "" {
-				return
-			}
-		}
-		cmd := exec.Command("gh", "pr", "comment", parsed.number, "--body", parsed.text)
-		cmd.Dir = repoPath
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
-		} else {
-			fmt.Printf("%s✓ comment posted on PR #%s%s\n\n", colorLime, parsed.number, colorReset)
-		}
-
+		handlePRComment(repoPath, parsed.number, parsed.text)
 	case prSubCheckout:
-		if parsed.number == "" {
-			// List PRs and let user pick
-			out, _ := exec.Command("gh", "pr", "list", "--json", "number,title,headRefName",
-				"--template", `{{range .}}#{{.number}} {{.title}} ({{.headRefName}}){{"\n"}}{{end}}`).Output()
-			prs := strings.Split(strings.TrimSpace(string(out)), "\n")
-			var nonEmpty []string
-			for _, pr := range prs {
-				if strings.TrimSpace(pr) != "" {
-					nonEmpty = append(nonEmpty, pr)
-				}
-			}
-			if len(nonEmpty) == 0 {
-				fmt.Println("No open PRs found.")
-				return
-			}
-			choice, ok := selectItem("Select PR to checkout", nonEmpty)
-			if !ok {
-				return
-			}
-			// Extract number from "#123 ..."
-			if len(choice) > 1 && choice[0] == '#' {
-				end := strings.Index(choice[1:], " ")
-				if end >= 0 {
-					parsed.number = choice[1 : end+1]
-				}
-			}
-			if parsed.number == "" {
-				return
-			}
-		}
-		cmd := exec.Command("gh", "pr", "checkout", parsed.number)
-		cmd.Dir = repoPath
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
-		} else {
-			fmt.Printf("%s✓ checked out PR #%s%s\n\n", colorLime, parsed.number, colorReset)
-		}
-
+		handlePRCheckout(repoPath, parsed.number)
 	case prSubCreate:
-		branchOut, _ := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output()
-		branch := strings.TrimSpace(string(branchOut))
-		if branch == "" || branch == "main" || branch == "master" {
-			fmt.Printf("%screate a feature branch first. current: %s%s\n", colorRed, branch, colorReset)
-			return
-		}
-		title, ok := promptLine("PR title:")
-		if !ok || title == "" {
-			fmt.Println("cancelled.")
-			return
-		}
-		body, ok := promptLine("PR body (Enter for auto):")
-		if !ok {
-			return
-		}
-		if body == "" {
-			body = fmt.Sprintf("Created by iterate from branch `%s`.", branch)
-		}
-		// Push branch first
-		pushCmd := exec.Command("git", "-C", repoPath, "push", "-u", "origin", branch)
-		pushCmd.Stdout = os.Stdout
-		pushCmd.Stderr = os.Stderr
-		pushCmd.Run()
-		// Create PR
-		args := []string{"pr", "create", "--title", title, "--body", body}
-		if parsed.draft {
-			args = append(args, "--draft")
-		}
-		prCmd := exec.Command("gh", args...)
-		prCmd.Dir = repoPath
-		prCmd.Stdout = os.Stdout
-		prCmd.Stderr = os.Stderr
-		prCmd.Run()
-		fmt.Println()
-
+		handlePRCreate(repoPath, parsed.draft)
 	case prSubHelp:
 		fmt.Printf(`%s/pr subcommands:%s
   /pr list              — list open PRs
@@ -276,6 +123,180 @@ func handlePR(ctx context.Context, line string, a *iteragent.Agent, repoPath str
   /pr create [--draft]  — create a new PR
 `, colorDim, colorReset)
 	}
+}
+
+func handlePRList(repoPath string) {
+	cmd := exec.Command("gh", "pr", "list", "--limit", "20")
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
+	}
+	fmt.Println()
+}
+
+func handlePRView(repoPath string, number string) {
+	if number == "" {
+		var ok bool
+		number, ok = promptLine("PR number:")
+		if !ok || number == "" {
+			return
+		}
+	}
+	cmd := exec.Command("gh", "pr", "view", number)
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+	fmt.Println()
+}
+
+func handlePRDiff(repoPath string, number string) {
+	if number == "" {
+		var ok bool
+		number, ok = promptLine("PR number:")
+		if !ok || number == "" {
+			return
+		}
+	}
+	out, err := exec.Command("gh", "pr", "diff", number).Output()
+	if err != nil {
+		fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
+		return
+	}
+	diff := string(out)
+	if len(diff) > 8000 {
+		diff = diff[:8000] + "\n…[truncated]"
+	}
+	fmt.Printf("%s── PR #%s diff ────────────────────%s\n%s%s──────────────────────────────────%s\n\n",
+		colorDim, number, colorReset, diff, colorDim, colorReset)
+}
+
+func handlePRReview(repoPath string, number string, a *iteragent.Agent, ctx context.Context) {
+	if number == "" {
+		var ok bool
+		number, ok = promptLine("PR number:")
+		if !ok || number == "" {
+			return
+		}
+	}
+	out, err := exec.Command("gh", "pr", "diff", number).Output()
+	if err != nil {
+		fmt.Printf("%scould not fetch PR diff: %v%s\n", colorRed, err, colorReset)
+		return
+	}
+	diff := string(out)
+	if len(diff) > 8000 {
+		diff = diff[:8000] + "\n…[truncated]"
+	}
+	prompt := buildPRReviewPrompt(number, diff)
+	streamAndPrint(ctx, a, prompt, repoPath)
+}
+
+func handlePRComment(repoPath string, number string, text string) {
+	if number == "" {
+		var ok bool
+		number, ok = promptLine("PR number:")
+		if !ok || number == "" {
+			return
+		}
+	}
+	if text == "" {
+		var ok bool
+		text, ok = promptLine("Comment:")
+		if !ok || text == "" {
+			return
+		}
+	}
+	cmd := exec.Command("gh", "pr", "comment", number, "--body", text)
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
+	} else {
+		fmt.Printf("%s✓ comment posted on PR #%s%s\n\n", colorLime, number, colorReset)
+	}
+}
+
+func handlePRCheckout(repoPath string, number string) {
+	if number == "" {
+		// List PRs and let user pick
+		out, _ := exec.Command("gh", "pr", "list", "--json", "number,title,headRefName",
+			"--template", `{{range .}}#{{.number}} {{.title}} ({{.headRefName}}){{"\n"}}{{end}}`).Output()
+		prs := strings.Split(strings.TrimSpace(string(out)), "\n")
+		var nonEmpty []string
+		for _, pr := range prs {
+			if strings.TrimSpace(pr) != "" {
+				nonEmpty = append(nonEmpty, pr)
+			}
+		}
+		if len(nonEmpty) == 0 {
+			fmt.Println("No open PRs found.")
+			return
+		}
+		choice, ok := selectItem("Select PR to checkout", nonEmpty)
+		if !ok {
+			return
+		}
+		// Extract number from "#123 ..."
+		if len(choice) > 1 && choice[0] == '#' {
+			end := strings.Index(choice[1:], " ")
+			if end >= 0 {
+				number = choice[1 : end+1]
+			}
+		}
+		if number == "" {
+			return
+		}
+	}
+	cmd := exec.Command("gh", "pr", "checkout", number)
+	cmd.Dir = repoPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("%serror: %v%s\n", colorRed, err, colorReset)
+	} else {
+		fmt.Printf("%s✓ checked out PR #%s%s\n\n", colorLime, number, colorReset)
+	}
+}
+
+func handlePRCreate(repoPath string, draft bool) {
+	branchOut, _ := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output()
+	branch := strings.TrimSpace(string(branchOut))
+	if branch == "" || branch == "main" || branch == "master" {
+		fmt.Printf("%screate a feature branch first. current: %s%s\n", colorRed, branch, colorReset)
+		return
+	}
+	title, ok := promptLine("PR title:")
+	if !ok || title == "" {
+		fmt.Println("cancelled.")
+		return
+	}
+	body, ok := promptLine("PR body (Enter for auto):")
+	if !ok {
+		return
+	}
+	if body == "" {
+		body = fmt.Sprintf("Created by iterate from branch `%s`.", branch)
+	}
+	// Push branch first
+	pushCmd := exec.Command("git", "-C", repoPath, "push", "-u", "origin", branch)
+	pushCmd.Stdout = os.Stdout
+	pushCmd.Stderr = os.Stderr
+	pushCmd.Run()
+	// Create PR
+	args := []string{"pr", "create", "--title", title, "--body", body}
+	if draft {
+		args = append(args, "--draft")
+	}
+	prCmd := exec.Command("gh", args...)
+	prCmd.Dir = repoPath
+	prCmd.Stdout = os.Stdout
+	prCmd.Stderr = os.Stderr
+	prCmd.Run()
+	fmt.Println()
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 name: Challenge
 about: Give iterate a specific coding challenge to attempt
 title: "[CHALLENGE] "
-labels: input
+labels: agent-input
 assignees: ''
 ---
 

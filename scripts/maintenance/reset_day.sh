@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="${1:-0}"
 
 if ! [[ "$TARGET" =~ ^[0-9]+$ ]]; then

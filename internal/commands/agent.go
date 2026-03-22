@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,11 +81,12 @@ func RegisterAgentCommands(r *Registry) {
 }
 
 func cmdModel(ctx Context) Result {
-	// TODO: wire up model switching
 	if ctx.Provider != nil {
-		fmt.Printf("Current model: %s\n", ctx.Provider.Name())
+		PrintSuccess("current model: %s", ctx.Provider.Name())
+	} else {
+		fmt.Println("No provider configured.")
 	}
-	fmt.Println("Model switching not yet wired in modular commands.")
+	fmt.Println("Use /provider <name> to switch provider.")
 	return Result{Handled: true}
 }
 
@@ -120,8 +123,28 @@ func cmdTools(ctx Context) Result {
 }
 
 func cmdSkills(ctx Context) Result {
-	// TODO: wire up skill loading
-	fmt.Println("Skills loading not yet wired in modular commands.")
+	skillsDir := filepath.Join(ctx.RepoPath, "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		fmt.Println("No skills directory found.")
+		return Result{Handled: true}
+	}
+	fmt.Printf("%s── Skills ─────────────────────────%s\n", ColorDim, ColorReset)
+	count := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
+		if _, err := os.Stat(skillFile); err == nil {
+			fmt.Printf("  %s\n", entry.Name())
+			count++
+		}
+	}
+	if count == 0 {
+		fmt.Println("  No skills found.")
+	}
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
 
@@ -173,8 +196,34 @@ func cmdSpawn(ctx Context) Result {
 	}
 	task := ctx.Args()
 	PrintSuccess("Spawning subagent for: %s", task)
-	// TODO: wire up actual spawning via iteragent
-	fmt.Println("Spawn not yet wired in modular commands.")
+
+	if ctx.Pool != nil {
+		ag, err := ctx.Pool.Acquire(context.Background())
+		if err != nil {
+			PrintError("failed to acquire agent: %s", err)
+			return Result{Handled: true}
+		}
+		defer ctx.Pool.Release(ag)
+
+		fmt.Printf("%sRunning subagent…%s\n", ColorDim, ColorReset)
+		resp, err := ag.Run(context.Background(), "", task)
+		if err != nil {
+			PrintError("subagent failed: %s", err)
+		} else {
+			fmt.Println(resp)
+		}
+	} else if ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, task, ctx.RepoPath)
+	} else if ctx.Agent != nil {
+		resp, err := ctx.Agent.Run(context.Background(), "", task)
+		if err != nil {
+			PrintError("agent failed: %s", err)
+		} else {
+			fmt.Println(resp)
+		}
+	} else {
+		PrintError("no agent available")
+	}
 	return Result{Handled: true}
 }
 
@@ -202,24 +251,24 @@ func cmdSwarm(ctx Context) Result {
 	fmt.Printf("  Rate limit:   5 req/sec\n")
 	fmt.Printf("%s──────────────────────────────────%s\n", ColorDim, ColorReset)
 
-	// Swarm requires a pool to be pre-configured
 	if ctx.Pool == nil {
 		PrintError("Agent pool not configured. Pool must be provided via Context.")
 		return Result{Handled: true}
 	}
 
-	// Run swarm with progress tracking
 	var wg sync.WaitGroup
 	results := make([]string, 0, n)
 	var mu sync.Mutex
 
 	start := time.Now()
+	sem := make(chan struct{}, 10)
 	for i := 0; i < n; i++ {
+		sem <- struct{}{}
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
+			defer func() { <-sem }()
 
-			// Acquire an agent (rate-limited via pool)
 			ag, err := ctx.Pool.Acquire(context.Background())
 			if err != nil {
 				mu.Lock()
@@ -229,12 +278,17 @@ func cmdSwarm(ctx Context) Result {
 			}
 			defer ctx.Pool.Release(ag)
 
-			// TODO: wire up actual agent execution with the acquired agent
-			// For now, simulate
-			time.Sleep(10 * time.Millisecond)
-
+			resp, err := ag.Run(context.Background(), "", task)
 			mu.Lock()
-			results = append(results, fmt.Sprintf("Agent %d: done", idx))
+			if err != nil {
+				results = append(results, fmt.Sprintf("Agent %d: error: %s", idx, err))
+			} else {
+				snippet := resp
+				if len(snippet) > 100 {
+					snippet = snippet[:100] + "…"
+				}
+				results = append(results, fmt.Sprintf("Agent %d: %s", idx, snippet))
+			}
 			mu.Unlock()
 		}(i)
 	}
@@ -243,6 +297,17 @@ func cmdSwarm(ctx Context) Result {
 	elapsed := time.Since(start)
 	fmt.Printf("\n%s✓ Swarm complete in %s%s\n", ColorLime, elapsed.Round(time.Millisecond), ColorReset)
 	fmt.Printf("  Completed: %d/%d agents\n", len(results), n)
+
+	errCount := 0
+	for _, r := range results {
+		if strings.Contains(r, "error:") {
+			errCount++
+			fmt.Printf("  %s\n", r)
+		}
+	}
+	if errCount > 0 {
+		fmt.Printf("  %s%d errors%s\n", ColorRed, errCount, ColorReset)
+	}
 
 	return Result{Handled: true}
 }

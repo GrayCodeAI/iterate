@@ -95,7 +95,7 @@ This is self-reflection — witnessing and evaluating your own patterns, decisio
 2. Would this change how I act in a future session?
 If both aren't yes, skip it. A sparse archive of genuine wisdom beats a long file of noise.
 
-Read memory/active_learnings.md first to avoid writing duplicates.
+Read memory/ACTIVE_LEARNINGS.md first to avoid writing duplicates.
 
 **Format:** Append ONE JSONL line to `memory/learnings.jsonl` using python3 (never echo — quotes in values break JSON):
 ```

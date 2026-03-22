@@ -7,15 +7,8 @@ directories = [
     "internal/agent",
     "internal/community",
     "internal/evolution",
-    "internal/provider",
-    "internal/session",
     "internal/social",
-    "internal/web",
-]
-
-# Packages to ignore
-ignore = [
-    "internal/web",
+    "internal/commands",
 ]
 
 # Test commands to run

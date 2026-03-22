@@ -111,31 +111,61 @@ See `.github/workflows/evolve.yml` for the full pipeline.
 
 ```
 cmd/iterate/
-  main.go           CLI entry, flag parsing, mode dispatch
-  repl.go           Interactive REPL with slash commands
+  main.go                    CLI entry, flag parsing, mode dispatch
+  repl.go                    Thin REPL loop (~400 lines)
+  repl_streaming.go          Streaming token output
+  repl_helpers.go            REPL utility functions
+  repl_models.go             Model switching logic
+  features.go                Feature helpers (~400 lines)
+  features_sessions.go       Session save/load/compact
+  features_search.go         /find, /grep
+  features_prompts.go        Prompt management
+  features_tools.go          Tool listing and info
+  features_watch.go          File watching
+  features_git_helpers.go    Git helper functions
+  commands_project.go        /health, /tree, /index, /pkgdoc
+  commands_git.go            /pr dispatcher, enhanced /diff
 
 internal/
-  evolution/
-    engine.go       3-phase evolution engine
-  community/        GitHub issues + discussions
-  social/           Social interaction engine
+  agent/                     Agent pool, mutation testing
+  commands/                  100+ modular commands
+    registry.go              Command type defs and registration
+    register.go              Registration helpers
+    agent.go                 /help, /clear, /model, /thinking, etc.
+    dev.go                   /test, /build, /lint, /fix, /coverage
+    evolution.go             /phase, /self-improve, /evolve-now
+    files.go                 /find, /grep, /tree, /index
+    git.go                   /diff, /status, /commit, /log, /branch, etc.
+    github.go                /pr list/view/diff/review/create/comment
+    memory.go                /remember, /memories, /forget, /learn, /memo
+    mode.go                  /safe, /multi, /thinking
+    safety.go                Safety checks and confirmations
+    session.go               /save, /load, /context, /tokens, /cost, /compact
+    utility.go               /version, /stats, /changes, /history
+    legacy.go                Legacy command aliases
+    project_helpers.go       Project-type detection helpers
+  community/                 GitHub issues + discussions
+  evolution/                 3-phase evolution engine
+  social/                    Social interaction engine
+  util/                      Shared utilities
+    truncate.go              String truncation helpers
 
-skills/             Structured skill files
-  evolve/           Self-modification rules and safety
-  self-assess/      Codebase evaluation
-  communicate/      Issue response posting
-  research/         Learning from docs/web
-  social/           Community interaction
-  release/          Release management
+skills/                      Structured skill files
+  evolve/                    Self-modification rules and safety
+  self-assess/               Codebase evaluation
+  communicate/               Issue response posting
+  research/                  Learning from docs/web
+  social/                    Community interaction
+  release/                   Release management
 
 memory/
-  learnings.jsonl         Append-only lesson log
-  active_learnings.md     Synthesized knowledge
+  learnings.jsonl            Append-only lesson log
+  active_learnings.md        Synthesized knowledge
 
 scripts/
-  evolve.sh               Main evolution pipeline
-  build_site.py           Journal → GitHub Pages
-  format_issues.py        Issue formatting for context
+  evolve.sh                  Main evolution pipeline
+  build_site.py              Journal → GitHub Pages
+  format_issues.py           Issue formatting for context
 ```
 
 ---

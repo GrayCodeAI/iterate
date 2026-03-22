@@ -1,7 +1,6 @@
 package social
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/GrayCodeAI/iterate/internal/community"
+	"github.com/GrayCodeAI/iterate/internal/util"
+	"github.com/google/go-github/v61/github"
 
 	"github.com/GrayCodeAI/iteragent"
 )
@@ -35,24 +38,51 @@ type Comment struct {
 
 // Engine handles the social loop.
 type Engine struct {
-	repoPath string
-	owner    string
-	repo     string
-	token    string
-	client   *http.Client
-	logger   *slog.Logger
+	repoPath   string
+	owner      string
+	repo       string
+	token      string
+	client     *github.Client
+	httpClient *http.Client
+	logger     *slog.Logger
 }
 
 // New creates a new social engine.
 func New(repoPath, owner, repo string, logger *slog.Logger) *Engine {
+	ctx := context.Background()
 	return &Engine{
-		repoPath: repoPath,
-		owner:    owner,
-		repo:     repo,
-		token:    os.Getenv("GITHUB_TOKEN"),
-		client:   &http.Client{Timeout: 30 * time.Second},
-		logger:   logger,
+		repoPath:   repoPath,
+		owner:      owner,
+		repo:       repo,
+		token:      os.Getenv("GITHUB_TOKEN"),
+		client:     community.NewGitHubClient(ctx),
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		logger:     logger,
 	}
+}
+
+// HealthCheck verifies that the GitHub API is reachable and the token is valid.
+func (e *Engine) HealthCheck(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "HEAD", "https://api.github.com", nil)
+	if err != nil {
+		e.logger.Error("health check: failed to create request", "error", err)
+		return fmt.Errorf("health check request creation: %w", err)
+	}
+	if e.token != "" {
+		req.Header.Set("Authorization", "Bearer "+e.token)
+	}
+	resp, err := e.httpClient.Do(req)
+	if err != nil {
+		e.logger.Error("health check: GitHub API unreachable", "error", err)
+		return fmt.Errorf("health check: GitHub API unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		e.logger.Error("health check: GitHub token invalid", "status", resp.StatusCode)
+		return fmt.Errorf("health check: GitHub token invalid (status %d)", resp.StatusCode)
+	}
+	e.logger.Info("health check passed", "status", resp.StatusCode)
+	return nil
 }
 
 // Run executes one social session:
@@ -340,40 +370,29 @@ type githubIssue struct {
 }
 
 func (e *Engine) fetchIssue(ctx context.Context, number int) (*githubIssue, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%d", e.owner, e.repo, number)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+e.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := e.client.Do(req)
+	if e.client == nil {
+		return nil, fmt.Errorf("GitHub client not initialized")
+	}
+	issue, _, err := e.client.Issues.Get(ctx, e.owner, e.repo, number)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	var issue githubIssue
-	return &issue, json.NewDecoder(resp.Body).Decode(&issue)
+	body := issue.GetBody()
+	return &githubIssue{
+		Number: issue.GetNumber(),
+		Title:  issue.GetTitle(),
+		Body:   body,
+	}, nil
 }
 
 func (e *Engine) postIssueComment(ctx context.Context, number int, body string) error {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%d/comments", e.owner, e.repo, number)
-	payload, _ := json.Marshal(map[string]string{"body": body})
-
-	req, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
-	req.Header.Set("Authorization", "Bearer "+e.token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return err
+	if e.client == nil {
+		return fmt.Errorf("GitHub client not initialized")
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("GitHub API error %d: %s", resp.StatusCode, string(b))
-	}
-	return nil
+	_, _, err := e.client.Issues.CreateComment(ctx, e.owner, e.repo, number, &github.IssueComment{
+		Body: &body,
+	})
+	return err
 }
 
 // fetchDiscussions uses GitHub GraphQL API to get open discussions.
@@ -383,11 +402,14 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 		"variables": {"owner": "` + e.owner + `", "repo": "` + e.repo + `"}
 	}`
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(query))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(query))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+e.token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -428,14 +450,14 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 			ID:     node.ID,
 			Number: node.Number,
 			Title:  node.Title,
-			Body:   truncate(node.Body, 500),
+			Body:   util.Truncate(node.Body, 500),
 			URL:    node.URL,
 		}
 		for _, c := range node.Comments.Nodes {
 			d.Comments = append(d.Comments, Comment{
 				ID:     c.ID,
 				Author: c.Author.Login,
-				Body:   truncate(c.Body, 300),
+				Body:   util.Truncate(c.Body, 300),
 			})
 		}
 		discussions = append(discussions, d)
@@ -447,11 +469,14 @@ func (e *Engine) postDiscussionReply(ctx context.Context, discussionID, body str
 	mutation := fmt.Sprintf(`{"query":"mutation{addDiscussionComment(input:{discussionId:\"%s\",body:\"%s\"}){comment{id}}}"}`,
 		discussionID, strings.ReplaceAll(body, `"`, `\"`))
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+e.token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -468,11 +493,14 @@ func (e *Engine) createDiscussion(ctx context.Context, title, body string) error
 	repoQuery := fmt.Sprintf(`{"query":"{repository(owner:\"%s\",name:\"%s\"){id,discussionCategories(first:5){nodes{id,name}}}}"}`,
 		e.owner, e.repo)
 
-	req, _ := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(repoQuery))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(repoQuery))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
 	req.Header.Set("Authorization", "Bearer "+e.token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -515,23 +543,19 @@ func (e *Engine) createDiscussion(ctx context.Context, title, body string) error
 		strings.ReplaceAll(title, `"`, `\"`),
 		strings.ReplaceAll(body, `"`, `\"`))
 
-	req2, _ := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
+	req2, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
 	req2.Header.Set("Authorization", "Bearer "+e.token)
 	req2.Header.Set("Content-Type", "application/json")
 
-	resp2, err := e.client.Do(req2)
+	resp2, err := e.httpClient.Do(req2)
 	if err != nil {
 		return err
 	}
 	defer resp2.Body.Close()
 	return nil
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "..."
 }
 
 func min(a, b int) int {

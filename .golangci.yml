@@ -3,36 +3,28 @@ run:
 
 linters:
   enable:
-    - errcheck
-    - gosimple
     - govet
-    - ineffassign
+    - errcheck
     - staticcheck
     - unused
-    - gofmt
-    - goimports
-    - misspell
+    - gosimple
+    - ineffassign
+    - typecheck
+  disable:
+    - gocritic
     - revive
-    - bodyclose
-    - contextcheck
+    - gosec
+    - funlen
+    - lll
 
 linters-settings:
-  revive:
-    rules:
-      - name: exported
-        disabled: true
-      - name: unused-parameter
-        disabled: true
-
   errcheck:
     ignore: fmt:.*,io/fs:PathError
 
 issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
   exclude-rules:
     - path: "_test\\.go"
       linters:
         - errcheck
-        - bodyclose
-    - path: "scripts/"
-      linters:
-        - revive

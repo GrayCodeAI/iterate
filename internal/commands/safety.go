@@ -71,8 +71,8 @@ func cmdAllow(ctx Context) Result {
 		return Result{Handled: true}
 	}
 	tool := ctx.Arg(1)
-	if ctx.DeniedTools != nil {
-		delete(ctx.DeniedTools, tool)
+	if ctx.State.AllowTool != nil {
+		ctx.State.AllowTool(tool)
 	}
 	// TODO: persist to config file
 	PrintSuccess("%s removed from deny list", tool)
@@ -85,8 +85,8 @@ func cmdDeny(ctx Context) Result {
 		return Result{Handled: true}
 	}
 	tool := ctx.Arg(1)
-	if ctx.DeniedTools != nil {
-		ctx.DeniedTools[tool] = true
+	if ctx.State.DenyTool != nil {
+		ctx.State.DenyTool(tool)
 	}
 	// TODO: persist to config file
 	PrintSuccess("%s added to deny list", tool)
@@ -104,8 +104,10 @@ func cmdConfig(ctx Context) Result {
 	if ctx.Provider != nil {
 		fmt.Printf("  Model:        %s\n", ctx.Provider.Name())
 	}
-	if ctx.DeniedTools != nil && len(ctx.DeniedTools) > 0 {
-		fmt.Printf("  Denied tools: %v\n", ctx.DeniedTools)
+	if ctx.State.GetDeniedList != nil {
+		if denied := ctx.State.GetDeniedList(); len(denied) > 0 {
+			fmt.Printf("  Denied tools: %v\n", denied)
+		}
 	}
 	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}

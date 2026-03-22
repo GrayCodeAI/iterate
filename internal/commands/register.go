@@ -14,6 +14,8 @@ func RegisterAll(r *Registry) {
 	RegisterUtilityCommands(r)
 	RegisterModeCommands(r)
 	RegisterFileCommands(r)
+	RegisterConfigCommands(r)
+	RegisterAnalysisCommands(r)
 }
 
 // DefaultRegistry returns a fully populated registry.

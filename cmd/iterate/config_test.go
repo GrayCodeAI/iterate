@@ -372,3 +372,174 @@ func TestApplyEnvOverrides_OverridesFileConfig(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// sessionChangesTracker
+// ---------------------------------------------------------------------------
+
+func TestSessionChangesTracker_RecordWrite(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordWrite("/path/to/file.go")
+
+	if len(tracker.written) != 1 {
+		t.Fatalf("expected 1 written file, got %d", len(tracker.written))
+	}
+	if tracker.written[0] != "/path/to/file.go" {
+		t.Errorf("expected '/path/to/file.go', got %q", tracker.written[0])
+	}
+}
+
+func TestSessionChangesTracker_RecordWrite_Dedup(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordWrite("/path/to/file.go")
+	tracker.recordWrite("/path/to/file.go")
+	tracker.recordWrite("/path/to/other.go")
+
+	if len(tracker.written) != 2 {
+		t.Errorf("expected 2 unique written files, got %d", len(tracker.written))
+	}
+}
+
+func TestSessionChangesTracker_RecordEdit(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordEdit("/path/to/edited.go")
+
+	if len(tracker.edited) != 1 {
+		t.Fatalf("expected 1 edited file, got %d", len(tracker.edited))
+	}
+	if tracker.edited[0] != "/path/to/edited.go" {
+		t.Errorf("expected '/path/to/edited.go', got %q", tracker.edited[0])
+	}
+}
+
+func TestSessionChangesTracker_RecordEdit_Dedup(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordEdit("/a.go")
+	tracker.recordEdit("/a.go")
+	tracker.recordEdit("/b.go")
+
+	if len(tracker.edited) != 2 {
+		t.Errorf("expected 2 unique edited files, got %d", len(tracker.edited))
+	}
+}
+
+func TestSessionChangesTracker_Format_Empty(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	result := tracker.format()
+	if result != "No files changed this session." {
+		t.Errorf("expected empty message, got %q", result)
+	}
+}
+
+func TestSessionChangesTracker_Format_WithWritten(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordWrite("/new.go")
+	result := tracker.format()
+
+	if !strings.Contains(result, "/new.go") {
+		t.Errorf("format should contain written file path, got %q", result)
+	}
+	if !strings.Contains(result, "+") {
+		t.Errorf("format should contain '+' for written files, got %q", result)
+	}
+}
+
+func TestSessionChangesTracker_Format_WithEdited(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordEdit("/modified.go")
+	result := tracker.format()
+
+	if !strings.Contains(result, "/modified.go") {
+		t.Errorf("format should contain edited file path, got %q", result)
+	}
+	if !strings.Contains(result, "~") {
+		t.Errorf("format should contain '~' for edited files, got %q", result)
+	}
+}
+
+func TestSessionChangesTracker_Format_Mixed(t *testing.T) {
+	tracker := &sessionChangesTracker{}
+	tracker.recordWrite("/new.go")
+	tracker.recordEdit("/modified.go")
+
+	result := tracker.format()
+	if !strings.Contains(result, "/new.go") {
+		t.Error("format should contain written file")
+	}
+	if !strings.Contains(result, "/modified.go") {
+		t.Error("format should contain edited file")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// splitShellWords
+// ---------------------------------------------------------------------------
+
+func TestSplitShellWords(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  string
+		want []string
+	}{
+		{"simple command", "go test ./...", []string{"go", "test", "./..."}},
+		{"quoted args", `echo "hello world"`, []string{"echo", "hello world"}},
+		{"single quoted", "echo 'hello world'", []string{"echo", "hello world"}},
+		{"empty string", "", nil},
+		{"only spaces", "   ", nil},
+		{"multiple spaces", "go    build", []string{"go", "build"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitShellWords(tt.cmd)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d words, want %d: %v", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("word %d: got %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// conversationMarks
+// ---------------------------------------------------------------------------
+
+func TestConversationMarks_SetAndGet(t *testing.T) {
+	setConversationMark("test-mark", 42)
+	idx, ok := getConversationMark("test-mark")
+	if !ok {
+		t.Error("expected mark to exist")
+	}
+	if idx != 42 {
+		t.Errorf("expected index 42, got %d", idx)
+	}
+}
+
+func TestConversationMark_NotFound(t *testing.T) {
+	_, ok := getConversationMark("nonexistent-mark-" + t.Name())
+	if ok {
+		t.Error("expected mark to not exist")
+	}
+}
+
+func TestConversationMarks_GetAll(t *testing.T) {
+	setConversationMark("mark-a", 1)
+	setConversationMark("mark-b", 2)
+
+	marks := getConversationMarks()
+	if len(marks) < 2 {
+		t.Errorf("expected at least 2 marks, got %d", len(marks))
+	}
+}
+
+func TestConversationMarksLen(t *testing.T) {
+	before := conversationMarksLen()
+	setConversationMark("len-test-"+t.Name(), 99)
+	after := conversationMarksLen()
+	if after != before+1 {
+		t.Errorf("expected length to increase by 1, got %d -> %d", before, after)
+	}
+}
