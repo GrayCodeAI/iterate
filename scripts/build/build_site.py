@@ -277,7 +277,7 @@ def main():
     identity_md = read_file("docs/IDENTITY.md")
     entries = parse_journal(journal_md)
     days = day_count()
-    sessions = days  # each day after birth is a session
+    sessions = max(0, len(entries) - 1)  # born entry doesn't count as a session
     journal_html = render_journal(entries)
     mission, body_html, rules_html = (
         parse_identity(identity_md) if identity_md else ("", "", "")
