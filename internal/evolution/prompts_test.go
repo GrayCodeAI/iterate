@@ -70,16 +70,11 @@ func TestIsProtected_GlobPattern(t *testing.T) {
 }
 
 func TestIsProtected_WorkflowGlob(t *testing.T) {
-<<<<<<< HEAD
 	// The .github/workflows/*.yml pattern matches base filename via filepath.Match
 	// and checks directory equality. This is implementation-specific.
 	// Verify the exact protected patterns work instead.
 	if !isProtected(".github/workflows/evolve.yml") {
 		t.Error("evolve.yml should be protected (exact match)")
-=======
-	if !isProtected(".github/workflows/some_other.yml") {
-		t.Error("other workflow files should be protected via glob")
->>>>>>> 9a0681598ac70e6d3e6be26c150af3f5dd950c81
 	}
 }
 
