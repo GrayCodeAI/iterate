@@ -23,7 +23,7 @@ func initGitRepo(t *testing.T, dir string) {
 	cmds := []struct {
 		args []string
 	}{
-		{[]string{"git", "init"}},
+		{[]string{"git", "init", "-b", "main"}},
 		{[]string{"git", "config", "user.email", "test@test.com"}},
 		{[]string{"git", "config", "user.name", "Test"}},
 	}
