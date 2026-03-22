@@ -44,7 +44,7 @@ jobs:
       - name: Install opencode CLI
         run: |
           curl -fsSL https://opencode.ai/install | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.opencode/bin" >> $GITHUB_PATH
 
       - name: Configure opencode auth
         run: |
