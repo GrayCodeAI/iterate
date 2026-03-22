@@ -182,22 +182,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		Status:    "running",
 	}
 
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
-	if err != nil {
-		e.logger.Warn("failed to read IDENTITY.md", "err", err)
-	}
-	journal, err := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
-	if err != nil {
-		e.logger.Warn("failed to read JOURNAL.md", "err", err)
-	}
-	dayBytes, err := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
-	if err != nil {
-		e.logger.Warn("failed to read DAY_COUNT", "err", err)
-	}
-	day, err := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
-	if err != nil {
-		e.logger.Warn("failed to parse DAY_COUNT", "err", err, "raw", string(dayBytes))
-	}
+	identity, journal, day := e.readContextFiles()
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
@@ -206,31 +191,13 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 	a := e.newAgent(p, tools, systemPrompt, skills)
 
-	eventCh := a.Prompt(ctx, userMessage)
-	var output string
-	var runErr error
-	for ev := range eventCh {
-		if e.eventSink != nil {
-			select {
-			case e.eventSink <- ev:
-			default:
-			}
-		}
-		if ev.Type == string(iteragent.EventMessageEnd) {
-			output = ev.Content
-		}
-		if ev.Type == string(iteragent.EventError) {
-			runErr = fmt.Errorf("%s", ev.Content)
-		}
-	}
+	output, runErr := e.runAgentAndCollectEvents(ctx, a, userMessage)
 	a.Finish()
-
 	result.FinishedAt = time.Now()
 
 	if runErr != nil {
 		result.Status = "error"
 		e.logger.Error("evolution run failed", "error", runErr)
-		// Don't write journal — nothing real happened, just a provider/agent failure.
 		return result, runErr
 	}
 
@@ -260,6 +227,47 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 
 	e.logger.Info("evolution run completed", "status", result.Status, "duration", result.FinishedAt.Sub(result.StartedAt).String())
 	return result, nil
+}
+
+func (e *Engine) readContextFiles() ([]byte, []byte, int) {
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
+	if err != nil {
+		e.logger.Warn("failed to read IDENTITY.md", "err", err)
+	}
+	journal, err := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+	if err != nil {
+		e.logger.Warn("failed to read JOURNAL.md", "err", err)
+	}
+	dayBytes, err := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	if err != nil {
+		e.logger.Warn("failed to read DAY_COUNT", "err", err)
+	}
+	day, err := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
+	if err != nil {
+		e.logger.Warn("failed to parse DAY_COUNT", "err", err, "raw", string(dayBytes))
+	}
+	return identity, journal, day
+}
+
+func (e *Engine) runAgentAndCollectEvents(ctx context.Context, a *iteragent.Agent, userMessage string) (string, error) {
+	eventCh := a.Prompt(ctx, userMessage)
+	var output string
+	var runErr error
+	for ev := range eventCh {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			output = ev.Content
+		}
+		if ev.Type == string(iteragent.EventError) {
+			runErr = fmt.Errorf("%s", ev.Content)
+		}
+	}
+	return output, runErr
 }
 
 // handleCommitAndPR creates a branch, commits, pushes, and creates a PR.
