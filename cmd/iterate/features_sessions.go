@@ -135,28 +135,20 @@ func addBookmark(name string, messages []iteragent.Message) {
 // /stats — session statistics
 // ---------------------------------------------------------------------------
 
-var sessionStart = time.Now()
-var sessionToolCalls int
-var sessionMessages int
-
-func recordToolCall() { sessionToolCalls++ }
-func recordMessage()  { sessionMessages++ }
+// recordToolCall and recordMessage are kept as thin wrappers for backward compatibility.
+func recordToolCall() { sess.ToolCalls++ }
+func recordMessage()  { sess.Messages++ }
 
 func sessionStats() string {
-	elapsed := time.Since(sessionStart).Round(time.Second)
-	return fmt.Sprintf(
-		"Duration: %s  |  Messages sent: %d  |  Tool calls: ~%d  |  Output tokens: ~%d",
-		elapsed, sessionMessages, sessionToolCalls, sessionTokens)
+	return sess.Stats()
 }
 
 // ---------------------------------------------------------------------------
 // /notify — ring terminal bell when agent finishes
 // ---------------------------------------------------------------------------
 
-var notifyEnabled bool
-
 func maybeNotify() {
-	if notifyEnabled {
+	if cfg.NotifyEnabled {
 		fmt.Print("\a") // terminal bell
 	}
 }
@@ -164,5 +156,3 @@ func maybeNotify() {
 // ---------------------------------------------------------------------------
 // /debug — toggle debug logging
 // ---------------------------------------------------------------------------
-
-var debugMode bool

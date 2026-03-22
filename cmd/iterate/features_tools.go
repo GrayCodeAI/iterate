@@ -23,9 +23,6 @@ import (
 // Tool wrappers wait for it to reach 0 before showing a prompt.
 var spinnerActive atomic.Int32
 
-// safeMode controls whether destructive tools require confirmation.
-var safeMode bool
-
 // deniedTools is the set of tools blocked in safe mode.
 var deniedTools = map[string]bool{
 	"bash":       true,
@@ -103,7 +100,7 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 				}
 			}
 
-			if safeMode && isDenied(t.Name) {
+			if cfg.SafeMode && isDenied(t.Name) {
 				// Glob-based auto-allow/deny for bash commands.
 				if t.Name == "bash" {
 					cmd := args["command"]
