@@ -15,6 +15,11 @@ import (
 
 // RegisterUtilityCommands adds utility/context management commands.
 func RegisterUtilityCommands(r *Registry) {
+	registerUtilityContextCommands(r)
+	registerUtilityActionCommands(r)
+}
+
+func registerUtilityContextCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/context",
 		Aliases:     []string{},
@@ -31,6 +36,16 @@ func RegisterUtilityCommands(r *Registry) {
 		Handler:     cmdExport,
 	})
 
+	r.Register(Command{
+		Name:        "/compact",
+		Aliases:     []string{},
+		Description: "compact conversation history",
+		Category:    "utility",
+		Handler:     cmdCompact,
+	})
+}
+
+func registerUtilityActionCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/retry",
 		Aliases:     []string{},
@@ -85,14 +100,6 @@ func RegisterUtilityCommands(r *Registry) {
 		Description: "inject raw text into context",
 		Category:    "utility",
 		Handler:     cmdInject,
-	})
-
-	r.Register(Command{
-		Name:        "/compact",
-		Aliases:     []string{},
-		Description: "compact conversation history",
-		Category:    "utility",
-		Handler:     cmdCompact,
 	})
 }
 

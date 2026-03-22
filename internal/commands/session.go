@@ -78,6 +78,11 @@ func registerSessionBookmarkCommands(r *Registry) {
 }
 
 func registerSessionUtilityCommands(r *Registry) {
+	registerSessionUtilityA(r)
+	registerSessionUtilityB(r)
+}
+
+func registerSessionUtilityA(r *Registry) {
 	r.Register(Command{
 		Name:        "/templates",
 		Aliases:     []string{},
@@ -133,7 +138,9 @@ func registerSessionUtilityCommands(r *Registry) {
 		Category:    "session",
 		Handler:     cmdPair,
 	})
+}
 
+func registerSessionUtilityB(r *Registry) {
 	r.Register(Command{
 		Name:        "/changes",
 		Aliases:     []string{},

@@ -8,6 +8,12 @@ import (
 
 // RegisterConfigCommands adds configuration and settings commands.
 func RegisterConfigCommands(r *Registry) {
+	registerConfigCoreCommands(r)
+	registerConfigMCPCommands(r)
+	registerConfigEnvCommands(r)
+}
+
+func registerConfigCoreCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/set",
 		Aliases:     []string{},
@@ -39,23 +45,9 @@ func RegisterConfigCommands(r *Registry) {
 		Category:    "config",
 		Handler:     cmdNotify,
 	})
+}
 
-	r.Register(Command{
-		Name:        "/env",
-		Aliases:     []string{},
-		Description: "show/set environment variables",
-		Category:    "config",
-		Handler:     cmdEnv,
-	})
-
-	r.Register(Command{
-		Name:        "/debug",
-		Aliases:     []string{},
-		Description: "toggle debug mode",
-		Category:    "config",
-		Handler:     cmdDebug,
-	})
-
+func registerConfigMCPCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/mcp-add",
 		Aliases:     []string{},
@@ -78,6 +70,24 @@ func RegisterConfigCommands(r *Registry) {
 		Description: "remove MCP server",
 		Category:    "config",
 		Handler:     cmdMCPRemove,
+	})
+}
+
+func registerConfigEnvCommands(r *Registry) {
+	r.Register(Command{
+		Name:        "/env",
+		Aliases:     []string{},
+		Description: "show/set environment variables",
+		Category:    "config",
+		Handler:     cmdEnv,
+	})
+
+	r.Register(Command{
+		Name:        "/debug",
+		Aliases:     []string{},
+		Description: "toggle debug mode",
+		Category:    "config",
+		Handler:     cmdDebug,
 	})
 }
 

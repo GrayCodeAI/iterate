@@ -193,75 +193,83 @@ func cmdRemember(ctx Context) Result {
 
 func cmdForget(ctx Context) Result {
 	if ctx.HasArg(1) && ctx.Arg(1) == "msg" {
-		if ctx.Agent == nil {
-			fmt.Println("No agent available.")
-			return Result{Handled: true}
-		}
-		n := len(ctx.Agent.Messages)
-		if ctx.HasArg(2) {
-			fmt.Sscanf(ctx.Arg(2), "%d", &n)
-			n--
-		}
-		if n < 0 || n >= len(ctx.Agent.Messages) {
-			fmt.Printf("Invalid index. Context has %d messages (1-%d).\n", len(ctx.Agent.Messages), len(ctx.Agent.Messages))
-			return Result{Handled: true}
-		}
-		removed := ctx.Agent.Messages[n]
-		ctx.Agent.Messages = append(ctx.Agent.Messages[:n], ctx.Agent.Messages[n+1:]...)
-		snippet := removed.Content
-		if len(snippet) > 60 {
-			snippet = snippet[:60] + "…"
-		}
-		fmt.Printf("%s✓ removed message %d [%s]: %s%s\n\n", ColorLime, n+1, removed.Role, snippet, ColorReset)
-	} else {
-		if !ctx.HasArg(1) {
-			fmt.Println("Usage: /forget <n>  or  /forget msg <n>")
-			return Result{Handled: true}
-		}
-		n := 0
-		fmt.Sscanf(ctx.Arg(1), "%d", &n)
-		if n < 1 {
-			PrintError("invalid index")
-			return Result{Handled: true}
-		}
-
-		memoryPath := filepath.Join(ctx.RepoPath, ".iterate", "memory.json")
-		data, err := os.ReadFile(memoryPath)
-		if err != nil {
-			PrintError("failed to read memory: %v", err)
-			return Result{Handled: true}
-		}
-
-		var notes []map[string]string
-		if err := json.Unmarshal(data, &notes); err != nil {
-			PrintError("failed to parse memory: %v", err)
-			return Result{Handled: true}
-		}
-
-		if n > len(notes) {
-			PrintError("index out of range (have %d notes)", len(notes))
-			return Result{Handled: true}
-		}
-
-		removed := notes[n-1]
-		notes = append(notes[:n-1], notes[n:]...)
-
-		newData, err := json.MarshalIndent(notes, "", "  ")
-		if err != nil {
-			PrintError("failed to marshal: %v", err)
-			return Result{Handled: true}
-		}
-		if err := os.WriteFile(memoryPath, newData, 0644); err != nil {
-			PrintError("failed to write: %v", err)
-			return Result{Handled: true}
-		}
-
-		text := removed["note"]
-		if len(text) > 60 {
-			text = text[:60] + "…"
-		}
-		PrintSuccess("removed note %d: %s", n, text)
+		return cmdForgetMessage(ctx)
 	}
+	if !ctx.HasArg(1) {
+		fmt.Println("Usage: /forget <n>  or  /forget msg <n>")
+		return Result{Handled: true}
+	}
+	return cmdForgetNote(ctx)
+}
+
+func cmdForgetNote(ctx Context) Result {
+	n := 0
+	fmt.Sscanf(ctx.Arg(1), "%d", &n)
+	if n < 1 {
+		PrintError("invalid index")
+		return Result{Handled: true}
+	}
+
+	memoryPath := filepath.Join(ctx.RepoPath, ".iterate", "memory.json")
+	data, err := os.ReadFile(memoryPath)
+	if err != nil {
+		PrintError("failed to read memory: %v", err)
+		return Result{Handled: true}
+	}
+
+	var notes []map[string]string
+	if err := json.Unmarshal(data, &notes); err != nil {
+		PrintError("failed to parse memory: %v", err)
+		return Result{Handled: true}
+	}
+
+	if n > len(notes) {
+		PrintError("index out of range (have %d notes)", len(notes))
+		return Result{Handled: true}
+	}
+
+	removed := notes[n-1]
+	notes = append(notes[:n-1], notes[n:]...)
+
+	newData, err := json.MarshalIndent(notes, "", "  ")
+	if err != nil {
+		PrintError("failed to marshal: %v", err)
+		return Result{Handled: true}
+	}
+	if err := os.WriteFile(memoryPath, newData, 0644); err != nil {
+		PrintError("failed to write: %v", err)
+		return Result{Handled: true}
+	}
+
+	text := removed["note"]
+	if len(text) > 60 {
+		text = text[:60] + "…"
+	}
+	PrintSuccess("removed note %d: %s", n, text)
+	return Result{Handled: true}
+}
+
+func cmdForgetMessage(ctx Context) Result {
+	if ctx.Agent == nil {
+		fmt.Println("No agent available.")
+		return Result{Handled: true}
+	}
+	n := len(ctx.Agent.Messages)
+	if ctx.HasArg(2) {
+		fmt.Sscanf(ctx.Arg(2), "%d", &n)
+		n--
+	}
+	if n < 0 || n >= len(ctx.Agent.Messages) {
+		fmt.Printf("Invalid index. Context has %d messages (1-%d).\n", len(ctx.Agent.Messages), len(ctx.Agent.Messages))
+		return Result{Handled: true}
+	}
+	removed := ctx.Agent.Messages[n]
+	ctx.Agent.Messages = append(ctx.Agent.Messages[:n], ctx.Agent.Messages[n+1:]...)
+	snippet := removed.Content
+	if len(snippet) > 60 {
+		snippet = snippet[:60] + "…"
+	}
+	fmt.Printf("%s✓ removed message %d [%s]: %s%s\n\n", ColorLime, n+1, removed.Role, snippet, ColorReset)
 	return Result{Handled: true}
 }
 
