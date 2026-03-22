@@ -199,6 +199,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	}
 
 	stopWatch()
+<<<<<<< HEAD
 	printSessionSummary(a, repoPath)
 }
 
@@ -256,6 +257,8 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 
 // printSessionSummary prints final session statistics and goodbye message.
 func printSessionSummary(a *iteragent.Agent, repoPath string) {
+=======
+>>>>>>> 4c60b6b53a3a982e5049101759999986fe4eaf00
 	elapsed := time.Since(sess.Start).Round(time.Second)
 	if len(a.Messages) > 0 {
 		_ = saveSession("autosave", a.Messages)

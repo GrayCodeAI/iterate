@@ -165,6 +165,7 @@ func newSpinnerController() (func(), func(string)) {
 	return stopOnce, newSpinner
 }
 
+<<<<<<< HEAD
 // processStreamEvent handles a single agent stream event and returns updated state.
 func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Time, stopOnce func(), newSpinner func(string), repoPath string) (string, time.Time) {
 	switch iteragent.EventType(e.Type) {
@@ -180,6 +181,49 @@ func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Ti
 			renderResponse(fullContent)
 			fmt.Println()
 			fullContent = ""
+=======
+	var fullContent string
+	var toolStart time.Time
+	beforeTokens := sess.Tokens
+
+	for e := range events {
+		switch iteragent.EventType(e.Type) {
+		case iteragent.EventTokenUpdate:
+			// Buffer tokens, render at end with markdown highlighting.
+			fullContent += e.Content
+
+		case iteragent.EventMessageUpdate:
+			// Non-streaming provider: buffer and render at the end.
+		case iteragent.EventToolExecutionStart:
+			toolStart = time.Now()
+			recordToolCall()
+			stopOnce()
+			if fullContent != "" {
+				fmt.Print("\r\033[K")
+				renderResponse(fullContent)
+				fmt.Println()
+				fullContent = ""
+			}
+			icon, label, col := toolStyle(e.ToolName)
+			// Show tool name + truncated key arg inline
+			fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
+
+		case iteragent.EventToolExecutionEnd:
+			elapsed := time.Since(toolStart).Round(time.Millisecond)
+			fmt.Print(formatToolCallResult(e.Result, elapsed))
+			// Show git diff after file edits
+			if e.ToolName == "write_file" || e.ToolName == "edit_file" || e.ToolName == "create_file" {
+				showGitDiff(repoPath)
+			}
+			// Restart spinner for next agent step
+			newSpinner("thinking")
+
+		case iteragent.EventContextCompacted:
+			fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
+
+		case iteragent.EventError:
+			fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
+>>>>>>> 4c60b6b53a3a982e5049101759999986fe4eaf00
 		}
 		icon, label, col := toolStyle(e.ToolName)
 		fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
