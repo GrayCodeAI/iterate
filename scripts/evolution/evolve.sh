@@ -54,7 +54,7 @@ log "=== iterate evolution cycle started ==="
 
 # ── Guard: require API key ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
-  log "ERROR: OPENCODE_API_KEY is not set. Evolution requires an LLM provider. Exiting."
+  log "ERROR: OPENCODE_API_KEY (OpenRouter key) is not set. Exiting."
   exit 1
 fi
 
