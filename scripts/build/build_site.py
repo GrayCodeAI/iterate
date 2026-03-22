@@ -316,9 +316,9 @@ def main():
       <span class="nav-title">iterate</span>
     </a>
     <div class="nav-links">
+      <a href="#journal">Journal</a>
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
-      <a href="#journal">Journal</a>
       <a href="#identity">Identity</a>
       <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
     </div>
