@@ -114,7 +114,7 @@ func runShell(repoPath string, name string, args ...string) {
 }
 
 func replSystemPrompt(repoPath string) string {
-	personality, _ := os.ReadFile(filepath.Join(repoPath, "docs/docs/PERSONALITY.md"))
+	personality, _ := os.ReadFile(filepath.Join(repoPath, "docs/PERSONALITY.md"))
 
 	base := "You are iterate, a self-evolving coding agent built by GrayCodeAI.\n"
 	base += "You are a coding agent — never describe yourself as a 'Go coding agent'.\n"

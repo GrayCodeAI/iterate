@@ -66,8 +66,8 @@ func runEvolutionMode(ctx context.Context, f mainFlags, absRepo string, p iterag
 		filepath.Join(absRepo, "scripts/evolution/evolve.sh"),
 		filepath.Join(absRepo, ".github/workflows"),
 		filepath.Join(absRepo, "skills"),
-		filepath.Join(absRepo, "docs/docs/IDENTITY.md"),
-		filepath.Join(absRepo, "docs/docs/PERSONALITY.md"),
+		filepath.Join(absRepo, "docs/IDENTITY.md"),
+		filepath.Join(absRepo, "docs/PERSONALITY.md"),
 		filepath.Join(absRepo, "CLAUDE.md"),
 	})
 

@@ -207,7 +207,7 @@ func appendLearning(repoPath, fact string) error {
 // ---------------------------------------------------------------------------
 
 func appendMemo(repoPath, text string) error {
-	path := filepath.Join(repoPath, "docs/docs/JOURNAL.md")
+	path := filepath.Join(repoPath, "docs/JOURNAL.md")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return err
@@ -379,9 +379,9 @@ func addTemplate(name, prompt string) {
 
 func initProject(repoPath, projectName string) []string {
 	files := map[string]string{
-		"docs/docs/IDENTITY.md":            fmt.Sprintf("# %s\n\nA self-evolving project powered by iterate.\n", projectName),
-		"docs/docs/PERSONALITY.md":         "Helpful, concise, and direct.\n",
-		"docs/docs/JOURNAL.md":             fmt.Sprintf("# iterate Evolution Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
+		"docs/IDENTITY.md":            fmt.Sprintf("# %s\n\nA self-evolving project powered by iterate.\n", projectName),
+		"docs/PERSONALITY.md":         "Helpful, concise, and direct.\n",
+		"docs/JOURNAL.md":             fmt.Sprintf("# iterate Evolution Journal\n\n## Day 1 — %s\n\nProject initialized.\n", time.Now().Format("2006-01-02")),
 		"DAY_COUNT":              "1",
 		"memory/learnings.jsonl": "",
 		"skills/.keep":           "",

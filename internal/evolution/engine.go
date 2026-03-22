@@ -237,11 +237,11 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 }
 
 func (e *Engine) readContextFiles() ([]byte, []byte, int) {
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/IDENTITY.md"))
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "docs/IDENTITY.md"))
 	if err != nil {
 		e.logger.Warn("failed to read IDENTITY.md", "err", err)
 	}
-	journal, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/JOURNAL.md"))
+	journal, err := os.ReadFile(filepath.Join(e.repoPath, "docs/JOURNAL.md"))
 	if err != nil {
 		e.logger.Warn("failed to read JOURNAL.md", "err", err)
 	}
@@ -322,7 +322,7 @@ func (e *Engine) handleCommitAndPR(ctx context.Context, day int, output string, 
 func (e *Engine) createPRFromBranch(ctx context.Context, day int, output string, commitMsg string, p iteragent.Provider, result *RunResult) error {
 	e.logger.Info("creating PR")
 
-	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/SESSION_PLAN.md"))
+	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "docs/SESSION_PLAN.md"))
 	if err != nil {
 		e.logger.Warn("failed to read SESSION_PLAN.md", "err", err)
 	}

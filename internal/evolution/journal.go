@@ -44,7 +44,7 @@ func categorizeJournalEntry(content string) string {
 }
 
 func (e *Engine) appendJournal(result *RunResult, output, provider string, success bool) {
-	path := filepath.Join(e.repoPath, "docs/docs/JOURNAL.md")
+	path := filepath.Join(e.repoPath, "docs/JOURNAL.md")
 
 	dayCount := 0
 	if data, err := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT")); err == nil {
