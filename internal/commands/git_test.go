@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 )
 
@@ -456,5 +459,132 @@ func TestGitCommandAliases(t *testing.T) {
 	}
 	if cmd.Name != "/branch" {
 		t.Errorf("expected /br to resolve to /branch, got %s", cmd.Name)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Additional git tests with temp repo
+// ---------------------------------------------------------------------------
+
+func initTempGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	cmds := [][]string{
+		{"git", "init"},
+		{"git", "config", "user.email", "test@test.com"},
+		{"git", "config", "user.name", "Test"},
+	}
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %s: %s", err, string(out))
+		}
+	}
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test"), 0o644)
+	cmd := exec.Command("git", "add", "-A")
+	cmd.Dir = dir
+	cmd.CombinedOutput()
+	cmd = exec.Command("git", "commit", "-m", "init")
+	cmd.Dir = dir
+	cmd.CombinedOutput()
+	return dir
+}
+
+func TestCmdDiff_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/diff"}}
+	result := cmdDiff(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdStatus_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/status"}}
+	result := cmdStatus(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdStatus_WithUntracked(t *testing.T) {
+	dir := initTempGitRepo(t)
+	os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("hello"), 0o644)
+	ctx := Context{RepoPath: dir, Parts: []string{"/status"}}
+	result := cmdStatus(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdLog_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/log", "5"}}
+	result := cmdLog(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdBranch_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/branch"}}
+	result := cmdBranch(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdBranch_CreateBranch(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/branch", "feature-x"}}
+	result := cmdBranch(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+	cmd := exec.Command("git", "branch", "--list", "feature-x")
+	cmd.Dir = dir
+	out, _ := cmd.CombinedOutput()
+	if len(out) == 0 {
+		t.Error("branch should have been created")
+	}
+}
+
+func TestCmdCommit_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	os.WriteFile(filepath.Join(dir, "new.go"), []byte("package main"), 0o644)
+	ctx := Context{RepoPath: dir, Parts: []string{"/commit", "feat: add file"}}
+	result := cmdCommit(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdStashList_WithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/stash-list"}}
+	result := cmdStashList(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdTag_ListWithTempRepo(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/tag"}}
+	result := cmdTag(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
+	}
+}
+
+func TestCmdCheckout_NoBranchesAvailable(t *testing.T) {
+	dir := initTempGitRepo(t)
+	ctx := Context{RepoPath: dir, Parts: []string{"/checkout"}}
+	result := cmdCheckout(ctx)
+	if !result.Handled {
+		t.Error("expected Handled=true")
 	}
 }
