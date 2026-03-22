@@ -64,5 +64,6 @@ jobs:
           if [[ -n $(git status -s) ]]; then
             git add -A
             git commit -m "iterate: auto-evolution session $(date -u +'%Y-%m-%d %H:%M:%S')"
-            git push
           fi
+          git pull --rebase origin main
+          git push
