@@ -20,12 +20,6 @@ import (
 var watchCancel context.CancelFunc
 var watchMu sync.Mutex
 
-// ---------------------------------------------------------------------------
-// /auto-commit — toggle automatic commit after each file write
-// ---------------------------------------------------------------------------
-
-var autoCommitEnabled bool
-
 func startWatch(repoPath string) {
 	watchMu.Lock()
 	defer watchMu.Unlock()

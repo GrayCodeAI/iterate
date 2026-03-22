@@ -70,7 +70,7 @@ func printStatusLine(elapsed time.Duration) {
 	if model == "" {
 		model = os.Getenv("ITERATE_PROVIDER")
 	}
-	total := sessionInputTokens + sessionOutputTokens
+	total := sess.InputTokens + sess.OutputTokens
 
 	fmt.Printf("%s●%s %s%s%s",
 		colorCyan, colorReset,
@@ -113,7 +113,7 @@ func printStatusLine(elapsed time.Duration) {
 		}
 	}
 
-	if safeMode {
+	if cfg.SafeMode {
 		fmt.Printf("%s · %s🔒 safe%s", colorDim, colorCyan, colorReset)
 	}
 
