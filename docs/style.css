@@ -796,6 +796,56 @@ section:last-of-type { padding-bottom: 2rem; }
   line-height: 1.6;
 }
 
+/* ── cta ── */
+
+.cta-section {
+  padding: 6rem 0 0;
+}
+
+.cta-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 5rem 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-box::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(163,230,53,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cta-title {
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+  font-weight: 800;
+  color: var(--bright);
+  letter-spacing: -0.04em;
+  margin-bottom: 0.85rem;
+  position: relative;
+}
+
+.cta-sub {
+  font-size: 0.95rem;
+  color: var(--text);
+  max-width: 380px;
+  margin: 0 auto 2.25rem;
+  line-height: 1.75;
+  position: relative;
+}
+
+.cta-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+}
+
 /* ── footer ── */
 
 footer {
