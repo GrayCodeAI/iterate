@@ -67,6 +67,7 @@ func (e *Engine) appendJournal(result *RunResult, output, provider string, succe
 		body,
 	)
 
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	existing, _ := os.ReadFile(path)
 	header := "# iterate Evolution Journal\n"
 	rest := strings.TrimPrefix(string(existing), header)

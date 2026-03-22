@@ -151,6 +151,7 @@ func TestReplSystemPrompt_ContainsBaseText(t *testing.T) {
 
 func TestReplSystemPrompt_WithPersonality(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/PERSONALITY.md"), []byte("Be helpful and concise."), 0o644)
 
 	prompt := replSystemPrompt(dir)

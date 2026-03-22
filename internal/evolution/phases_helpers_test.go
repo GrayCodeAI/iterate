@@ -96,6 +96,7 @@ func TestAppendJournal_WithDayCount(t *testing.T) {
 
 func TestAppendJournal_PreservesExisting(t *testing.T) {
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
 	os.WriteFile(filepath.Join(dir, "docs/JOURNAL.md"),
 		[]byte("# iterate Evolution Journal\n\n## Day 1 — existing entry\n"), 0o644)
 	e := New(dir, slog.Default())
