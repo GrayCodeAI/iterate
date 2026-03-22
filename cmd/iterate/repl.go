@@ -371,7 +371,19 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 	cmd := strings.ToLower(parts[0])
 
 	// Try modular command registry first
-	cmdCtx := commands.Context{
+	cmdCtx := buildCommandContext(repoPath, line, parts, p, a, thinking)
+
+	if result := commands.DefaultRegistry().Execute(cmd, cmdCtx); result.Handled {
+		return result.Done
+	}
+
+	slog.Debug("unknown command", "command", cmd, "line", line)
+	fmt.Printf("Unknown command: %s (try /help)\n", cmd)
+	return false
+}
+
+func buildCommandContext(repoPath, line string, parts []string, p iteragent.Provider, a *iteragent.Agent, thinking *iteragent.ThinkingLevel) commands.Context {
+	return commands.Context{
 		RepoPath:            repoPath,
 		Line:                line,
 		Parts:               parts,
@@ -389,8 +401,6 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 		InputHistory:        &inputHistory,
 		StopWatch:           stopWatch,
 		Pool:                agentPool,
-
-		// Session callbacks
 		Session: commands.SessionCallbacks{
 			SaveSession:   saveSession,
 			LoadSession:   loadSession,
@@ -399,15 +409,11 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 			LoadBookmarks: loadBookmarksWrapper,
 			SelectItem:    selectItem,
 		},
-
-		// REPL callbacks
 		REPL: commands.REPLCallbacks{
 			StreamAndPrint: streamAndPrint,
 			RunShell:       runShell,
 			PromptLine:     promptLine,
 		},
-
-		// State accessors
 		State: commands.StateAccessors{
 			IsDenied:             isDenied,
 			DenyTool:             denyTool,
@@ -420,18 +426,8 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 			GetPinnedMessages:    getPinnedMessages,
 			SetPinnedMessages:    setPinnedMessages,
 		},
-
-		// Templates
 		Templates: commands.TemplateCallbacks{
 			FormatSessionChanges: sessionChanges.format,
 		},
 	}
-
-	if result := commands.DefaultRegistry().Execute(cmd, cmdCtx); result.Handled {
-		return result.Done
-	}
-
-	slog.Debug("unknown command", "command", cmd, "line", line)
-	fmt.Printf("Unknown command: %s (try /help)\n", cmd)
-	return false
 }

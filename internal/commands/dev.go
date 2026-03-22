@@ -384,45 +384,37 @@ func cmdVerify(ctx Context) Result {
 func cmdDoctor(ctx Context) Result {
 	fmt.Printf("%sRunning health checks…%s\n", ColorDim, ColorReset)
 
-	var checks []struct {
-		name string
-		cmd  string
-		args []string
+	checks := []struct {
+		name, cmd string
+		args      []string
+	}{
+		{"go version", "go", []string{"version"}},
+		{"go env GOPATH", "go", []string{"env", "GOPATH"}},
+		{"git version", "git", []string{"--version"}},
+		{"go vet", "go", []string{"vet", "./..."}},
+		{"go build", "go", []string{"build", "./..."}},
 	}
 
-	checks = append(checks,
-		struct {
-			name string
-			cmd  string
-			args []string
-		}{"go version", "go", []string{"version"}},
-		struct {
-			name string
-			cmd  string
-			args []string
-		}{"go env GOPATH", "go", []string{"env", "GOPATH"}},
-		struct {
-			name string
-			cmd  string
-			args []string
-		}{"git version", "git", []string{"--version"}},
-		struct {
-			name string
-			cmd  string
-			args []string
-		}{"go vet", "go", []string{"vet", "./..."}},
-		struct {
-			name string
-			cmd  string
-			args []string
-		}{"go build", "go", []string{"build", "./..."}},
-	)
-
 	fmt.Printf("%s── Health ──────────────────────────%s\n", ColorDim, ColorReset)
+	allOk := runHealthChecks(ctx.RepoPath, checks)
+	fmt.Printf("%s──────────────────────────────────%s\n", ColorDim, ColorReset)
+	if allOk {
+		PrintSuccess("all checks pass")
+	} else {
+		fmt.Printf("%s✗ some checks failed — use /fix to auto-repair%s\n\n", ColorRed, ColorReset)
+	}
+	return Result{Handled: true}
+}
+
+// runHealthChecks executes the given checks and prints results. Returns true if all pass.
+func runHealthChecks(repoPath string, checks []struct {
+	name, cmd string
+	args      []string
+}) bool {
 	allOk := true
 	for _, c := range checks {
 		cmd := exec.Command(c.cmd, c.args...)
-		cmd.Dir = ctx.RepoPath
+		cmd.Dir = repoPath
 		output, err := cmd.CombinedOutput()
 		status := ColorLime + "✓" + ColorReset
 		detail := strings.TrimSpace(string(output))
@@ -438,13 +430,7 @@ func cmdDoctor(ctx Context) Result {
 		}
 		fmt.Printf("  %s  %-20s  %s%s%s\n", status, c.name, ColorDim, detail, ColorReset)
 	}
-	fmt.Printf("%s──────────────────────────────────%s\n", ColorDim, ColorReset)
-	if allOk {
-		PrintSuccess("all checks pass")
-	} else {
-		fmt.Printf("%s✗ some checks failed — use /fix to auto-repair%s\n\n", ColorRed, ColorReset)
-	}
-	return Result{Handled: true}
+	return allOk
 }
 
 func cmdMock(ctx Context) Result {

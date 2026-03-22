@@ -164,13 +164,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		return e.runImplementPhaseLegacy(ctx, p, tasks, plan)
 	}
 
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
-	if err != nil {
-		e.logger.Warn("failed to read IDENTITY.md", "err", err)
-	}
-	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+	systemPrompt, tools, skills := e.loadImplementContext()
 
 	var allTaskOutputs []string
 	for _, task := range tasks {
@@ -194,6 +188,18 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	e.createImplementPR(ctx, day, plan, allTaskOutputs)
 
 	return nil
+}
+
+// loadImplementContext reads IDENTITY.md and prepares the system prompt, tools, and skills.
+func (e *Engine) loadImplementContext() (string, []iteragent.Tool, *iteragent.SkillSet) {
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
+	if err != nil {
+		e.logger.Warn("failed to read IDENTITY.md", "err", err)
+	}
+	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
+	tools := iteragent.DefaultTools(e.repoPath)
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+	return systemPrompt, tools, skills
 }
 
 // executeTask runs a single task with an agent and returns (output, ok).
@@ -277,72 +283,71 @@ func (e *Engine) createImplementPR(ctx context.Context, day int, plan string, al
 }
 
 func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provider, tasks []planTask, plan string) error {
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
-	if err != nil {
-		e.logger.Warn("failed to read IDENTITY.md", "err", err)
-	}
-	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+	systemPrompt, tools, skills := e.loadImplementContext()
 
-	// Protected files warning for legacy mode
 	protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
 
 	for _, task := range tasks {
 		e.logger.Info("implementing task (legacy)", "number", task.Number, "title", task.Title)
-
-		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
-			task.Number, task.Description, protectedWarning)
-
-		a := e.newAgent(p, tools, systemPrompt, skills)
-
-		var taskOutput string
-		var taskErr error
-		for ev := range a.Prompt(ctx, userMsg) {
-			if e.eventSink != nil {
-				select {
-				case e.eventSink <- ev:
-				default:
-				}
-			}
-			if ev.Type == string(iteragent.EventMessageEnd) {
-				taskOutput = ev.Content
-			}
-			if ev.Type == string(iteragent.EventError) {
-				taskErr = fmt.Errorf("%s", ev.Content)
-			}
-		}
-		a.Finish()
-
-		if taskErr != nil {
-			e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
-			_ = e.revert(ctx)
+		output, ok := e.runSingleTaskLegacy(ctx, p, task, systemPrompt, tools, skills, protectedWarning)
+		if !ok {
 			continue
 		}
-
-		// Check for protected file violations
-		violations, _ := e.verifyProtected(ctx)
-		if len(violations) > 0 {
-			e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
-			_ = e.revert(ctx)
-			continue
-		}
-
-		// Verify build + tests (yoyo-evolve style per-task verification)
-		verification := e.verify(ctx)
-		if !verification.BuildPassed || !verification.TestPassed {
-			e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
-			_ = e.revert(ctx)
-			continue
-		}
-
-		commitMsg := extractCommitMessage(taskOutput)
+		commitMsg := extractCommitMessage(output)
 		if err := e.commit(ctx, commitMsg); err != nil {
 			e.logger.Warn("commit failed", "err", err)
 		}
 		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
 	}
 	return nil
+}
+
+// runSingleTaskLegacy executes one task in legacy mode (no feature branch).
+func (e *Engine) runSingleTaskLegacy(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning string) (string, bool) {
+	userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
+		task.Number, task.Description, protectedWarning)
+
+	a := e.newAgent(p, tools, systemPrompt, skills)
+
+	var taskOutput string
+	var taskErr error
+	for ev := range a.Prompt(ctx, userMsg) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			taskOutput = ev.Content
+		}
+		if ev.Type == string(iteragent.EventError) {
+			taskErr = fmt.Errorf("%s", ev.Content)
+		}
+	}
+	a.Finish()
+
+	if taskErr != nil {
+		e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	violations, _ := e.verifyProtected(ctx)
+	if len(violations) > 0 {
+		e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	verification := e.verify(ctx)
+	if !verification.BuildPassed || !verification.TestPassed {
+		e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	return taskOutput, true
 }
 
 // RunCommunicatePhase posts issue responses, writes the journal entry, merges PR if created, and reflects on learnings.

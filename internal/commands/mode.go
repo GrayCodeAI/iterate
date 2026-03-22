@@ -60,69 +60,22 @@ func registerAgentModeCommands(r *Registry) {
 }
 
 func registerDisplayCommands(r *Registry) {
-	r.Register(Command{
-		Name:        "/summarize",
-		Aliases:     []string{},
-		Description: "summarize conversation",
-		Category:    "mode",
-		Handler:     cmdSummarize,
-	})
+	registerMany(r, "mode",
+		"/summarize", "summarize conversation", cmdSummarize,
+		"/review", "review current changes", cmdReview,
+		"/explain", "explain code in path", cmdExplain,
+		"/view", "view file with line numbers", cmdView,
+	)
+	registerDisplayNavCommands(r)
+}
 
-	r.Register(Command{
-		Name:        "/review",
-		Aliases:     []string{},
-		Description: "review current changes",
-		Category:    "mode",
-		Handler:     cmdReview,
-	})
-
-	r.Register(Command{
-		Name:        "/explain",
-		Aliases:     []string{},
-		Description: "explain code in path",
-		Category:    "mode",
-		Handler:     cmdExplain,
-	})
-
-	r.Register(Command{
-		Name:        "/view",
-		Aliases:     []string{},
-		Description: "view file with line numbers",
-		Category:    "mode",
-		Handler:     cmdView,
-	})
-
-	r.Register(Command{
-		Name:        "/show",
-		Aliases:     []string{},
-		Description: "show file or symbol",
-		Category:    "mode",
-		Handler:     cmdShow,
-	})
-
-	r.Register(Command{
-		Name:        "/tree",
-		Aliases:     []string{},
-		Description: "show directory tree",
-		Category:    "mode",
-		Handler:     cmdTree,
-	})
-
-	r.Register(Command{
-		Name:        "/stats",
-		Aliases:     []string{},
-		Description: "show session statistics",
-		Category:    "mode",
-		Handler:     cmdStats,
-	})
-
-	r.Register(Command{
-		Name:        "/theme",
-		Aliases:     []string{},
-		Description: "set color theme",
-		Category:    "mode",
-		Handler:     cmdTheme,
-	})
+func registerDisplayNavCommands(r *Registry) {
+	registerMany(r, "mode",
+		"/show", "show file or symbol", cmdShow,
+		"/tree", "show directory tree", cmdTree,
+		"/stats", "show session statistics", cmdStats,
+		"/theme", "set color theme", cmdTheme,
+	)
 }
 
 func cmdHelp(ctx Context) Result {

@@ -273,27 +273,32 @@ func tabComplete(partial string) string {
 
 // completeFilePath returns file path completion suggestions.
 func completeFilePath(partial string) string {
-	// Extract the file path part (last space-separated token)
 	parts := strings.Fields(partial)
 	if len(parts) == 0 {
 		return partial
 	}
 
 	pathPart := parts[len(parts)-1]
-
-	// Handle paths
-	dir := filepath.Dir(pathPart)
-	base := filepath.Base(pathPart)
-
-	if dir == "" {
-		dir = "."
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
+	matches := findPathMatches(pathPart)
+	if len(matches) == 0 {
 		return partial
 	}
 
+	prefix := parts[:len(parts)-1]
+	return buildCompletionResult(prefix, matches)
+}
+
+// findPathMatches scans the directory for entries matching the partial path.
+func findPathMatches(pathPart string) []string {
+	dir := filepath.Dir(pathPart)
+	base := filepath.Base(pathPart)
+	if dir == "" {
+		dir = "."
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
 	var matches []string
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), base) {
@@ -304,36 +309,25 @@ func completeFilePath(partial string) string {
 			matches = append(matches, fullPath)
 		}
 	}
+	return matches
+}
 
-	if len(matches) == 0 {
-		return partial
-	}
-
-	if len(matches) == 1 {
-		// Replace the path part with the completion
-		result := strings.Join(parts[:len(parts)-1], " ")
-		if result != "" {
-			result += " "
-		}
-		result += matches[0]
-		return result
-	}
-
-	// Find common prefix
-	prefix := matches[0]
-	for _, m := range matches[1:] {
-		for !strings.HasPrefix(m, prefix) {
-			prefix = prefix[:len(prefix)-1]
-		}
-	}
-
-	// Return with prefix of path part
-	result := strings.Join(parts[:len(parts)-1], " ")
+// buildCompletionResult joins prefix words with the single match or common prefix of multiple matches.
+func buildCompletionResult(prefix []string, matches []string) string {
+	result := strings.Join(prefix, " ")
 	if result != "" {
 		result += " "
 	}
-	result += prefix
-	return result
+	if len(matches) == 1 {
+		return result + matches[0]
+	}
+	common := matches[0]
+	for _, m := range matches[1:] {
+		for !strings.HasPrefix(m, common) {
+			common = common[:len(common)-1]
+		}
+	}
+	return result + common
 }
 
 // selectItem shows an arrow-key navigable list and returns the selected item.

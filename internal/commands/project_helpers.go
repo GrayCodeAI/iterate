@@ -232,45 +232,8 @@ func StripHTMLTags(s string) string {
 func GenerateIterateMD(repoPath string) string {
 	name := filepath.Base(repoPath)
 	pt := detectProjectType(repoPath)
-
-	var buildCmd, testCmd, lintCmd string
-	switch pt {
-	case projGo:
-		buildCmd = "go build ./..."
-		testCmd = "go test ./..."
-		lintCmd = "go vet ./..."
-	case projRust:
-		buildCmd = "cargo build"
-		testCmd = "cargo test"
-		lintCmd = "cargo clippy"
-	case projNode:
-		buildCmd = "npm run build"
-		testCmd = "npm test"
-		lintCmd = "npm run lint"
-	case projPython:
-		buildCmd = "python -m build"
-		testCmd = "python -m pytest"
-		lintCmd = "flake8 ."
-	case projMake:
-		buildCmd = "make"
-		testCmd = "make test"
-		lintCmd = "make lint"
-	default:
-		buildCmd = "# your build command"
-		testCmd = "# your test command"
-		lintCmd = "# your lint command"
-	}
-
-	candidates := []string{
-		"README.md", "go.mod", "Cargo.toml", "package.json",
-		"Makefile", "main.go", "src/main.rs", "index.js", "index.ts",
-	}
-	var importantFiles []string
-	for _, f := range candidates {
-		if _, err := os.Stat(filepath.Join(repoPath, f)); err == nil {
-			importantFiles = append(importantFiles, f)
-		}
-	}
+	buildCmd, testCmd, lintCmd := resolveBuildCommands(pt)
+	importantFiles := findImportantFiles(repoPath)
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("# %s — iterate context\n\n", name))
@@ -294,6 +257,39 @@ func GenerateIterateMD(repoPath string) string {
 	}
 	sb.WriteString("## Notes\n\nAdd project-specific notes for iterate here.\n")
 	return sb.String()
+}
+
+// resolveBuildCommands returns build/test/lint commands for the given project type.
+func resolveBuildCommands(pt projType) (build, test, lint string) {
+	switch pt {
+	case projGo:
+		return "go build ./...", "go test ./...", "go vet ./..."
+	case projRust:
+		return "cargo build", "cargo test", "cargo clippy"
+	case projNode:
+		return "npm run build", "npm test", "npm run lint"
+	case projPython:
+		return "python -m build", "python -m pytest", "flake8 ."
+	case projMake:
+		return "make", "make test", "make lint"
+	default:
+		return "# your build command", "# your test command", "# your lint command"
+	}
+}
+
+// findImportantFiles returns candidate files that exist in the repo.
+func findImportantFiles(repoPath string) []string {
+	candidates := []string{
+		"README.md", "go.mod", "Cargo.toml", "package.json",
+		"Makefile", "main.go", "src/main.rs", "index.js", "index.ts",
+	}
+	var found []string
+	for _, f := range candidates {
+		if _, err := os.Stat(filepath.Join(repoPath, f)); err == nil {
+			found = append(found, f)
+		}
+	}
+	return found
 }
 
 type projType int
