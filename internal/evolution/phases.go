@@ -31,11 +31,11 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 }
 
 func readPlanContext(repoPath string) ([]byte, []byte, string) {
-	identity, err := os.ReadFile(filepath.Join(repoPath, "IDENTITY.md"))
+	identity, err := os.ReadFile(filepath.Join(repoPath, "docs/docs/IDENTITY.md"))
 	if err != nil {
 		slog.Warn("failed to read IDENTITY.md", "err", err)
 	}
-	journal, err := os.ReadFile(filepath.Join(repoPath, "JOURNAL.md"))
+	journal, err := os.ReadFile(filepath.Join(repoPath, "docs/docs/JOURNAL.md"))
 	if err != nil {
 		slog.Warn("failed to read JOURNAL.md", "err", err)
 	}
@@ -149,7 +149,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
-	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
+	planPath := filepath.Join(e.repoPath, "docs/docs/SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
 		return fmt.Errorf("SESSION_PLAN.md not found: %w", err)
@@ -194,7 +194,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 
 // loadImplementContext reads IDENTITY.md and prepares the system prompt, tools, and skills.
 func (e *Engine) loadImplementContext() (string, []iteragent.Tool, *iteragent.SkillSet) {
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/IDENTITY.md"))
 	if err != nil {
 		e.logger.Warn("failed to read IDENTITY.md", "err", err)
 	}

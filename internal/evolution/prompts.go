@@ -10,7 +10,7 @@ import (
 )
 
 func buildSystemPrompt(repoPath, identity string) string {
-	personality, _ := os.ReadFile(filepath.Join(repoPath, "PERSONALITY.md"))
+	personality, _ := os.ReadFile(filepath.Join(repoPath, "docs/docs/PERSONALITY.md"))
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
 	skillsPrompt := skills.FormatForPrompt()
 
@@ -40,7 +40,7 @@ Read a file:
 
 Write a file:
 `+"```"+`tool
-{"tool":"write_file","args":{"path":"SESSION_PLAN.md","content":"## Session Plan\n\nSession Title: Fix nil pointer\n\n### Task 1: Fix nil check\nFiles: cmd/iterate/repl.go\nDescription: Add nil check on line 47\nIssue: none\n\n### Issue Responses\n"}}
+{"tool":"write_file","args":{"path":"docs/docs/SESSION_PLAN.md","content":"## Session Plan\n\nSession Title: Fix nil pointer\n\n### Task 1: Fix nil check\nFiles: cmd/iterate/repl.go\nDescription: Add nil check on line 47\nIssue: none\n\n### Issue Responses\n"}}
 `+"```"+`
 
 Run a bash command:

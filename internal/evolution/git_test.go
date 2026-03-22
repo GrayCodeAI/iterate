@@ -339,14 +339,14 @@ func TestVerifyProtected_CleanRepo(t *testing.T) {
 
 func TestPersistJournalEntry_Valid(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, "DAY_COUNT"), []byte("7\n"), 0o644)
 	e := New(dir, slog.Default())
 
 	entry := "## Day 99 — 12:00 — Test Entry\n\nSome body text here.\n"
 	e.persistJournalEntry(entry, "7")
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	content := string(data)
 	if !strings.Contains(content, "Day 7") {
 		t.Errorf("expected Day 7 in journal, got:\n%s", content)
@@ -358,13 +358,13 @@ func TestPersistJournalEntry_Valid(t *testing.T) {
 
 func TestPersistJournalEntry_NoDayMarker(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 
 	entry := "This has no day marker at all"
 	e.persistJournalEntry(entry, "5")
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	// should not modify the file
 	if string(data) != "# iterate Evolution Journal\n" {
 		t.Errorf("journal should be unchanged, got:\n%s", string(data))
@@ -373,13 +373,13 @@ func TestPersistJournalEntry_NoDayMarker(t *testing.T) {
 
 func TestPersistJournalEntry_ExtractsFromMiddle(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 
 	entry := "Some preamble\n## Day 3 — 10:00 — Extracted\n\nBody here.\n\n## Day 4 — extra"
 	e.persistJournalEntry(entry, "3")
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	content := string(data)
 	if !strings.Contains(content, "Day 3") {
 		t.Error("should extract Day 3 section")
@@ -391,13 +391,13 @@ func TestPersistJournalEntry_ExtractsFromMiddle(t *testing.T) {
 
 func TestPersistJournalEntry_ZeroDay(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "docs/docs/JOURNAL.md"), []byte("# iterate Evolution Journal\n"), 0o644)
 	e := New(dir, slog.Default())
 
 	entry := "## Day 99 — 12:00 — Test\n\nBody.\n"
 	e.persistJournalEntry(entry, "0")
 
-	data, _ := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	// day 0 means don't replace, so Day 99 should remain
 	if !strings.Contains(string(data), "Day 99") {
 		t.Errorf("should keep original day when day='0', got:\n%s", string(data))

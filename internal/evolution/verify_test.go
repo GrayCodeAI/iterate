@@ -99,12 +99,12 @@ func TestIsProtected(t *testing.T) {
 		},
 		{
 			name: "IDENTITY.md is not in protected list",
-			path: "IDENTITY.md",
+			path: "docs/docs/IDENTITY.md",
 			want: false,
 		},
 		{
 			name: "JOURNAL.md is not in protected list",
-			path: "JOURNAL.md",
+			path: "docs/docs/JOURNAL.md",
 			want: false,
 		},
 		{

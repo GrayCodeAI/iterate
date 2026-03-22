@@ -27,7 +27,7 @@ func TestCmdMemo_WithText(t *testing.T) {
 	if !result.Handled {
 		t.Error("expected handled=true")
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "JOURNAL.md"))
+	data, err := os.ReadFile(filepath.Join(dir, "docs/docs/JOURNAL.md"))
 	if err != nil {
 		t.Fatal("JOURNAL.md should be created")
 	}

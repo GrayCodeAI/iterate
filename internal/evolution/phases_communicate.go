@@ -19,14 +19,14 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
-	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
+	planPath := filepath.Join(e.repoPath, "docs/docs/SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
 		e.logger.Warn("SESSION_PLAN.md not found, skipping communicate phase")
 		return nil
 	}
 
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/IDENTITY.md"))
 	if err != nil {
 		e.logger.Warn("failed to read IDENTITY.md", "err", err)
 	}
@@ -181,13 +181,13 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 			dayPattern := regexp.MustCompile(`^## Day \d+`)
 			extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
 		}
-		journal, err := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
+		journal, err := os.ReadFile(filepath.Join(e.repoPath, "docs/docs/JOURNAL.md"))
 		if err != nil {
 			e.logger.Warn("failed to read JOURNAL.md for journal update", "err", err)
 		}
 		header := "# iterate Evolution Journal\n"
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
-		_ = os.WriteFile(filepath.Join(e.repoPath, "JOURNAL.md"), []byte(newContent), 0o644) // best-effort; journal is append-mostly
+		_ = os.WriteFile(filepath.Join(e.repoPath, "docs/docs/JOURNAL.md"), []byte(newContent), 0o644) // best-effort; journal is append-mostly
 	} else {
 		e.logger.Warn("agent output does not contain '## Day' — skipping journal write")
 	}

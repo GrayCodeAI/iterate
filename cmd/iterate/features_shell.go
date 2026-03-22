@@ -250,7 +250,7 @@ func squashCommits(repoPath string, n int, msg string) error {
 // ---------------------------------------------------------------------------
 
 func viewJournal(repoPath string, lines int) string {
-	data, err := os.ReadFile(filepath.Join(repoPath, "JOURNAL.md"))
+	data, err := os.ReadFile(filepath.Join(repoPath, "docs/docs/JOURNAL.md"))
 	if err != nil {
 		return "JOURNAL.md not found."
 	}

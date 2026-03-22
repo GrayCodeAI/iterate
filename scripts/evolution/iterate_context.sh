@@ -16,23 +16,23 @@
 _ITERATE_REPO="${ITERATE_REPO:-.}"
 
 _IDENTITY=""
-if [ -f "$_ITERATE_REPO/IDENTITY.md" ]; then
-    _IDENTITY=$(cat "$_ITERATE_REPO/IDENTITY.md") || {
+if [ -f "$_ITERATE_REPO/docs/IDENTITY.md" ]; then
+    _IDENTITY=$(cat "$_ITERATE_REPO/docs/IDENTITY.md") || {
         echo "WARNING: Failed to read IDENTITY.md" >&2
         _IDENTITY=""
     }
 else
-    echo "WARNING: IDENTITY.md not found at $_ITERATE_REPO/IDENTITY.md" >&2
+    echo "WARNING: IDENTITY.md not found at $_ITERATE_REPO/docs/IDENTITY.md" >&2
 fi
 
 _PERSONALITY=""
-if [ -f "$_ITERATE_REPO/PERSONALITY.md" ]; then
-    _PERSONALITY=$(cat "$_ITERATE_REPO/PERSONALITY.md") || {
+if [ -f "$_ITERATE_REPO/docs/PERSONALITY.md" ]; then
+    _PERSONALITY=$(cat "$_ITERATE_REPO/docs/PERSONALITY.md") || {
         echo "WARNING: Failed to read PERSONALITY.md" >&2
         _PERSONALITY=""
     }
 else
-    echo "WARNING: PERSONALITY.md not found at $_ITERATE_REPO/PERSONALITY.md" >&2
+    echo "WARNING: PERSONALITY.md not found at $_ITERATE_REPO/docs/PERSONALITY.md" >&2
 fi
 
 # Active learnings — no warning if missing
