@@ -11,6 +11,18 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// NewGitHubClient creates an authenticated go-github client using GITHUB_TOKEN.
+// Returns nil if the token is not set.
+func NewGitHubClient(ctx context.Context) *github.Client {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token == "" {
+		return nil
+	}
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+	tc := oauth2.NewClient(ctx, ts)
+	return github.NewClient(tc)
+}
+
 type IssueType string
 
 const (
@@ -31,15 +43,11 @@ type Issue struct {
 
 // FetchIssues retrieves issues by label type, sorted by net vote score.
 func FetchIssues(ctx context.Context, owner, repo string, issueTypes []IssueType, limit int) (map[IssueType][]Issue, error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
+	client := NewGitHubClient(ctx)
+	if client == nil {
 		slog.Warn("GITHUB_TOKEN not set, skipping community issues")
 		return nil, nil
 	}
-
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
 
 	result := make(map[IssueType][]Issue)
 
@@ -139,14 +147,10 @@ func FormatIssuesByType(issues map[IssueType][]Issue) string {
 
 // PostReply posts a comment on a GitHub issue as the bot.
 func PostReply(ctx context.Context, owner, repo string, issueNumber int, body string) error {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
+	client := NewGitHubClient(ctx)
+	if client == nil {
 		return fmt.Errorf("GITHUB_TOKEN not set")
 	}
-
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
 
 	_, _, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, &github.IssueComment{
 		Body: &body,

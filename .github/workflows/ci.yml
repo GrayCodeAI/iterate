@@ -35,7 +35,11 @@ jobs:
 
       - name: Test
         working-directory: iterate
-        run: go test ./...
+        run: go test -race -coverprofile=coverage.out -v ./...
+
+      - name: Coverage summary
+        working-directory: iterate
+        run: go tool cover -func=coverage.out | tail -1
 
       - name: Vet
         working-directory: iterate

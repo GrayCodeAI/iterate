@@ -70,7 +70,9 @@ func removeProjectMemoryEntry(repoPath string, idx int) (projectMemoryEntry, boo
 	}
 	entry := m.Entries[idx]
 	m.Entries = append(m.Entries[:idx], m.Entries[idx+1:]...)
-	_ = saveProjectMemory(repoPath, m)
+	if err := saveProjectMemory(repoPath, m); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: failed to save project memory after removal: %v\n", err)
+	}
 	return entry, true
 }
 

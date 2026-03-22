@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/GrayCodeAI/iterate/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -30,7 +32,7 @@ func TestNew_NonNil(t *testing.T) {
 
 func TestNew_ClientNotNil(t *testing.T) {
 	e := New("/tmp/repo", "o", "r", slog.Default())
-	if e.client == nil {
+	if e.httpClient == nil {
 		t.Error("http client should not be nil")
 	}
 }
@@ -221,16 +223,16 @@ func TestExtractLearnings_JoinedWithNewline(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestTruncate_Short(t *testing.T) {
-	if got := truncate("hello", 10); got != "hello" {
+	if got := util.Truncate("hello", 10); got != "hello" {
 		t.Errorf("short string should pass through, got %q", got)
 	}
 }
 
 func TestTruncate_Long(t *testing.T) {
 	long := strings.Repeat("x", 100)
-	got := truncate(long, 10)
-	if !strings.HasSuffix(got, "...") {
-		t.Errorf("expected '...' suffix, got %q", got)
+	got := util.Truncate(long, 10)
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("expected '…' suffix, got %q", got)
 	}
 	if len(got) > 15 {
 		t.Errorf("truncated string too long: %d", len(got))
@@ -239,7 +241,7 @@ func TestTruncate_Long(t *testing.T) {
 
 func TestTruncate_Exact(t *testing.T) {
 	s := "abcde"
-	if got := truncate(s, 5); got != "abcde" {
+	if got := util.Truncate(s, 5); got != "abcde" {
 		t.Errorf("string at limit should not be truncated, got %q", got)
 	}
 }

@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 BIRTH_DATE = datetime(2026, 3, 18)
 try:
     bf = ROOT / "BIRTH_DATE"
@@ -30,7 +30,7 @@ def read_file(name):
 def ordinal(n):
     if 11 <= (n % 100) <= 13:
         return f"{n}th"
-    return f"{n}{['th','st','nd','rd','th'][min(n % 10, 4)]}"
+    return f"{n}{['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]}"
 
 
 def fmt_ts(ts, day):
@@ -58,14 +58,18 @@ def parse_journal(content):
         if not chunk:
             continue
         lines = chunk.split("\n")
-        m = re.match(r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0])
+        m = re.match(
+            r"Day\s+(\d+)\s*[—–\-]+\s*(\d{2}:\d{2})\s*[—–\-]+\s*(.+)", lines[0]
+        )
         if m:
-            entries.append({
-                "day": int(m.group(1)),
-                "ts": m.group(2).strip(),
-                "title": m.group(3).strip(),
-                "body": "\n".join(lines[1:]).strip(),
-            })
+            entries.append(
+                {
+                    "day": int(m.group(1)),
+                    "ts": m.group(2).strip(),
+                    "title": m.group(3).strip(),
+                    "body": "\n".join(lines[1:]).strip(),
+                }
+            )
     return entries
 
 
@@ -84,13 +88,13 @@ def render_journal(entries):
             f'        <div class="entry-day-num">{e["day"]}</div>\n'
             f'        <div class="entry-day-lbl">day</div>\n'
             f'        <div class="entry-pip"></div>\n'
-            f'      </div>\n'
+            f"      </div>\n"
             f'      <div class="entry-right">\n'
             f'        <div class="entry-meta">{html.escape(ts)}</div>\n'
             f'        <h3 class="entry-title">{md_inline(e["title"])}</h3>\n'
             f'        <p class="entry-body">{body}</p>\n'
-            f'      </div>\n'
-            f'    </div>'
+            f"      </div>\n"
+            f"    </div>"
         )
     return "\n".join(out)
 
@@ -144,12 +148,12 @@ def parse_identity(text):
                     sub = ""
                 sub_html = f'<div class="rule-sub">{sub}</div>' if sub else ""
                 rules.append(
-                    f'      <li>'
+                    f"      <li>"
                     f'<span class="rule-num">{num}</span>'
                     f'<div class="rule-content">'
                     f'<div class="rule-title">{title}</div>'
-                    f'{sub_html}'
-                    f'</div></li>'
+                    f"{sub_html}"
+                    f"</div></li>"
                 )
     return mission, "\n".join(body_parts), "\n".join(rules)
 
@@ -166,8 +170,8 @@ BENTO_CELLS = [
             '  plan  := <span class="fn">readSelf</span>()\n'
             '  patch := <span class="fn">improve</span>(plan)\n'
             '  <span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch)\n'
-            '}'
-            '</div>'
+            "}"
+            "</div>"
         ),
         "wide": True,
     },
@@ -206,14 +210,14 @@ def render_bento():
     out = []
     for cell in BENTO_CELLS:
         cls = " wide" if cell["wide"] else ""
-        extra = f'\n      {cell["extra"]}' if cell["extra"] else ""
+        extra = f"\n      {cell['extra']}" if cell["extra"] else ""
         out.append(
             f'    <div class="bento-cell{cls}">\n'
             f'      <div class="b-icon">{cell["icon"]}</div>\n'
             f'      <div class="b-title">{cell["title"]}</div>\n'
             f'      <div class="b-body">{cell["body"]}</div>'
-            f'{extra}\n'
-            f'    </div>'
+            f"{extra}\n"
+            f"    </div>"
         )
     return "\n".join(out)
 
@@ -255,7 +259,7 @@ def render_how():
             f'      <div class="step-icon">{icon}</div>\n'
             f'      <div class="step-title">{title}</div>\n'
             f'      <div class="step-body">{body}</div>\n'
-            f'    </div>'
+            f"    </div>"
         )
     return "\n".join(out)
 
@@ -276,7 +280,9 @@ def main():
     days = day_count(entries)
     sessions = max(0, len(entries) - 1)  # born entry doesn't count as a session
     journal_html = render_journal(entries)
-    mission, body_html, rules_html = parse_identity(identity_md) if identity_md else ("", "", "")
+    mission, body_html, rules_html = (
+        parse_identity(identity_md) if identity_md else ("", "", "")
+    )
     how_html = render_how()
     bento_html = render_bento()
 

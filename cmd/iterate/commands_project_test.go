@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/GrayCodeAI/iterate/internal/commands"
 )
 
 // ---------------------------------------------------------------------------
@@ -116,7 +118,7 @@ func TestHealthChecksForProject_Unknown(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFormatTreeFromPaths_Empty(t *testing.T) {
-	got := formatTreeFromPaths([]string{}, 0)
+	got := commands.FormatTreeFromPaths([]string{}, 0)
 	if got != "" {
 		t.Errorf("expected empty string for no paths, got %q", got)
 	}
@@ -124,7 +126,7 @@ func TestFormatTreeFromPaths_Empty(t *testing.T) {
 
 func TestFormatTreeFromPaths_SingleFile(t *testing.T) {
 	paths := []string{"main.go"}
-	got := formatTreeFromPaths(paths, 1)
+	got := commands.FormatTreeFromPaths(paths, 1)
 	if !strings.Contains(got, "main.go") {
 		t.Errorf("expected main.go in output, got %q", got)
 	}
@@ -136,7 +138,7 @@ func TestFormatTreeFromPaths_NestedPaths(t *testing.T) {
 		"cmd/iterate/repl.go",
 		"internal/agent.go",
 	}
-	got := formatTreeFromPaths(paths, 4)
+	got := commands.FormatTreeFromPaths(paths, 4)
 	if !strings.Contains(got, "cmd") {
 		t.Errorf("expected 'cmd' in tree output, got:\n%s", got)
 	}
@@ -155,7 +157,7 @@ func TestGenerateIterateMD_GoProject(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n\ngo 1.21\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644)
 
-	result := generateIterateMD(dir)
+	result := commands.GenerateIterateMD(dir)
 	if !strings.Contains(result, "example.com/test") && !strings.Contains(result, "ITERATE.md") {
 		t.Logf("generateIterateMD output:\n%s", result)
 		// Just check it returns non-empty content

@@ -1,7 +1,7 @@
 ---
 name: Help wanted
 about: Something iterate is stuck on and needs human guidance
-labels: help-wanted
+labels: agent-help-wanted
 ---
 
 ## What iterate is trying to do

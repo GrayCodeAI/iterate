@@ -1,7 +1,7 @@
 ---
 name: Suggestion
 about: Suggest an improvement or new feature for iterate to implement
-labels: community-input
+labels: agent-input
 ---
 
 ## What should iterate build or improve?

@@ -25,7 +25,7 @@ Don't just read code — **execute it** to find friction:
 
 ### 3. Check your history
 - Read `JOURNAL.md` — what did you attempt recently? Don't repeat it.
-- Read `memory/active_learnings.md` — what have you already learned?
+- Read `memory/ACTIVE_LEARNINGS.md` — what have you already learned?
 - Check `memory/learnings.jsonl` for lessons from past sessions
 
 ### 4. Look for what's broken or missing

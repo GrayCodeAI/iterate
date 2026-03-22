@@ -2,6 +2,10 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 // RegisterModeCommands adds agent mode and display commands.
@@ -148,37 +152,94 @@ Available commands:
 }
 
 func cmdVersion(ctx Context) Result {
-	fmt.Println("iterate version dev")
+	ver := ctx.Version
+	if ver == "" {
+		ver = "dev"
+	}
+	fmt.Printf("iterate  version %s\n", ver)
+	fmt.Printf("iteragent (SDK embedded)\n")
+	if ctx.Provider != nil {
+		fmt.Printf("provider: %s\n\n", ctx.Provider.Name())
+	} else {
+		fmt.Println()
+	}
 	return Result{Handled: true}
 }
 
 func cmdCode(ctx Context) Result {
-	// TODO: wire up mode switching
+	if ctx.CurrentMode != nil {
+		*ctx.CurrentMode = 0 // modeNormal
+	}
+	if ctx.REPL.MakeAgent != nil {
+		ctx.REPL.MakeAgent()
+	}
 	PrintSuccess("switched to code mode (all tools enabled)")
 	return Result{Handled: true}
 }
 
 func cmdAsk(ctx Context) Result {
-	// TODO: wire up mode switching
+	if ctx.CurrentMode != nil {
+		*ctx.CurrentMode = 1 // modeAsk (read-only)
+	}
+	if ctx.REPL.MakeAgent != nil {
+		ctx.REPL.MakeAgent()
+	}
 	PrintSuccess("switched to ask mode (read-only tools)")
 	return Result{Handled: true}
 }
 
 func cmdArchitect(ctx Context) Result {
-	// TODO: wire up mode switching
+	if ctx.CurrentMode != nil {
+		*ctx.CurrentMode = 2 // modeArchitect (no tools)
+	}
+	if ctx.REPL.MakeAgent != nil {
+		ctx.REPL.MakeAgent()
+	}
 	PrintSuccess("switched to architect mode (no tools)")
 	return Result{Handled: true}
 }
 
 func cmdSummarize(ctx Context) Result {
-	// TODO: wire up via agent stream
-	fmt.Println("Summarize command not yet wired in modular commands.")
+	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
+		PrintError("no conversation to summarize")
+		return Result{Handled: true}
+	}
+	msgs := ctx.Agent.Messages
+	prompt := fmt.Sprintf(
+		"Summarize this conversation in 3-5 bullet points. Focus on: what was asked, "+
+			"what was implemented, and any decisions made. Be brief.\n\n"+
+			"(Conversation has %d messages)", len(msgs))
+	if ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
+	} else {
+		PrintError("agent stream not available")
+	}
 	return Result{Handled: true}
 }
 
 func cmdReview(ctx Context) Result {
-	// TODO: wire up via agent stream
-	fmt.Println("Review command not yet wired in modular commands.")
+	// Get the current diff
+	out, _ := exec.Command("git", "-C", ctx.RepoPath, "diff", "HEAD").Output()
+	diff := strings.TrimSpace(string(out))
+	if diff == "" {
+		out, _ = exec.Command("git", "-C", ctx.RepoPath, "diff").Output()
+		diff = strings.TrimSpace(string(out))
+	}
+	prompt := "Review the current code changes. Look for: bugs, security issues, performance problems, " +
+		"missing error handling, and style violations. Be concise and actionable.\n\n"
+	if diff != "" {
+		if len(diff) > 6000 {
+			diff = diff[:6000] + "\n…[truncated]"
+		}
+		prompt += "```diff\n" + diff + "\n```"
+	} else {
+		prompt += "No diff found — review the overall codebase structure and quality."
+	}
+	if ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
+	} else {
+		PrintError("agent stream not available")
+	}
 	return Result{Handled: true}
 }
 
@@ -187,8 +248,22 @@ func cmdExplain(ctx Context) Result {
 	if path == "" {
 		path = "."
 	}
-	// TODO: wire up via agent stream
-	fmt.Printf("Explain %s not yet wired in modular commands.\n", path)
+	absPath := path
+	if !filepath.IsAbs(path) {
+		absPath = filepath.Join(ctx.RepoPath, path)
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		PrintError("cannot read %s: %v", path, err)
+		return Result{Handled: true}
+	}
+	prompt := fmt.Sprintf("Explain the following code from %s. Describe: purpose, key functions/types, "+
+		"data flow, and any notable patterns.\n\n```\n%s\n```", path, string(data))
+	if ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
+	} else {
+		PrintError("agent stream not available")
+	}
 	return Result{Handled: true}
 }
 
@@ -197,20 +272,53 @@ func cmdView(ctx Context) Result {
 		fmt.Println("Usage: /view <file>")
 		return Result{Handled: true}
 	}
-	// TODO: wire up file viewing
-	fmt.Println("View command not yet wired in modular commands.")
+	filePath := ctx.Arg(1)
+	absPath := filePath
+	if !filepath.IsAbs(filePath) {
+		absPath = filepath.Join(ctx.RepoPath, filePath)
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		PrintError("cannot read %s: %v", filePath, err)
+		return Result{Handled: true}
+	}
+	lines := strings.Split(string(data), "\n")
+	fmt.Printf("%s── %s (%d lines) ──%s\n", ColorDim, filePath, len(lines), ColorReset)
+	for i, line := range lines {
+		fmt.Printf("%4d │ %s\n", i+1, line)
+	}
+	fmt.Printf("%s──────────────────────────────────%s\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
 
 func cmdShow(ctx Context) Result {
-	// TODO: wire up show functionality
-	fmt.Println("Show command not yet wired in modular commands.")
+	ref := "HEAD"
+	if ctx.HasArg(1) {
+		ref = ctx.Args()
+	}
+	cmd := exec.Command("git", "-C", ctx.RepoPath, "show", "--stat", ref)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		PrintError("git show failed: %s", err)
+		return Result{Handled: true}
+	}
+	fmt.Println(strings.TrimSpace(string(output)))
 	return Result{Handled: true}
 }
 
 func cmdTree(ctx Context) Result {
-	// TODO: wire up directory tree
-	fmt.Println("Tree command not yet wired in modular commands.")
+	maxDepth := 4
+	if ctx.HasArg(1) {
+		fmt.Sscanf(ctx.Arg(1), "%d", &maxDepth)
+	}
+	fmt.Printf("%sProject tree (git ls-files):%s\n", ColorDim, ColorReset)
+	tree := BuildProjectTree(ctx.RepoPath, maxDepth)
+	if tree == "" {
+		fmt.Println("  (no files found)")
+	} else {
+		fmt.Println(tree)
+	}
+	fmt.Println()
 	return Result{Handled: true}
 }
 
@@ -230,11 +338,27 @@ func cmdStats(ctx Context) Result {
 }
 
 func cmdTheme(ctx Context) Result {
+	available := []string{"default", "nord", "monokai", "minimal"}
 	if !ctx.HasArg(1) {
-		fmt.Println("Themes: default, dark, light, mono")
+		fmt.Printf("Available themes: %s\n", strings.Join(available, ", "))
+		fmt.Println("Usage: /theme <name>")
 		return Result{Handled: true}
 	}
-	// TODO: wire up theme switching
-	PrintSuccess("theme set to %s", ctx.Arg(1))
+	name := ctx.Arg(1)
+	found := false
+	for _, t := range available {
+		if t == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		PrintError("unknown theme: %s (available: %s)", name, strings.Join(available, ", "))
+		return Result{Handled: true}
+	}
+	if ctx.ApplyTheme != nil {
+		ctx.ApplyTheme(name)
+	}
+	PrintSuccess("theme set to %s", name)
 	return Result{Handled: true}
 }

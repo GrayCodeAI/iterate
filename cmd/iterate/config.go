@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -60,7 +62,9 @@ func loadConfig() iterConfig {
 
 	// Try TOML first (new preferred format), then JSON paths.
 	if data, err := os.ReadFile(configPathTOML()); err == nil {
-		toml.Unmarshal(data, &cfg) //nolint:errcheck
+		if err := toml.Unmarshal(data, &cfg); err != nil {
+			slog.Warn("failed to parse TOML config, falling back to JSON", "err", err)
+		}
 	} else {
 		// Fall back to JSON: XDG path, then legacy ~/.iterate/config.json.
 		for _, path := range []string{configPathAlt(), configPath()} {
@@ -121,17 +125,25 @@ func saveConfig(cfg iterConfig) {
 
 	if tomlExists == nil || jsonExists != nil {
 		// Write TOML.
-		os.MkdirAll(filepath.Dir(tomlPath), 0o755)
+		if err := os.MkdirAll(filepath.Dir(tomlPath), 0o755); err != nil {
+			slog.Warn("failed to create TOML config dir", "err", err)
+		}
 		var buf bytes.Buffer
 		if err := toml.NewEncoder(&buf).Encode(cfg); err == nil {
-			os.WriteFile(tomlPath, buf.Bytes(), 0o644)
+			if err := os.WriteFile(tomlPath, buf.Bytes(), 0o644); err != nil {
+				slog.Warn("failed to write TOML config", "err", err)
+			}
 			return
 		}
 	}
 	// Fall back to JSON.
-	os.MkdirAll(filepath.Dir(jsonPath), 0o755)
+	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o755); err != nil {
+		slog.Warn("failed to create JSON config dir", "err", err)
+	}
 	data, _ := json.MarshalIndent(cfg, "", "  ")
-	os.WriteFile(jsonPath, data, 0o644)
+	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+		slog.Warn("failed to write JSON config", "err", err)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +251,7 @@ func checkDirPermission(cfg iterConfig, filePath string) (denied bool) {
 // ---------------------------------------------------------------------------
 
 type sessionChangesTracker struct {
+	mu      sync.RWMutex
 	written []string
 	edited  []string
 }
@@ -246,6 +259,8 @@ type sessionChangesTracker struct {
 var sessionChanges sessionChangesTracker
 
 func (s *sessionChangesTracker) recordWrite(path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, p := range s.written {
 		if p == path {
 			return
@@ -255,6 +270,8 @@ func (s *sessionChangesTracker) recordWrite(path string) {
 }
 
 func (s *sessionChangesTracker) recordEdit(path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, p := range s.edited {
 		if p == path {
 			return
@@ -264,6 +281,8 @@ func (s *sessionChangesTracker) recordEdit(path string) {
 }
 
 func (s *sessionChangesTracker) format() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if len(s.written) == 0 && len(s.edited) == 0 {
 		return "No files changed this session."
 	}
@@ -283,3 +302,33 @@ func (s *sessionChangesTracker) format() string {
 
 // conversationMarks maps mark name → message index at time of marking.
 var conversationMarks = map[string]int{}
+var conversationMarksMu sync.RWMutex
+
+func getConversationMark(name string) (int, bool) {
+	conversationMarksMu.RLock()
+	defer conversationMarksMu.RUnlock()
+	idx, ok := conversationMarks[name]
+	return idx, ok
+}
+
+func setConversationMark(name string, idx int) {
+	conversationMarksMu.Lock()
+	defer conversationMarksMu.Unlock()
+	conversationMarks[name] = idx
+}
+
+func getConversationMarks() map[string]int {
+	conversationMarksMu.RLock()
+	defer conversationMarksMu.RUnlock()
+	cp := make(map[string]int, len(conversationMarks))
+	for k, v := range conversationMarks {
+		cp[k] = v
+	}
+	return cp
+}
+
+func conversationMarksLen() int {
+	conversationMarksMu.RLock()
+	defer conversationMarksMu.RUnlock()
+	return len(conversationMarks)
+}

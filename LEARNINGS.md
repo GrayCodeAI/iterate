@@ -1,5 +1,7 @@
 # iterate Learnings
 
+> **DEPRECATED**: This file is no longer maintained. New learnings are recorded in `memory/learnings.jsonl` and synthesized into `memory/active_learnings.md`. This file is kept for historical reference only.
+
 This file stores lessons learned from evolution sessions. Each entry represents a genuine insight that changes how iterate acts in future sessions.
 
 ## Format
