@@ -156,7 +156,7 @@ func cmdQuit(ctx Context) Result {
 		ctx.StopWatch()
 	}
 	if ctx.Agent != nil && len(ctx.Agent.Messages) > 0 && ctx.Session.SaveSession != nil {
-		_ = ctx.Session.SaveSession("autosave", ctx.Agent.Messages)
+		_ = ctx.Session.SaveSession("autosave", ctx.Agent.Messages) // best-effort cleanup
 	}
 	fmt.Printf("%sbye 🌱%s\n", ColorLime, ColorReset)
 	return Result{Done: true, Handled: true}

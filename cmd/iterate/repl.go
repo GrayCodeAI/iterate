@@ -163,7 +163,7 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	thinking = initREPL(repoPath, thinking)
 
 	a := makeAgent(p, repoPath, thinking, logger)
-	defer func() { _ = a.Close() }()
+	defer func() { _ = a.Close() }() // best-effort cleanup
 
 	printHeader(p, thinking, repoPath)
 
@@ -209,7 +209,7 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 		if newP != nil {
 			*p = newP
 			*thinking = newThinking
-			_ = (*a).Close()
+			_ = (*a).Close() // best-effort cleanup
 			*a = makeAgent(*p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
 			saveConfig(iterConfig{
@@ -244,7 +244,7 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 			} else {
 				*p = newP
 				os.Setenv("ITERATE_PROVIDER", providerName)
-				_ = (*a).Close()
+				_ = (*a).Close() // best-effort cleanup
 				*a = makeAgent(*p, repoPath, *thinking, logger)
 				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
 			}
@@ -258,7 +258,7 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 func printSessionSummary(a *iteragent.Agent, repoPath string) {
 	elapsed := time.Since(sess.Start).Round(time.Second)
 	if len(a.Messages) > 0 {
-		_ = saveSession("autosave", a.Messages)
+		_ = saveSession("autosave", a.Messages) // best-effort cleanup
 	}
 	fmt.Println()
 	fmt.Printf("%s  session:%s %s%s%s %s·%s %s%d messages%s %s·%s %s%d tokens%s\n",

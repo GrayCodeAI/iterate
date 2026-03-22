@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,7 +168,9 @@ func cmdRemember(ctx Context) Result {
 	memoryPath := filepath.Join(iterateDir, "memory.json")
 	var notes []map[string]string
 	if data, err := os.ReadFile(memoryPath); err == nil {
-		json.Unmarshal(data, &notes)
+		if err := json.Unmarshal(data, &notes); err != nil {
+			slog.Warn("failed to parse memory.json", "err", err)
+		}
 	}
 
 	notes = append(notes, map[string]string{

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -342,14 +343,21 @@ func loadTemplates() []promptTemplate {
 		return nil
 	}
 	var ts []promptTemplate
-	json.Unmarshal(data, &ts)
+	if err := json.Unmarshal(data, &ts); err != nil {
+		slog.Warn("failed to parse templates", "err", err)
+	}
 	return ts
 }
 
 func saveTemplates(ts []promptTemplate) {
 	data, _ := json.MarshalIndent(ts, "", "  ")
-	_ = os.MkdirAll(filepath.Dir(templatesPath()), 0o755)
-	_ = os.WriteFile(templatesPath(), data, 0o644)
+	if err := os.MkdirAll(filepath.Dir(templatesPath()), 0o755); err != nil {
+		slog.Warn("failed to create templates dir", "err", err)
+		return
+	}
+	if err := os.WriteFile(templatesPath(), data, 0o644); err != nil {
+		slog.Warn("failed to write templates file", "err", err)
+	}
 }
 
 func addTemplate(name, prompt string) {
