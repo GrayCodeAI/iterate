@@ -93,7 +93,6 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 		return nil
 	}
 
-	// Fetch open discussions
 	discussions, err := e.fetchDiscussions(ctx)
 	if err != nil {
 		return fmt.Errorf("fetch discussions: %w", err)
@@ -105,10 +104,35 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 		return nil
 	}
 
-	// Build prompt for the agent
+	systemPrompt, dayCount := e.buildSocialSystemPrompt()
+	userMessage := buildSocialPrompt(discussions)
+
+	response, err := p.Complete(ctx, []iteragent.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userMessage},
+	})
+	if err != nil {
+		return fmt.Errorf("LLM error: %w", err)
+	}
+
+	decisions, err := parseSocialDecisions(response)
+	if err != nil {
+		e.logger.Warn("failed to parse social decisions", "err", err, "response", response[:min(200, len(response))])
+		return nil
+	}
+
+	e.executeSocialDecisions(ctx, decisions)
+	e.processSocialLearnings(decisions, dayCount)
+	e.createDecisionsAsDiscussions(ctx, decisions)
+
+	return nil
+}
+
+func (e *Engine) buildSocialSystemPrompt() (string, string) {
 	personality, _ := os.ReadFile(filepath.Join(e.repoPath, "PERSONALITY.md"))
 	socialSkill, _ := os.ReadFile(filepath.Join(e.repoPath, "skills/social/SKILL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
+	day := strings.TrimSpace(string(dayCount))
 
 	systemPrompt := fmt.Sprintf(`You are iterate, a self-evolving coding agent.
 %s
@@ -118,28 +142,12 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider) error {
 
 Today is day %s.
 You will be given a list of GitHub Discussions. For each one, decide whether to reply.
-Output your decisions as JSON only — no prose.`, string(personality), string(socialSkill), strings.TrimSpace(string(dayCount)))
+Output your decisions as JSON only — no prose.`, string(personality), string(socialSkill), day)
 
-	userMessage := buildSocialPrompt(discussions)
+	return systemPrompt, day
+}
 
-	messages := []iteragent.Message{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: userMessage},
-	}
-
-	response, err := p.Complete(ctx, messages)
-	if err != nil {
-		return fmt.Errorf("LLM error: %w", err)
-	}
-
-	// Parse decisions
-	decisions, err := parseSocialDecisions(response)
-	if err != nil {
-		e.logger.Warn("failed to parse social decisions", "err", err, "response", response[:min(200, len(response))])
-		return nil
-	}
-
-	// Execute decisions
+func (e *Engine) executeSocialDecisions(ctx context.Context, decisions []socialDecision) {
 	for _, d := range decisions {
 		if d.Reply == "" {
 			continue
@@ -150,19 +158,22 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 			e.logger.Info("posted reply", "discussion", d.DiscussionID)
 		}
 	}
+}
 
-	// Extract learnings
+func (e *Engine) processSocialLearnings(decisions []socialDecision, dayCount string) {
 	learnings := extractLearnings(decisions)
-	if learnings != "" {
-		if err := e.appendLearnings(learnings); err != nil {
-			e.logger.Warn("failed to append learnings", "err", err)
-		}
-		if err := e.appendLearningsJSONL(decisions, strings.TrimSpace(string(dayCount))); err != nil {
-			e.logger.Warn("failed to append learnings jsonl", "err", err)
-		}
+	if learnings == "" {
+		return
 	}
+	if err := e.appendLearnings(learnings); err != nil {
+		e.logger.Warn("failed to append learnings", "err", err)
+	}
+	if err := e.appendLearningsJSONL(decisions, dayCount); err != nil {
+		e.logger.Warn("failed to append learnings jsonl", "err", err)
+	}
+}
 
-	// Optionally start a new discussion
+func (e *Engine) createDecisionsAsDiscussions(ctx context.Context, decisions []socialDecision) {
 	for _, d := range decisions {
 		if d.NewDiscussion != nil {
 			if err := e.createDiscussion(ctx, d.NewDiscussion.Title, d.NewDiscussion.Body); err != nil {
@@ -172,8 +183,6 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 			}
 		}
 	}
-
-	return nil
 }
 
 // ReplyToIssues posts a comment on each addressed issue.

@@ -3,6 +3,7 @@ package evolution
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,27 +20,47 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
-	identity, err := os.ReadFile(filepath.Join(e.repoPath, "IDENTITY.md"))
-	if err != nil {
-		e.logger.Warn("failed to read IDENTITY.md", "err", err)
-	}
-	journal, err := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
-	if err != nil {
-		e.logger.Warn("failed to read JOURNAL.md", "err", err)
-	}
-	dayCount, err := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
-	if err != nil {
-		e.logger.Warn("failed to read DAY_COUNT", "err", err)
-	}
-	day := strings.TrimSpace(string(dayCount))
+	identity, journal, day := readPlanContext(e.repoPath)
+	userMessage := buildPlanPrompt(e.repoPath, string(journal), day, issues)
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
+	tools := iteragent.DefaultTools(e.repoPath)
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
+	a := e.newAgent(p, tools, systemPrompt, skills)
 
-	// Load memory/ACTIVE_LEARNINGS.md
-	learnings, _ := os.ReadFile(filepath.Join(e.repoPath, "memory", "ACTIVE_LEARNINGS.md"))
-	ciStatus, _ := os.ReadFile(filepath.Join(e.repoPath, ".iterate", "ci_status.txt"))
+	e.forwardEvents(a.Prompt(ctx, userMessage))
+	a.Finish()
+	return nil
+}
+
+func readPlanContext(repoPath string) ([]byte, []byte, string) {
+	identity, err := os.ReadFile(filepath.Join(repoPath, "IDENTITY.md"))
+	if err != nil {
+		slog.Warn("failed to read IDENTITY.md", "err", err)
+	}
+	journal, err := os.ReadFile(filepath.Join(repoPath, "JOURNAL.md"))
+	if err != nil {
+		slog.Warn("failed to read JOURNAL.md", "err", err)
+	}
+	dayCount, err := os.ReadFile(filepath.Join(repoPath, "DAY_COUNT"))
+	if err != nil {
+		slog.Warn("failed to read DAY_COUNT", "err", err)
+	}
+	return identity, journal, strings.TrimSpace(string(dayCount))
+}
+
+func buildPlanPrompt(repoPath, journal, day, issues string) string {
+	learnings, _ := os.ReadFile(filepath.Join(repoPath, "memory", "ACTIVE_LEARNINGS.md"))
+	ciStatus, _ := os.ReadFile(filepath.Join(repoPath, ".iterate", "ci_status.txt"))
 
 	var sb strings.Builder
+	appendPlanInstructions(&sb, ciStatus, day)
+	appendPlanContext(&sb, learnings, journal, issues)
+
+	return sb.String()
+}
+
+func appendPlanInstructions(sb *strings.Builder, ciStatus []byte, day string) {
 	if len(ciStatus) > 0 {
 		sb.WriteString(strings.TrimSpace(string(ciStatus)) + "\n\n")
 	}
@@ -78,7 +99,9 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	sb.WriteString("After writing SESSION_PLAN.md, commit it:\n")
 	sb.WriteString(fmt.Sprintf("git add SESSION_PLAN.md && git commit -m \"Day %s: session plan\"\n\n", day))
 	sb.WriteString("Then STOP. Do not implement anything. Your job is planning only.\n\n")
+}
 
+func appendPlanContext(sb *strings.Builder, learnings []byte, journal string, issues string) {
 	if len(learnings) > 0 {
 		l := string(learnings)
 		if len(l) > 1000 {
@@ -88,8 +111,8 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 		sb.WriteString(l)
 		sb.WriteString("\n\n")
 	}
-	if len(string(journal)) > 0 {
-		recent := string(journal)
+	if len(journal) > 0 {
+		recent := journal
 		if len(recent) > 800 {
 			recent = "...\n" + recent[len(recent)-800:]
 		}
@@ -101,18 +124,10 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 		sb.WriteString("## Community input\n\n")
 		sb.WriteString(issues)
 		sb.WriteString("\n")
-		e.logger.Info("issues included in plan prompt", "issue_count", len(issues))
+		slog.Info("issues included in plan prompt", "issue_count", len(issues))
 	} else {
-		e.logger.Warn("NO ISSUES passed to plan phase")
+		slog.Warn("NO ISSUES passed to plan phase")
 	}
-
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
-	a := e.newAgent(p, tools, systemPrompt, skills)
-
-	e.forwardEvents(a.Prompt(ctx, sb.String()))
-	a.Finish()
-	return nil
 }
 
 // RunImplementPhase reads SESSION_PLAN.md and runs one agent per task.
