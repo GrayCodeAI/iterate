@@ -264,9 +264,8 @@ def render_how():
     return "\n".join(out)
 
 
-def day_count(entries):
-    if entries:
-        return max(e["day"] for e in entries)
+def day_count():
+    # DAY_COUNT is the authoritative source — always use it
     try:
         return int(read_file("DAY_COUNT").strip())
     except Exception:
@@ -277,8 +276,8 @@ def main():
     journal_md = read_file("docs/JOURNAL.md")
     identity_md = read_file("docs/IDENTITY.md")
     entries = parse_journal(journal_md)
-    days = day_count(entries)
-    sessions = max(0, len(entries) - 1)  # born entry doesn't count as a session
+    days = day_count()
+    sessions = days  # each day after birth is a session
     journal_html = render_journal(entries)
     mission, body_html, rules_html = (
         parse_identity(identity_md) if identity_md else ("", "", "")
