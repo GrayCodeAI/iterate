@@ -50,65 +50,62 @@ func FetchIssues(ctx context.Context, owner, repo string, issueTypes []IssueType
 	}
 
 	result := make(map[IssueType][]Issue)
-
 	for _, issueType := range issueTypes {
-		label := string(issueType)
 		ghIssues, _, err := client.Issues.ListByRepo(ctx, owner, repo, &github.IssueListByRepoOptions{
-			Labels: []string{label},
-			State:  "open",
-			ListOptions: github.ListOptions{
-				PerPage: 50,
-			},
+			Labels:      []string{string(issueType)},
+			State:       "open",
+			ListOptions: github.ListOptions{PerPage: 50},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("fetch issues for label %s: %w", label, err)
+			return nil, fmt.Errorf("fetch issues for label %s: %w", issueType, err)
 		}
 
-		var issues []Issue
-		for _, gi := range ghIssues {
-			reactions, _, err := client.Reactions.ListIssueReactions(ctx, owner, repo, gi.GetNumber(), nil)
-			if err != nil {
-				continue
-			}
-
-			var up, down int
-			for _, r := range reactions {
-				switch r.GetContent() {
-				case "heart", "+1":
-					up++
-				case "-1":
-					down++
-				}
-			}
-
-			body := gi.GetBody()
-			if len(body) > 500 {
-				body = body[:500] + "..."
-			}
-
-			issues = append(issues, Issue{
-				Number:   gi.GetNumber(),
-				Title:    gi.GetTitle(),
-				Body:     body,
-				NetVotes: up - down,
-				URL:      gi.GetHTMLURL(),
-				Type:     issueType,
-			})
-		}
-
-		// Sort by net votes descending
+		issues := buildIssuesFromGitHub(ctx, client, owner, repo, ghIssues, issueType)
 		sort.Slice(issues, func(i, j int) bool {
 			return issues[i].NetVotes > issues[j].NetVotes
 		})
-
 		if limit > 0 && len(issues) > limit {
 			issues = issues[:limit]
 		}
-
 		result[issueType] = issues
 	}
-
 	return result, nil
+}
+
+// buildIssuesFromGitHub converts GitHub API issues to Issue structs with reaction scores.
+func buildIssuesFromGitHub(ctx context.Context, client *github.Client, owner, repo string, ghIssues []*github.Issue, issueType IssueType) []Issue {
+	var issues []Issue
+	for _, gi := range ghIssues {
+		reactions, _, err := client.Reactions.ListIssueReactions(ctx, owner, repo, gi.GetNumber(), nil)
+		if err != nil {
+			continue
+		}
+
+		var up, down int
+		for _, r := range reactions {
+			switch r.GetContent() {
+			case "heart", "+1":
+				up++
+			case "-1":
+				down++
+			}
+		}
+
+		body := gi.GetBody()
+		if len(body) > 500 {
+			body = body[:500] + "..."
+		}
+
+		issues = append(issues, Issue{
+			Number:   gi.GetNumber(),
+			Title:    gi.GetTitle(),
+			Body:     body,
+			NetVotes: up - down,
+			URL:      gi.GetHTMLURL(),
+			Type:     issueType,
+		})
+	}
+	return issues
 }
 
 // FormatIssuesByType returns formatted strings for all issue types for the agent prompt.

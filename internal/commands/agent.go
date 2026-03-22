@@ -15,69 +15,41 @@ import (
 
 // RegisterAgentCommands adds agent control commands.
 func RegisterAgentCommands(r *Registry) {
-	r.Register(Command{
-		Name:        "/model",
-		Aliases:     []string{},
-		Description: "switch provider/model",
-		Category:    "agent",
-		Handler:     cmdModel,
-	})
+	registerAgentCoreCommands(r)
+	registerAgentAdvancedCommands(r)
+}
 
-	r.Register(Command{
-		Name:        "/thinking",
-		Aliases:     []string{},
-		Description: "set thinking level",
-		Category:    "agent",
-		Handler:     cmdThinking,
-	})
+func registerAgentCoreCommands(r *Registry) {
+	registerMany(r, "agent",
+		"/model", "switch provider/model", cmdModel,
+		"/thinking", "set thinking level", cmdThinking,
+		"/tools", "list available tools", cmdTools,
+		"/skills", "list available skills", cmdSkills,
+	)
+}
 
-	r.Register(Command{
-		Name:        "/tools",
-		Aliases:     []string{},
-		Description: "list available tools",
-		Category:    "agent",
-		Handler:     cmdTools,
-	})
+func registerAgentAdvancedCommands(r *Registry) {
+	registerMany(r, "agent",
+		"/cost", "show token usage and cost", cmdCost,
+		"/tokens", "show detailed token usage", cmdTokens,
+		"/spawn", "delegate to subagent (context-efficient)", cmdSpawn,
+		"/swarm", "launch N agents with rate limiting (max 100)", cmdSwarm,
+	)
+}
 
-	r.Register(Command{
-		Name:        "/skills",
-		Aliases:     []string{},
-		Description: "list available skills",
-		Category:    "agent",
-		Handler:     cmdSkills,
-	})
-
-	r.Register(Command{
-		Name:        "/cost",
-		Aliases:     []string{},
-		Description: "show token usage and cost",
-		Category:    "agent",
-		Handler:     cmdCost,
-	})
-
-	r.Register(Command{
-		Name:        "/tokens",
-		Aliases:     []string{},
-		Description: "show detailed token usage",
-		Category:    "agent",
-		Handler:     cmdTokens,
-	})
-
-	r.Register(Command{
-		Name:        "/spawn",
-		Aliases:     []string{},
-		Description: "delegate to subagent (context-efficient)",
-		Category:    "agent",
-		Handler:     cmdSpawn,
-	})
-
-	r.Register(Command{
-		Name:        "/swarm",
-		Aliases:     []string{},
-		Description: "launch N agents with rate limiting (max 100)",
-		Category:    "agent",
-		Handler:     cmdSwarm,
-	})
+// registerMany registers a batch of commands with the given category.
+func registerMany(r *Registry, category string, args ...interface{}) {
+	for i := 0; i < len(args); i += 3 {
+		name := args[i].(string)
+		desc := args[i+1].(string)
+		handler := args[i+2].(func(Context) Result)
+		r.Register(Command{
+			Name:        name,
+			Description: desc,
+			Category:    category,
+			Handler:     handler,
+		})
+	}
 }
 
 func cmdModel(ctx Context) Result {

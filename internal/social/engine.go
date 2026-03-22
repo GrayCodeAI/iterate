@@ -424,37 +424,43 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 	}
 	defer resp.Body.Close()
 
-	var result struct {
-		Data struct {
-			Repository struct {
-				Discussions struct {
-					Nodes []struct {
-						ID       string `json:"id"`
-						Number   int    `json:"number"`
-						Title    string `json:"title"`
-						Body     string `json:"body"`
-						URL      string `json:"url"`
-						Comments struct {
-							Nodes []struct {
-								ID     string `json:"id"`
-								Author struct {
-									Login string `json:"login"`
-								} `json:"author"`
-								Body string `json:"body"`
-							} `json:"nodes"`
-						} `json:"comments"`
-					} `json:"nodes"`
-				} `json:"discussions"`
-			} `json:"repository"`
-		} `json:"data"`
-	}
-
+	var result discussionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
+	return parseDiscussionNodes(result.Data.Repository.Discussions.Nodes), nil
+}
 
+type discussionsResponse struct {
+	Data struct {
+		Repository struct {
+			Discussions struct {
+				Nodes []discussionNode `json:"nodes"`
+			} `json:"discussions"`
+		} `json:"repository"`
+	} `json:"data"`
+}
+
+type discussionNode struct {
+	ID       string `json:"id"`
+	Number   int    `json:"number"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	URL      string `json:"url"`
+	Comments struct {
+		Nodes []struct {
+			ID     string `json:"id"`
+			Author struct {
+				Login string `json:"login"`
+			} `json:"author"`
+			Body string `json:"body"`
+		} `json:"nodes"`
+	} `json:"comments"`
+}
+
+func parseDiscussionNodes(nodes []discussionNode) []Discussion {
 	var discussions []Discussion
-	for _, node := range result.Data.Repository.Discussions.Nodes {
+	for _, node := range nodes {
 		d := Discussion{
 			ID:     node.ID,
 			Number: node.Number,
@@ -471,7 +477,7 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 		}
 		discussions = append(discussions, d)
 	}
-	return discussions, nil
+	return discussions
 }
 
 func (e *Engine) postDiscussionReply(ctx context.Context, discussionID, body string) error {
@@ -498,20 +504,34 @@ func (e *Engine) postDiscussionReply(ctx context.Context, discussionID, body str
 }
 
 func (e *Engine) createDiscussion(ctx context.Context, title, body string) error {
-	// First get repo ID and category ID
+	repoID, categoryID, err := e.fetchRepoAndCategoryID(ctx)
+	if err != nil {
+		return err
+	}
+
+	mutation := fmt.Sprintf(`{"query":"mutation{createDiscussion(input:{repositoryId:\"%s\",categoryId:\"%s\",title:\"%s\",body:\"%s\"}){discussion{id}}}"}`,
+		repoID, categoryID,
+		strings.ReplaceAll(title, `"`, `\"`),
+		strings.ReplaceAll(body, `"`, `\"`))
+
+	return e.doGraphQLPost(ctx, mutation)
+}
+
+// fetchRepoAndCategoryID returns the repository node ID and a suitable discussion category ID.
+func (e *Engine) fetchRepoAndCategoryID(ctx context.Context) (string, string, error) {
 	repoQuery := fmt.Sprintf(`{"query":"{repository(owner:\"%s\",name:\"%s\"){id,discussionCategories(first:5){nodes{id,name}}}}"}`,
 		e.owner, e.repo)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(repoQuery))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return "", "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+e.token)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := e.httpClient.Do(req)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
@@ -529,7 +549,7 @@ func (e *Engine) createDiscussion(ctx context.Context, title, body string) error
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&repoResult); err != nil {
-		return err
+		return "", "", err
 	}
 
 	repoID := repoResult.Data.Repository.ID
@@ -544,26 +564,25 @@ func (e *Engine) createDiscussion(ctx context.Context, title, body string) error
 		categoryID = repoResult.Data.Repository.DiscussionCategories.Nodes[0].ID
 	}
 	if categoryID == "" {
-		return fmt.Errorf("no discussion category found")
+		return "", "", fmt.Errorf("no discussion category found")
 	}
+	return repoID, categoryID, nil
+}
 
-	mutation := fmt.Sprintf(`{"query":"mutation{createDiscussion(input:{repositoryId:\"%s\",categoryId:\"%s\",title:\"%s\",body:\"%s\"}){discussion{id}}}"}`,
-		repoID, categoryID,
-		strings.ReplaceAll(title, `"`, `\"`),
-		strings.ReplaceAll(body, `"`, `\"`))
-
-	req2, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
+// doGraphQLPost sends a GraphQL mutation/query body and returns an error on failure.
+func (e *Engine) doGraphQLPost(ctx context.Context, gqlBody string) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(gqlBody))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
-	req2.Header.Set("Authorization", "Bearer "+e.token)
-	req2.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+e.token)
+	req.Header.Set("Content-Type", "application/json")
 
-	resp2, err := e.httpClient.Do(req2)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp2.Body.Close()
+	defer resp.Body.Close()
 	return nil
 }
 

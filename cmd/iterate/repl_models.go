@@ -49,66 +49,23 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 
 // selectOllamaModel discovers Tailscale Ollama hosts, lets user pick host then model.
 func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
-	// Discover Tailscale machines with Ollama
 	fmt.Printf("%sdiscovering Ollama hosts…%s\r\n", colorDim, colorReset)
 	hosts := discoverOllamaHosts()
 
-	var url string
-	if len(hosts) > 0 {
-		labels := make([]string, len(hosts))
-		for i, h := range hosts {
-			labels[i] = fmt.Sprintf("%-20s  %s", h.name, h.url)
-		}
-		labels = append(labels, "enter URL manually")
-
-		choice, ok := selectItem("Select Ollama host", labels)
-		if !ok {
-			return nil, currentThinking
-		}
-		if choice == "enter URL manually" {
-			url = ""
-		} else {
-			for _, h := range hosts {
-				if strings.HasPrefix(choice, h.name) {
-					url = h.url
-					break
-				}
-			}
-		}
+	url := promptOllamaHost(hosts)
+	if url == "cancel" {
+		return nil, currentThinking
 	}
-
 	if url == "" {
-		currentURL := os.Getenv("OLLAMA_BASE_URL")
-		if currentURL == "" {
-			currentURL = "http://localhost:11434/v1"
-		}
-		var ok bool
-		url, ok = promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
-		if !ok {
-			return nil, currentThinking
-		}
+		url = promptOllamaURL()
 		if url == "" {
-			url = currentURL
+			return nil, currentThinking
 		}
 	}
 
 	os.Setenv("OLLAMA_BASE_URL", url)
-	tagsURL := strings.TrimSuffix(strings.TrimSuffix(url, "/v1"), "/") + "/api/tags"
-	fmt.Printf("%sfetching models…%s\r\n", colorDim, colorReset)
-
-	models, err := fetchOllamaModels(tagsURL)
-	if err != nil || len(models) == 0 {
-		modelName, ok := promptLine("Enter model name:")
-		if !ok || modelName == "" {
-			return nil, currentThinking
-		}
-		os.Setenv("ITERATE_MODEL", modelName)
-	} else {
-		modelName, ok := selectItem("Select model", models)
-		if !ok {
-			return nil, currentThinking
-		}
-		os.Setenv("ITERATE_MODEL", modelName)
+	if !promptOllamaModelSelection(url) {
+		return nil, currentThinking
 	}
 
 	p, err := iteragent.NewProvider("ollama")
@@ -117,6 +74,73 @@ func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provi
 		return nil, currentThinking
 	}
 	return p, currentThinking
+}
+
+// promptOllamaHost shows a selector for discovered Ollama hosts.
+// Returns the selected URL, empty string for manual entry, or "cancel" if dismissed.
+func promptOllamaHost(hosts []ollamaHost) string {
+	if len(hosts) == 0 {
+		return ""
+	}
+	labels := make([]string, len(hosts))
+	for i, h := range hosts {
+		labels[i] = fmt.Sprintf("%-20s  %s", h.name, h.url)
+	}
+	labels = append(labels, "enter URL manually")
+
+	choice, ok := selectItem("Select Ollama host", labels)
+	if !ok {
+		return "cancel"
+	}
+	if choice == "enter URL manually" {
+		return ""
+	}
+	for _, h := range hosts {
+		if strings.HasPrefix(choice, h.name) {
+			return h.url
+		}
+	}
+	return ""
+}
+
+// promptOllamaURL asks the user for a manual Ollama URL.
+// Returns empty string if the user cancels.
+func promptOllamaURL() string {
+	currentURL := os.Getenv("OLLAMA_BASE_URL")
+	if currentURL == "" {
+		currentURL = "http://localhost:11434/v1"
+	}
+	url, ok := promptLine(fmt.Sprintf("Ollama URL (Enter to keep %s):", currentURL))
+	if !ok {
+		return ""
+	}
+	if url == "" {
+		url = currentURL
+	}
+	return url
+}
+
+// promptOllamaModelSelection fetches models from the given URL and prompts the user to pick one.
+// Returns false if the user cancels.
+func promptOllamaModelSelection(baseURL string) bool {
+	tagsURL := strings.TrimSuffix(strings.TrimSuffix(baseURL, "/v1"), "/") + "/api/tags"
+	fmt.Printf("%sfetching models…%s\r\n", colorDim, colorReset)
+
+	models, err := fetchOllamaModels(tagsURL)
+	if err != nil || len(models) == 0 {
+		modelName, ok := promptLine("Enter model name:")
+		if !ok || modelName == "" {
+			return false
+		}
+		os.Setenv("ITERATE_MODEL", modelName)
+		return true
+	}
+	modelName, ok := selectItem("Select model", models)
+	if !ok {
+		return false
+	}
+	os.Setenv("ITERATE_MODEL", modelName)
+	return true
 }
 
 type ollamaHost struct {

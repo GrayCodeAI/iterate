@@ -8,69 +8,26 @@ import (
 
 // RegisterGitHubCommands adds GitHub-related commands.
 func RegisterGitHubCommands(r *Registry) {
-	r.Register(Command{
-		Name:        "/issues",
-		Aliases:     []string{},
-		Description: "list open GitHub issues",
-		Category:    "github",
-		Handler:     cmdIssues,
-	})
+	registerGitHubPRCommands(r)
+	registerGitHubUtilityCommands(r)
+}
 
-	r.Register(Command{
-		Name:        "/pr",
-		Aliases:     []string{},
-		Description: "create pull request",
-		Category:    "github",
-		Handler:     cmdPR,
-	})
+func registerGitHubPRCommands(r *Registry) {
+	registerMany(r, "github",
+		"/issues", "list open GitHub issues", cmdIssues,
+		"/pr", "create pull request", cmdPR,
+		"/pr-list", "list pull requests", cmdPRList,
+		"/pr-review", "review current PR", cmdPRReview,
+	)
+}
 
-	r.Register(Command{
-		Name:        "/pr-list",
-		Aliases:     []string{},
-		Description: "list pull requests",
-		Category:    "github",
-		Handler:     cmdPRList,
-	})
-
-	r.Register(Command{
-		Name:        "/pr-review",
-		Aliases:     []string{},
-		Description: "review current PR",
-		Category:    "github",
-		Handler:     cmdPRReview,
-	})
-
-	r.Register(Command{
-		Name:        "/pr-checkout",
-		Aliases:     []string{},
-		Description: "checkout a PR",
-		Category:    "github",
-		Handler:     cmdPRCheckout,
-	})
-
-	r.Register(Command{
-		Name:        "/release",
-		Aliases:     []string{},
-		Description: "create a release",
-		Category:    "github",
-		Handler:     cmdRelease,
-	})
-
-	r.Register(Command{
-		Name:        "/ci",
-		Aliases:     []string{},
-		Description: "check CI status",
-		Category:    "github",
-		Handler:     cmdCI,
-	})
-
-	r.Register(Command{
-		Name:        "/gist",
-		Aliases:     []string{},
-		Description: "create a gist",
-		Category:    "github",
-		Handler:     cmdGist,
-	})
+func registerGitHubUtilityCommands(r *Registry) {
+	registerMany(r, "github",
+		"/pr-checkout", "checkout a PR", cmdPRCheckout,
+		"/release", "create a release", cmdRelease,
+		"/ci", "check CI status", cmdCI,
+		"/gist", "create a gist", cmdGist,
+	)
 }
 
 func cmdIssues(ctx Context) Result {
