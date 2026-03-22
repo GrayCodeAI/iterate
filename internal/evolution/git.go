@@ -217,15 +217,17 @@ func (e *Engine) mergePR(ctx context.Context) error {
 }
 
 func (e *Engine) switchToMain(ctx context.Context) error {
-	_, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": "git checkout main",
-	})
-	if err != nil {
-		_, err = e.runTool(ctx, "bash", map[string]string{
-			"cmd": "git checkout origin/main -b main",
-		})
+	// Try main first, then master, then recreate from origin/main.
+	for _, cmd := range []string{
+		"git checkout main",
+		"git checkout master",
+		"git checkout origin/main -b main",
+	} {
+		if _, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err == nil {
+			return nil
+		}
 	}
-	return err
+	return fmt.Errorf("could not switch to main or master branch")
 }
 
 // forwardEvents drains the given event channel and forwards each event to eventSink.
