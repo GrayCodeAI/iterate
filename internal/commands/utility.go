@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,9 +212,18 @@ func loadPins(repoPath string) []iteragent.Message {
 }
 
 func savePins(repoPath string, pins []iteragent.Message) {
-	os.MkdirAll(filepath.Join(repoPath, ".iterate"), 0755)
-	data, _ := json.MarshalIndent(pins, "", "  ")
-	os.WriteFile(pinsPath(repoPath), data, 0644)
+	if err := os.MkdirAll(filepath.Join(repoPath, ".iterate"), 0755); err != nil {
+		slog.Warn("failed to create .iterate dir for pins", "err", err)
+		return
+	}
+	data, err := json.MarshalIndent(pins, "", "  ")
+	if err != nil {
+		slog.Warn("failed to marshal pins", "err", err)
+		return
+	}
+	if err := os.WriteFile(pinsPath(repoPath), data, 0644); err != nil {
+		slog.Warn("failed to write pins file", "err", err)
+	}
 }
 
 func cmdPin(ctx Context) Result {
@@ -261,7 +271,7 @@ func cmdFork(ctx Context) Result {
 	}
 	if ctx.Session.SaveSession != nil && len(ctx.Agent.Messages) > 0 {
 		name := fmt.Sprintf("fork-%s", time.Now().Format("20060102-150405"))
-		_ = ctx.Session.SaveSession(name, ctx.Agent.Messages)
+		_ = ctx.Session.SaveSession(name, ctx.Agent.Messages) // best-effort cleanup
 	}
 	ctx.Agent.Reset()
 	PrintSuccess("conversation forked (saved) — starting fresh")
