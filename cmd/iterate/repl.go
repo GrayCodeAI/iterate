@@ -291,7 +291,22 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 	fmt.Printf("  %sSelf-Evolving Coding Agent%s\n", colorBold, colorReset)
 	fmt.Println()
 
-	// Working directory (shortened) + git branch + dirty state
+	printHeaderGit(repoPath)
+	printHeaderConfig(p, thinking)
+
+	fmt.Println()
+
+	// Keyboard hints
+	fmt.Printf("  %s/help%s · %sTab%s complete · %s↑↓%s history · %sCtrl+R%s search · %sCtrl+C%s exit\n",
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorDim,
+		colorCyan, colorReset)
+	fmt.Println()
+}
+
+func printHeaderGit(repoPath string) {
 	home, _ := os.UserHomeDir()
 	cwd := repoPath
 	if strings.HasPrefix(cwd, home) {
@@ -299,7 +314,6 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 	}
 	fmt.Printf("  %s%s%s", colorBold, cwd, colorReset)
 
-	// Git branch
 	if out, err := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output(); err == nil {
 		branch := strings.TrimSpace(string(out))
 		if branch != "" {
@@ -307,7 +321,6 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 		}
 	}
 
-	// Git dirty indicator — staged/unstaged
 	staged, unstaged := gitStatus()
 	if staged+unstaged > 0 {
 		if staged > 0 && unstaged > 0 {
@@ -320,8 +333,9 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 	}
 
 	fmt.Println()
+}
 
-	// Model name only — strip provider prefix if present
+func printHeaderConfig(p iteragent.Provider, thinking iteragent.ThinkingLevel) {
 	modelName := os.Getenv("ITERATE_MODEL")
 	if modelName == "" {
 		modelName = p.Name()
@@ -335,17 +349,6 @@ func printHeader(p iteragent.Provider, thinking iteragent.ThinkingLevel, repoPat
 		safeModeStr = fmt.Sprintf("  %s🔒 safe mode%s", colorCyan, colorReset)
 	}
 	fmt.Printf("  %s%s%s%s%s\n", colorDim, modelName, thinkingStr, safeModeStr, colorReset)
-
-	fmt.Println()
-
-	// Keyboard hints
-	fmt.Printf("  %s/help%s · %sTab%s complete · %s↑↓%s history · %sCtrl+R%s search · %sCtrl+C%s exit\n",
-		colorCyan, colorDim,
-		colorCyan, colorDim,
-		colorCyan, colorDim,
-		colorCyan, colorDim,
-		colorCyan, colorReset)
-	fmt.Println()
 }
 
 // loadBookmarksWrapper converts main package Bookmarks to commands.Bookmarks.
