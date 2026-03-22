@@ -16,6 +16,9 @@ import (
 // inputHistory holds commands for up/down arrow navigation.
 var inputHistory []string
 var inputHistoryMu sync.RWMutex
+
+// InputHistoryRef exposes the history slice pointer for external read access.
+var InputHistoryRef = &inputHistory
 var historyFile string
 
 // InitHistory loads history from the default history file.
@@ -87,6 +90,11 @@ func getInputHistory() []string {
 	cp := make([]string, len(inputHistory))
 	copy(cp, inputHistory)
 	return cp
+}
+
+// GetHistory returns a copy of the current input history (exported for callers).
+func GetHistory() []string {
+	return getInputHistory()
 }
 
 func inputHistoryLen() int {

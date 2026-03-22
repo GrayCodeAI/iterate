@@ -14,6 +14,7 @@ import (
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // ---------------------------------------------------------------------------
@@ -144,7 +145,7 @@ func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]s
 		time.Sleep(5 * time.Millisecond)
 	}
 	fmt.Printf("\n%s⚠ Safe mode: allow %s?%s ", colorYellow, tool.Name, colorReset)
-	answer, ok := promptLine("(y/N/always):")
+	answer, ok := selector.PromptLine("(y/N/always):")
 	if !ok {
 		logAudit(tool.Name, auditArgs, "DENIED")
 		return "Tool execution denied by user (safe mode).", true

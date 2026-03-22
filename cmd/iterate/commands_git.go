@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ func handlePRList(repoPath string) {
 func handlePRView(repoPath string, number string) {
 	if number == "" {
 		var ok bool
-		number, ok = promptLine("PR number:")
+		number, ok = selector.PromptLine("PR number:")
 		if !ok || number == "" {
 			return
 		}
@@ -146,7 +147,7 @@ func handlePRView(repoPath string, number string) {
 func handlePRDiff(repoPath string, number string) {
 	if number == "" {
 		var ok bool
-		number, ok = promptLine("PR number:")
+		number, ok = selector.PromptLine("PR number:")
 		if !ok || number == "" {
 			return
 		}
@@ -167,7 +168,7 @@ func handlePRDiff(repoPath string, number string) {
 func handlePRReview(repoPath string, number string, a *iteragent.Agent, ctx context.Context) {
 	if number == "" {
 		var ok bool
-		number, ok = promptLine("PR number:")
+		number, ok = selector.PromptLine("PR number:")
 		if !ok || number == "" {
 			return
 		}
@@ -188,14 +189,14 @@ func handlePRReview(repoPath string, number string, a *iteragent.Agent, ctx cont
 func handlePRComment(repoPath string, number string, text string) {
 	if number == "" {
 		var ok bool
-		number, ok = promptLine("PR number:")
+		number, ok = selector.PromptLine("PR number:")
 		if !ok || number == "" {
 			return
 		}
 	}
 	if text == "" {
 		var ok bool
-		text, ok = promptLine("Comment:")
+		text, ok = selector.PromptLine("Comment:")
 		if !ok || text == "" {
 			return
 		}
@@ -227,7 +228,7 @@ func handlePRCheckout(repoPath string, number string) {
 			fmt.Println("No open PRs found.")
 			return
 		}
-		choice, ok := selectItem("Select PR to checkout", nonEmpty)
+		choice, ok := selector.SelectItem("Select PR to checkout", nonEmpty)
 		if !ok {
 			return
 		}
@@ -260,12 +261,12 @@ func handlePRCreate(repoPath string, draft bool) {
 		fmt.Printf("%screate a feature branch first. current: %s%s\n", colorRed, branch, colorReset)
 		return
 	}
-	title, ok := promptLine("PR title:")
+	title, ok := selector.PromptLine("PR title:")
 	if !ok || title == "" {
 		fmt.Println("cancelled.")
 		return
 	}
-	body, ok := promptLine("PR body (Enter for auto):")
+	body, ok := selector.PromptLine("PR body (Enter for auto):")
 	if !ok {
 		return
 	}

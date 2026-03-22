@@ -9,6 +9,8 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/ui/highlight"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // toolStyle returns the display icon, label, and ANSI color for a tool name.
@@ -128,7 +130,7 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	if fullContent != "" {
 		lastResponse = fullContent
 		fmt.Print("\r\033[K")
-		renderResponse(fullContent)
+		highlight.RenderResponse(fullContent)
 		fmt.Println()
 	}
 	maybeNotify()
@@ -176,7 +178,7 @@ func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Ti
 		stopOnce()
 		if fullContent != "" {
 			fmt.Print("\r\033[K")
-			renderResponse(fullContent)
+			highlight.RenderResponse(fullContent)
 			fmt.Println()
 			fullContent = ""
 		}
@@ -225,7 +227,10 @@ func printFinalStats(elapsed time.Duration, beforeTokens int, fullContent string
 	fmt.Println()
 	logTokenDelta(beforeTokens)
 	fmt.Println()
-	printStatusLine(elapsed)
+	selector.InputTokens = sess.InputTokens
+	selector.OutputTokens = sess.OutputTokens
+	selector.SafeMode = cfg.SafeMode
+	selector.PrintStatusLine(elapsed)
 	fmt.Println()
 
 	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens)

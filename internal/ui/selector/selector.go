@@ -49,8 +49,13 @@ func PrintPrompt() {
 	}
 }
 
-// gitStatus returns real-time staged and unstaged file counts.
+// GitStatus returns real-time staged and unstaged file counts.
 // Uses git diff directly to avoid stale index mtime false-positives.
+func GitStatus() (staged, unstaged int) {
+	return gitStatus()
+}
+
+// gitStatus is the internal implementation.
 func gitStatus() (staged, unstaged int) {
 	if RepoPath == "" {
 		return 0, 0
