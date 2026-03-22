@@ -45,7 +45,7 @@ func registerUtilityContextCommands(r *Registry) {
 	})
 }
 
-func registerUtilityActionCommands(r *Registry) {
+func registerUtilityConversationCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/retry",
 		Aliases:     []string{},
@@ -77,6 +77,10 @@ func registerUtilityActionCommands(r *Registry) {
 		Category:    "utility",
 		Handler:     cmdUnpin,
 	})
+}
+
+func registerUtilityActionCommands(r *Registry) {
+	registerUtilityConversationCommands(r)
 
 	r.Register(Command{
 		Name:        "/rewind",
@@ -303,16 +307,7 @@ func cmdInject(ctx Context) Result {
 	return Result{Handled: true}
 }
 
-func cmdCompact(ctx Context) Result {
-	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
-		PrintError("no conversation to compact")
-		return Result{Handled: true}
-	}
-
-	before := len(ctx.Agent.Messages)
-	msgs := ctx.Agent.Messages
-
-	pins := loadPins(ctx.RepoPath)
+func compactMessages(msgs []iteragent.Message, pins []iteragent.Message) []iteragent.Message {
 	pinKeys := make(map[string]bool)
 	for _, p := range pins {
 		pinKeys[p.Role+":"+p.Content] = true
@@ -350,6 +345,20 @@ func cmdCompact(ctx Context) Result {
 			keptKeys[key] = true
 		}
 	}
+
+	return kept
+}
+
+func cmdCompact(ctx Context) Result {
+	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
+		PrintError("no conversation to compact")
+		return Result{Handled: true}
+	}
+
+	before := len(ctx.Agent.Messages)
+	pins := loadPins(ctx.RepoPath)
+
+	kept := compactMessages(ctx.Agent.Messages, pins)
 
 	ctx.Agent.Messages = kept
 	after := len(kept)

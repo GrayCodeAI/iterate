@@ -104,11 +104,7 @@ func replHooks() iteragent.AgentHooks {
 }
 
 // initREPL loads config, applies theme, sets up signal handling and runtime state.
-func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.ThinkingLevel {
-	initHistory()
-	initAuditLog()
-
-	// Handle SIGINT: cancel in-flight request instead of exiting.
+func setupSigintHandler() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT)
 	go func() {
@@ -119,8 +115,9 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 			}
 		}
 	}()
+}
 
-	loadedCfg := loadConfig()
+func applyLoadedConfig(loadedCfg iterConfig, thinking iteragent.ThinkingLevel) iteragent.ThinkingLevel {
 	cfg.SafeMode = loadedCfg.SafeMode
 	cfg.NotifyEnabled = loadedCfg.Notify
 	if loadedCfg.Theme != "" {
@@ -137,7 +134,6 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 		deniedToolsMu.Unlock()
 	}
 
-	// Seed runtime config from persisted values so /set overrides start from saved state.
 	if loadedCfg.Temperature > 0 {
 		t := float32(loadedCfg.Temperature)
 		rtConfig.Temperature = &t
@@ -149,10 +145,19 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 		enabled := true
 		rtConfig.CacheEnabled = &enabled
 	}
-	// Apply persisted ThinkingLevel when the caller passed the default "off".
 	if thinking == iteragent.ThinkingLevelOff && loadedCfg.ThinkingLevel != "" {
 		thinking = iteragent.ThinkingLevel(loadedCfg.ThinkingLevel)
 	}
+	return thinking
+}
+
+func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.ThinkingLevel {
+	initHistory()
+	initAuditLog()
+	setupSigintHandler()
+
+	loadedCfg := loadConfig()
+	thinking = applyLoadedConfig(loadedCfg, thinking)
 
 	replRepoPath = repoPath
 	return thinking

@@ -133,6 +133,21 @@ func appendPlanContext(sb *strings.Builder, learnings []byte, journal string, is
 // RunImplementPhase reads SESSION_PLAN.md and runs one agent per task.
 // It creates a feature branch, commits changes there, pushes, and creates a PR.
 // Each task has its own timeout to prevent stuck agents.
+func (e *Engine) implementTasks(ctx context.Context, p iteragent.Provider, tasks []planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet) []string {
+	var allTaskOutputs []string
+	for _, task := range tasks {
+		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
+		output, ok := e.executeTask(ctx, p, task, systemPrompt, tools, skills)
+		if !ok {
+			continue
+		}
+		allTaskOutputs = append(allTaskOutputs, output)
+		commitMsg := extractCommitMessage(output)
+		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
+	}
+	return allTaskOutputs
+}
+
 func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) error {
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
@@ -166,17 +181,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 
 	systemPrompt, tools, skills := e.loadImplementContext()
 
-	var allTaskOutputs []string
-	for _, task := range tasks {
-		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
-		output, ok := e.executeTask(ctx, p, task, systemPrompt, tools, skills)
-		if !ok {
-			continue
-		}
-		allTaskOutputs = append(allTaskOutputs, output)
-		commitMsg := extractCommitMessage(output)
-		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
-	}
+	allTaskOutputs := e.implementTasks(ctx, p, tasks, systemPrompt, tools, skills)
 
 	hasChangesAfter, _ := e.hasChanges(ctx)
 	if !hasChangesAfter {

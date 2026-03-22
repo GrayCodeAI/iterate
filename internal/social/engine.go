@@ -186,6 +186,49 @@ func (e *Engine) createDecisionsAsDiscussions(ctx context.Context, decisions []s
 }
 
 // ReplyToIssues posts a comment on each addressed issue.
+func (e *Engine) buildIssueReplyPrompt(personality, communicateSkill, dayCount, journalSnippet string) string {
+	return fmt.Sprintf(`You are iterate, a self-evolving coding agent.
+%s
+
+## Communicate skill
+%s
+
+Day: %s
+Recent journal: %s
+
+Write a reply to this GitHub issue. Output ONLY the reply text, nothing else.`,
+		string(personality), string(communicateSkill),
+		strings.TrimSpace(string(dayCount)), journalSnippet)
+}
+
+func (e *Engine) replyToSingleIssue(ctx context.Context, p iteragent.Provider, num int, personality, communicateSkill, dayCount, journalSnippet string) {
+	issue, err := e.fetchIssue(ctx, num)
+	if err != nil {
+		e.logger.Warn("failed to fetch issue", "number", num, "err", err)
+		return
+	}
+
+	systemPrompt := e.buildIssueReplyPrompt(personality, communicateSkill, dayCount, journalSnippet)
+	userMessage := fmt.Sprintf("Issue #%d: %s\n\n%s", issue.Number, issue.Title, issue.Body)
+
+	messages := []iteragent.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userMessage},
+	}
+
+	reply, err := p.Complete(ctx, messages)
+	if err != nil {
+		e.logger.Warn("LLM error for issue reply", "issue", num, "err", err)
+		return
+	}
+
+	if err := e.postIssueComment(ctx, num, strings.TrimSpace(reply)); err != nil {
+		e.logger.Warn("failed to post issue comment", "issue", num, "err", err)
+	} else {
+		e.logger.Info("replied to issue", "number", num)
+	}
+}
+
 func (e *Engine) ReplyToIssues(ctx context.Context, p iteragent.Provider, issueNumbers []int) error {
 	if e.token == "" || len(issueNumbers) == 0 {
 		return nil
@@ -196,110 +239,15 @@ func (e *Engine) ReplyToIssues(ctx context.Context, p iteragent.Provider, issueN
 	journal, _ := os.ReadFile(filepath.Join(e.repoPath, "JOURNAL.md"))
 	dayCount, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
 
-	// Get last journal entry (last 800 chars)
 	journalSnippet := string(journal)
 	if len(journalSnippet) > 800 {
 		journalSnippet = journalSnippet[len(journalSnippet)-800:]
 	}
 
 	for _, num := range issueNumbers {
-		issue, err := e.fetchIssue(ctx, num)
-		if err != nil {
-			e.logger.Warn("failed to fetch issue", "number", num, "err", err)
-			continue
-		}
-
-		systemPrompt := fmt.Sprintf(`You are iterate, a self-evolving coding agent.
-%s
-
-## Communicate skill
-%s
-
-Day: %s
-Recent journal: %s
-
-Write a reply to this GitHub issue. Output ONLY the reply text, nothing else.`,
-			string(personality), string(communicateSkill),
-			strings.TrimSpace(string(dayCount)), journalSnippet)
-
-		userMessage := fmt.Sprintf("Issue #%d: %s\n\n%s", issue.Number, issue.Title, issue.Body)
-
-		messages := []iteragent.Message{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userMessage},
-		}
-
-		reply, err := p.Complete(ctx, messages)
-		if err != nil {
-			e.logger.Warn("LLM error for issue reply", "issue", num, "err", err)
-			continue
-		}
-
-		if err := e.postIssueComment(ctx, num, strings.TrimSpace(reply)); err != nil {
-			e.logger.Warn("failed to post issue comment", "issue", num, "err", err)
-		} else {
-			e.logger.Info("replied to issue", "number", num)
-		}
+		e.replyToSingleIssue(ctx, p, num, string(personality), string(communicateSkill), string(dayCount), journalSnippet)
 	}
 	return nil
-}
-
-// --- GitHub GraphQL (Discussions) ---
-
-type socialDecision struct {
-	DiscussionID  string `json:"discussion_id"`
-	Reply         string `json:"reply,omitempty"`
-	Learning      string `json:"learning,omitempty"`
-	NewDiscussion *struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
-	} `json:"new_discussion,omitempty"`
-}
-
-func buildSocialPrompt(discussions []Discussion) string {
-	var sb strings.Builder
-	sb.WriteString("Here are the current GitHub Discussions. For each one, decide what to do.\n\n")
-	sb.WriteString("Respond ONLY with a JSON array of decisions:\n")
-	sb.WriteString(`[{"discussion_id":"ID","reply":"text or empty string","learning":"insight or empty","new_discussion":null}]`)
-	sb.WriteString("\n\n## Discussions\n\n")
-
-	for _, d := range discussions {
-		sb.WriteString(fmt.Sprintf("### ID: %s | #%d: %s\n", d.ID, d.Number, d.Title))
-		sb.WriteString(d.Body + "\n")
-		for _, c := range d.Comments {
-			sb.WriteString(fmt.Sprintf("  [%s]: %s\n", c.Author, c.Body))
-		}
-		sb.WriteString("\n")
-	}
-	return sb.String()
-}
-
-func parseSocialDecisions(response string) ([]socialDecision, error) {
-	// Strip markdown code fences if present
-	response = strings.TrimSpace(response)
-	response = strings.TrimPrefix(response, "```json")
-	response = strings.TrimPrefix(response, "```")
-	response = strings.TrimSuffix(response, "```")
-	response = strings.TrimSpace(response)
-
-	var decisions []socialDecision
-	if err := json.Unmarshal([]byte(response), &decisions); err != nil {
-		return nil, err
-	}
-	return decisions, nil
-}
-
-func extractLearnings(decisions []socialDecision) string {
-	var parts []string
-	for _, d := range decisions {
-		if d.Learning != "" {
-			parts = append(parts, d.Learning)
-		}
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, "\n")
 }
 
 func (e *Engine) appendLearnings(text string) error {

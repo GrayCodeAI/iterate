@@ -80,7 +80,7 @@ func registerEvolutionLifecycleCommands(r *Registry) {
 	})
 }
 
-func registerEvolutionGenerationCommands(r *Registry) {
+func registerEvolutionCreationCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/snapshot",
 		Aliases:     []string{},
@@ -112,6 +112,10 @@ func registerEvolutionGenerationCommands(r *Registry) {
 		Category:    "evolution",
 		Handler:     cmdDocs,
 	})
+}
+
+func registerEvolutionGenerationCommands(r *Registry) {
+	registerEvolutionCreationCommands(r)
 
 	r.Register(Command{
 		Name:        "/skill-create",

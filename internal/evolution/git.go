@@ -131,19 +131,8 @@ func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []i
 	return prNum, url, nil
 }
 
-func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet) error {
-	if e.prNumber == 0 {
-		return fmt.Errorf("no PR to review")
-	}
-
-	prDiff, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get PR diff: %w", err)
-	}
-
-	userMsg := fmt.Sprintf(`Review your own PR #%d changes critically. Check for:
+func (e *Engine) buildPRReviewMessage(prDiff string) string {
+	return fmt.Sprintf(`Review your own PR #%d changes critically. Check for:
 1. Bugs or security issues
 2. Missing error handling
 3. Test coverage
@@ -161,6 +150,21 @@ Then push: git push --force-with-lease origin %s
 
 If the changes are good, reply: "LGTM"
 `, e.prNumber, util.Truncate(prDiff, 8000), e.branchName)
+}
+
+func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet) error {
+	if e.prNumber == 0 {
+		return fmt.Errorf("no PR to review")
+	}
+
+	prDiff, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get PR diff: %w", err)
+	}
+
+	userMsg := e.buildPRReviewMessage(prDiff)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var reviewOutput string

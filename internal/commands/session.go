@@ -82,7 +82,7 @@ func registerSessionUtilityCommands(r *Registry) {
 	registerSessionUtilityB(r)
 }
 
-func registerSessionUtilityA(r *Registry) {
+func registerSessionTemplateCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/templates",
 		Aliases:     []string{},
@@ -106,6 +106,10 @@ func registerSessionUtilityA(r *Registry) {
 		Category:    "session",
 		Handler:     cmdTemplate,
 	})
+}
+
+func registerSessionUtilityA(r *Registry) {
+	registerSessionTemplateCommands(r)
 
 	r.Register(Command{
 		Name:        "/multi",
