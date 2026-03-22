@@ -51,6 +51,7 @@ jobs:
           ITERATE_PROVIDER: opencode
           ITERATE_MODEL: mimo-v2-pro-free
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           bash scripts/evolution/evolve.sh
