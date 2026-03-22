@@ -112,6 +112,35 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	events := a.Prompt(reqCtx, prompt)
 	start := time.Now()
 
+	stopOnce, newSpinner := newSpinnerController()
+	newSpinner("thinking")
+	defer func() { stopOnce() }()
+
+	var fullContent string
+	var toolStart time.Time
+	beforeTokens := sess.Tokens
+
+	for e := range events {
+		fullContent, toolStart = processStreamEvent(e, fullContent, toolStart, stopOnce, newSpinner, repoPath)
+	}
+	a.Finish()
+	stopOnce()
+
+	if fullContent != "" {
+		lastResponse = fullContent
+		fmt.Print("\r\033[K")
+		renderResponse(fullContent)
+		fmt.Println()
+	}
+	maybeNotify()
+	elapsed := time.Since(start).Round(time.Millisecond)
+
+	updateSessionTokens(a, fullContent)
+	printFinalStats(elapsed, beforeTokens, fullContent)
+}
+
+// newSpinnerController creates a spinner control pair (stopOnce, newSpinner).
+func newSpinnerController() (func(), func(string)) {
 	var (
 		stopSpinner  chan struct{}
 		spinnerDone  chan struct{}
@@ -133,65 +162,49 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		go spinner(stopSpinner, spinnerDone, spinnerLabel)
 	}
 	_ = spinnerLabel
-	newSpinner("thinking")
-	defer func() { stopOnce() }()
+	return stopOnce, newSpinner
+}
 
-	var fullContent string
-	var toolStart time.Time
-	beforeTokens := sess.Tokens
-
-	for e := range events {
-		switch iteragent.EventType(e.Type) {
-		case iteragent.EventTokenUpdate:
-			// Buffer tokens, render at end with markdown highlighting.
-			fullContent += e.Content
-
-		case iteragent.EventMessageUpdate:
-			// Non-streaming provider: buffer and render at the end.
-		case iteragent.EventToolExecutionStart:
-			toolStart = time.Now()
-			recordToolCall()
-			stopOnce()
-			if fullContent != "" {
-				fmt.Print("\r\033[K")
-				renderResponse(fullContent)
-				fmt.Println()
-				fullContent = ""
-			}
-			icon, label, col := toolStyle(e.ToolName)
-			// Show tool name + truncated key arg inline
-			fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
-
-		case iteragent.EventToolExecutionEnd:
-			elapsed := time.Since(toolStart).Round(time.Millisecond)
-			fmt.Print(formatToolCallResult(e.Result, elapsed))
-			// Show git diff after file edits
-			if e.ToolName == "write_file" || e.ToolName == "edit_file" || e.ToolName == "create_file" {
-				showGitDiff(repoPath)
-			}
-			// Restart spinner for next agent step
-			newSpinner("thinking")
-
-		case iteragent.EventContextCompacted:
-			fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
-
-		case iteragent.EventError:
-			fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
+// processStreamEvent handles a single agent stream event and returns updated state.
+func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Time, stopOnce func(), newSpinner func(string), repoPath string) (string, time.Time) {
+	switch iteragent.EventType(e.Type) {
+	case iteragent.EventTokenUpdate:
+		fullContent += e.Content
+	case iteragent.EventMessageUpdate:
+	case iteragent.EventToolExecutionStart:
+		toolStart = time.Now()
+		recordToolCall()
+		stopOnce()
+		if fullContent != "" {
+			fmt.Print("\r\033[K")
+			renderResponse(fullContent)
+			fmt.Println()
+			fullContent = ""
 		}
+		icon, label, col := toolStyle(e.ToolName)
+		fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
+	case iteragent.EventToolExecutionEnd:
+		elapsed := time.Since(toolStart).Round(time.Millisecond)
+		printToolResult(e.Result, elapsed, e.ToolName, repoPath)
+		newSpinner("thinking")
+	case iteragent.EventContextCompacted:
+		fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
+	case iteragent.EventError:
+		fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
 	}
-	a.Finish()
-	stopOnce()
+	return fullContent, toolStart
+}
 
-	if fullContent != "" {
-		lastResponse = fullContent
-		fmt.Print("\r\033[K")
-		renderResponse(fullContent)
-		fmt.Println()
+// printToolResult formats and displays a completed tool call result.
+func printToolResult(result string, elapsed time.Duration, toolName string, repoPath string) {
+	fmt.Print(formatToolCallResult(result, elapsed))
+	if toolName == "write_file" || toolName == "edit_file" || toolName == "create_file" {
+		showGitDiff(repoPath)
 	}
-	maybeNotify()
-	elapsed := time.Since(start).Round(time.Millisecond)
+}
 
-	// Update session token counters from last message usage.
+// updateSessionTokens updates session token counters from the last agent message.
+func updateSessionTokens(a *iteragent.Agent, fullContent string) {
 	if len(a.Messages) > 0 {
 		last := a.Messages[len(a.Messages)-1]
 		if last.Usage != nil {
@@ -206,7 +219,10 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		sess.Tokens += approxTokens
 		sess.OutputTokens += approxTokens
 	}
+}
 
+// printFinalStats prints token delta, status line, and debug log.
+func printFinalStats(elapsed time.Duration, beforeTokens int, fullContent string) {
 	fmt.Println()
 	logTokenDelta(beforeTokens)
 	fmt.Println()

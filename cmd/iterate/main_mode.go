@@ -36,64 +36,31 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 	}
 
 	if f.socialOnly {
-		if f.ghOwner == "" || f.ghRepo == "" {
-			logger.Error("--gh-owner and --gh-repo required for social mode")
-			os.Exit(1)
-		}
-		socialEngine := social.New(absRepo, f.ghOwner, f.ghRepo, logger)
-		logger.Info("starting social session")
-		if err := socialEngine.Run(ctx, p); err != nil {
-			logger.Error("social session failed", "err", err)
-			os.Exit(1)
-		}
-		logger.Info("social session complete")
+		runSocialMode(ctx, f, absRepo, p, logger)
 		return
 	}
 
-	// Evolution mode
-	var rawIssues map[community.IssueType][]community.Issue
-	var issues string
-	if f.ghOwner != "" && f.ghRepo != "" {
-		fetchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		issueTypes := []community.IssueType{
-			community.IssueTypeInput,
-			community.IssueTypeSelf,
-			community.IssueTypeHelpWanted,
-		}
-		logger.Info("fetching issues", "owner", f.ghOwner, "repo", f.ghRepo)
-		rawIssues, err = community.FetchIssues(fetchCtx, f.ghOwner, f.ghRepo, issueTypes, f.issueMax)
-		cancel()
-		if err != nil {
-			logger.Warn("failed to fetch community issues", "err", err)
-		} else {
-			issues = community.FormatIssuesByType(rawIssues)
-			var total int
-			for _, v := range rawIssues {
-				total += len(v)
-			}
-			logger.Info("loaded community issues", "count", total, "issues_len", len(issues))
-			if len(issues) == 0 {
-				logger.Warn("issues string is empty despite fetching some")
-			}
-		}
-	}
+	result, sessionMessages, rawIssues := runEvolutionMode(ctx, f, absRepo, p, logger)
+	handleEvolutionCleanup(ctx, f, absRepo, result, sessionMessages, rawIssues, p, logger)
+}
 
-	var sessionMessages []iteragent.Message
-	if f.loadSession != "" {
-		msgs, err := loadSessionFromFile(f.loadSession)
-		if err != nil {
-			logger.Warn("failed to load session", "path", f.loadSession, "err", err)
-		} else {
-			sessionMessages = msgs
-			logger.Info("loaded session", "path", f.loadSession, "messages", len(msgs))
-		}
+func runSocialMode(ctx context.Context, f mainFlags, absRepo string, p iteragent.Provider, logger *slog.Logger) {
+	if f.ghOwner == "" || f.ghRepo == "" {
+		logger.Error("--gh-owner and --gh-repo required for social mode")
+		os.Exit(1)
 	}
+	socialEngine := social.New(absRepo, f.ghOwner, f.ghRepo, logger)
+	logger.Info("starting social session")
+	if err := socialEngine.Run(ctx, p); err != nil {
+		logger.Error("social session failed", "err", err)
+		os.Exit(1)
+	}
+	logger.Info("social session complete")
+}
 
-	if f.compactFlag && len(sessionMessages) > 0 {
-		ctxCfg := iteragent.DefaultContextConfig()
-		sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, ctxCfg)
-		logger.Info("compacted session messages", "remaining", len(sessionMessages))
-	}
+func runEvolutionMode(ctx context.Context, f mainFlags, absRepo string, p iteragent.Provider, logger *slog.Logger) (*evolution.RunResult, []iteragent.Message, map[community.IssueType][]community.Issue) {
+	rawIssues, issues := fetchCommunityIssues(ctx, f, logger)
+	sessionMessages := loadEvolutionSession(f, logger)
 
 	iteragent.SetProtectedPaths([]string{
 		filepath.Join(absRepo, "scripts/evolution/evolve.sh"),
@@ -110,7 +77,62 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 	logger.Info("starting evolution session", "repo", absRepo)
 	fmt.Println(banner())
 
-	var result *evolution.RunResult
+	result := runEvolutionPhase(ctx, f, p, engine, issues, logger)
+	return result, sessionMessages, rawIssues
+}
+
+func fetchCommunityIssues(ctx context.Context, f mainFlags, logger *slog.Logger) (map[community.IssueType][]community.Issue, string) {
+	if f.ghOwner == "" || f.ghRepo == "" {
+		return nil, ""
+	}
+
+	fetchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	issueTypes := []community.IssueType{
+		community.IssueTypeInput,
+		community.IssueTypeSelf,
+		community.IssueTypeHelpWanted,
+	}
+	logger.Info("fetching issues", "owner", f.ghOwner, "repo", f.ghRepo)
+	rawIssues, err := community.FetchIssues(fetchCtx, f.ghOwner, f.ghRepo, issueTypes, f.issueMax)
+	cancel()
+	if err != nil {
+		logger.Warn("failed to fetch community issues", "err", err)
+		return nil, ""
+	}
+
+	issues := community.FormatIssuesByType(rawIssues)
+	var total int
+	for _, v := range rawIssues {
+		total += len(v)
+	}
+	logger.Info("loaded community issues", "count", total, "issues_len", len(issues))
+	if len(issues) == 0 {
+		logger.Warn("issues string is empty despite fetching some")
+	}
+	return rawIssues, issues
+}
+
+func loadEvolutionSession(f mainFlags, logger *slog.Logger) []iteragent.Message {
+	var sessionMessages []iteragent.Message
+	if f.loadSession != "" {
+		msgs, err := loadSessionFromFile(f.loadSession)
+		if err != nil {
+			logger.Warn("failed to load session", "path", f.loadSession, "err", err)
+		} else {
+			sessionMessages = msgs
+			logger.Info("loaded session", "path", f.loadSession, "messages", len(msgs))
+		}
+	}
+
+	if f.compactFlag && len(sessionMessages) > 0 {
+		ctxCfg := iteragent.DefaultContextConfig()
+		sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, ctxCfg)
+		logger.Info("compacted session messages", "remaining", len(sessionMessages))
+	}
+	return sessionMessages
+}
+
+func runEvolutionPhase(ctx context.Context, f mainFlags, p iteragent.Provider, engine *evolution.Engine, issues string, logger *slog.Logger) *evolution.RunResult {
 	switch f.phase {
 	case "plan":
 		logger.Info("running plan phase")
@@ -119,7 +141,7 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 			os.Exit(1)
 		}
 		logger.Info("plan phase complete")
-		return
+		return nil
 	case "implement":
 		logger.Info("running implement phase")
 		if err := engine.RunImplementPhase(ctx, p); err != nil {
@@ -127,7 +149,7 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 			os.Exit(1)
 		}
 		logger.Info("implement phase complete")
-		return
+		return nil
 	case "communicate":
 		logger.Info("running communicate phase")
 		if err := engine.RunCommunicatePhase(ctx, p); err != nil {
@@ -135,16 +157,18 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 			os.Exit(1)
 		}
 		logger.Info("communicate phase complete")
-		return
+		return nil
 	default:
-		var runErr error
-		result, runErr = engine.Run(ctx, p, issues)
+		result, runErr := engine.Run(ctx, p, issues)
 		if runErr != nil {
 			logger.Error("evolution session failed", "err", runErr)
 			os.Exit(1)
 		}
+		return result
 	}
+}
 
+func handleEvolutionCleanup(ctx context.Context, f mainFlags, absRepo string, result *evolution.RunResult, sessionMessages []iteragent.Message, rawIssues map[community.IssueType][]community.Issue, p iteragent.Provider, logger *slog.Logger) {
 	autoSavePath := filepath.Join(absRepo, ".iterate", "last-session.json")
 	_ = os.MkdirAll(filepath.Dir(autoSavePath), 0o755)
 	if err := saveSessionToFile(autoSavePath, sessionMessages); err != nil {

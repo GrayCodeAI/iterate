@@ -160,57 +160,12 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	var allTaskOutputs []string
 	for _, task := range tasks {
 		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
-
-		// Add protected files warning to task prompt
-		protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
-
-		userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
-			task.Number, task.Description, protectedWarning)
-
-		a := e.newAgent(p, tools, systemPrompt, skills)
-
-		var taskOutput string
-		var taskErr error
-		for ev := range a.Prompt(ctx, userMsg) {
-			if e.eventSink != nil {
-				select {
-				case e.eventSink <- ev:
-				default:
-				}
-			}
-			if ev.Type == string(iteragent.EventMessageEnd) {
-				taskOutput = ev.Content
-			}
-			if ev.Type == string(iteragent.EventError) {
-				taskErr = fmt.Errorf("%s", ev.Content)
-			}
-		}
-		a.Finish()
-
-		if taskErr != nil {
-			e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
-			_ = e.revert(ctx)
+		output, ok := e.executeTask(ctx, p, task, systemPrompt, tools, skills)
+		if !ok {
 			continue
 		}
-
-		// Check for protected file violations
-		violations, _ := e.verifyProtected(ctx)
-		if len(violations) > 0 {
-			e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
-			_ = e.revert(ctx)
-			continue
-		}
-
-		// Verify build + tests (yoyo-evolve style per-task verification)
-		verification := e.verify(ctx)
-		if !verification.BuildPassed || !verification.TestPassed {
-			e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
-			_ = e.revert(ctx)
-			continue
-		}
-
-		allTaskOutputs = append(allTaskOutputs, taskOutput)
-		commitMsg := extractCommitMessage(taskOutput)
+		allTaskOutputs = append(allTaskOutputs, output)
+		commitMsg := extractCommitMessage(output)
 		_ = e.appendLearningJSONL(firstLine(commitMsg), "evolution", task.Description, "")
 	}
 
@@ -221,10 +176,67 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		return nil
 	}
 
+	e.createImplementPR(ctx, day, plan, allTaskOutputs)
+
+	return nil
+}
+
+// executeTask runs a single task with an agent and returns (output, ok).
+func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet) (string, bool) {
+	protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+
+	userMsg := fmt.Sprintf("Your ONLY job: implement Task %d from SESSION_PLAN.md and commit.\n\n%s%s\n\nAfter implementing, run: go fmt && go vet && go build ./... && go test ./...\nThen commit your changes.",
+		task.Number, task.Description, protectedWarning)
+
+	a := e.newAgent(p, tools, systemPrompt, skills)
+
+	var taskOutput string
+	var taskErr error
+	for ev := range a.Prompt(ctx, userMsg) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			taskOutput = ev.Content
+		}
+		if ev.Type == string(iteragent.EventError) {
+			taskErr = fmt.Errorf("%s", ev.Content)
+		}
+	}
+	a.Finish()
+
+	if taskErr != nil {
+		e.logger.Warn("task failed, reverting changes", "number", task.Number, "err", taskErr)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	violations, _ := e.verifyProtected(ctx)
+	if len(violations) > 0 {
+		e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	verification := e.verify(ctx)
+	if !verification.BuildPassed || !verification.TestPassed {
+		e.logger.Warn("verification failed for task, reverting", "number", task.Number, "build", verification.BuildPassed, "test", verification.TestPassed)
+		_ = e.revert(ctx)
+		return "", false
+	}
+
+	return taskOutput, true
+}
+
+// createImplementPR pushes the branch and creates a PR after all tasks complete.
+func (e *Engine) createImplementPR(ctx context.Context, day int, plan string, allTaskOutputs []string) {
 	if err := e.pushBranch(ctx); err != nil {
 		e.logger.Warn("push failed, PR not created", "err", err)
 		_ = e.switchToMain(ctx)
-		return nil
+		return
 	}
 
 	issueNums := extractIssueNumbers(plan)
@@ -237,19 +249,16 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	prNum, prURL, err := e.createPR(ctx, prTitle, prBody, issueNums)
 	if err != nil {
 		e.logger.Warn("PR creation failed, branch pushed for manual PR", "err", err)
-		return nil
+		return
 	}
 
 	e.prNumber = prNum
 	e.prURL = prURL
 	e.logger.Info("PR created", "number", prNum, "url", prURL)
 
-	// Persist PR state for communicate phase (runs as separate CLI invocation)
 	if err := e.savePRState(); err != nil {
 		e.logger.Warn("failed to persist PR state", "err", err)
 	}
-
-	return nil
 }
 
 func (e *Engine) runImplementPhaseLegacy(ctx context.Context, p iteragent.Provider, tasks []planTask, plan string) error {
