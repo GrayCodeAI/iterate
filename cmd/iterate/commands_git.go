@@ -35,6 +35,14 @@ type parsedPR struct {
 	draft  bool
 }
 
+func parsePRNumberedArg(parts []string, sub prSubcommand) parsedPR {
+	num := ""
+	if len(parts) > 1 {
+		num = parts[1]
+	}
+	return parsedPR{sub: sub, number: num}
+}
+
 func parsePRArgs(args string) parsedPR {
 	parts := strings.Fields(strings.TrimSpace(args))
 	if len(parts) == 0 {
@@ -44,23 +52,11 @@ func parsePRArgs(args string) parsedPR {
 	case "list", "ls":
 		return parsedPR{sub: prSubList}
 	case "view":
-		num := ""
-		if len(parts) > 1 {
-			num = parts[1]
-		}
-		return parsedPR{sub: prSubView, number: num}
+		return parsePRNumberedArg(parts, prSubView)
 	case "diff":
-		num := ""
-		if len(parts) > 1 {
-			num = parts[1]
-		}
-		return parsedPR{sub: prSubDiff, number: num}
+		return parsePRNumberedArg(parts, prSubDiff)
 	case "review":
-		num := ""
-		if len(parts) > 1 {
-			num = parts[1]
-		}
-		return parsedPR{sub: prSubReview, number: num}
+		return parsePRNumberedArg(parts, prSubReview)
 	case "comment":
 		num, body := "", ""
 		if len(parts) > 1 {
@@ -71,11 +67,7 @@ func parsePRArgs(args string) parsedPR {
 		}
 		return parsedPR{sub: prSubComment, number: num, text: body}
 	case "checkout", "co":
-		num := ""
-		if len(parts) > 1 {
-			num = parts[1]
-		}
-		return parsedPR{sub: prSubCheckout, number: num}
+		return parsePRNumberedArg(parts, prSubCheckout)
 	case "create", "new":
 		draft := false
 		for _, p := range parts[1:] {
@@ -85,7 +77,6 @@ func parsePRArgs(args string) parsedPR {
 		}
 		return parsedPR{sub: prSubCreate, draft: draft}
 	default:
-		// If first arg is a bare number, treat as "view <n>"
 		if _, err := strconv.Atoi(parts[0]); err == nil {
 			return parsedPR{sub: prSubView, number: parts[0]}
 		}

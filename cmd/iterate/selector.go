@@ -65,27 +65,17 @@ func formatElapsed(d time.Duration) string {
 
 // printStatusLine prints the one-line status shown after each agent response.
 // elapsed · model · tokens · ctx% (only >10%) · git dirty
-func printStatusLine(elapsed time.Duration) {
-	model := os.Getenv("ITERATE_MODEL")
-	if model == "" {
-		model = os.Getenv("ITERATE_PROVIDER")
-	}
-	total := sess.InputTokens + sess.OutputTokens
-
-	fmt.Printf("%s●%s %s%s%s",
-		colorCyan, colorReset,
-		colorCyan, formatElapsed(elapsed), colorReset)
-
-	if model != "" {
-		fmt.Printf("%s · %s%s", colorDim, model, colorReset)
-	}
-
+func formatTokenCount(total int) string {
 	if total >= 1000 {
-		fmt.Printf("%s · %s%.1fk tok%s", colorDim, colorPurple, float64(total)/1000, colorReset)
-	} else if total > 0 {
-		fmt.Printf("%s · %s%d tok%s", colorDim, colorPurple, total, colorReset)
+		return fmt.Sprintf("%s · %s%.1fk tok%s", colorDim, colorPurple, float64(total)/1000, colorReset)
 	}
+	if total > 0 {
+		return fmt.Sprintf("%s · %s%d tok%s", colorDim, colorPurple, total, colorReset)
+	}
+	return ""
+}
 
+func formatContextWindow(total int) string {
 	const windowTokens = contextWindow
 	pct := 0
 	if total > 0 {
@@ -101,16 +91,43 @@ func printStatusLine(elapsed time.Duration) {
 	if pct > 90 {
 		ctxColor = colorRed
 	}
-	fmt.Printf("%s · %sctx %.1f%%%s", colorDim, ctxColor, float64(total)*100/float64(windowTokens), colorReset)
+	return fmt.Sprintf("%s · %sctx %.1f%%%s", colorDim, ctxColor, float64(total)*100/float64(windowTokens), colorReset)
+}
 
-	if staged, unstaged := gitStatus(); staged+unstaged > 0 {
-		if staged > 0 && unstaged > 0 {
-			fmt.Printf("%s · %s+%d staged%s %s±%d unstaged%s", colorDim, colorGreen, staged, colorReset, colorYellow, unstaged, colorReset)
-		} else if staged > 0 {
-			fmt.Printf("%s · %s+%d staged%s", colorDim, colorGreen, staged, colorReset)
-		} else {
-			fmt.Printf("%s · %s±%d unstaged%s", colorDim, colorYellow, unstaged, colorReset)
-		}
+func formatGitStatus() string {
+	staged, unstaged := gitStatus()
+	if staged+unstaged == 0 {
+		return ""
+	}
+	if staged > 0 && unstaged > 0 {
+		return fmt.Sprintf("%s · %s+%d staged%s %s±%d unstaged%s", colorDim, colorGreen, staged, colorReset, colorYellow, unstaged, colorReset)
+	}
+	if staged > 0 {
+		return fmt.Sprintf("%s · %s+%d staged%s", colorDim, colorGreen, staged, colorReset)
+	}
+	return fmt.Sprintf("%s · %s±%d unstaged%s", colorDim, colorYellow, unstaged, colorReset)
+}
+
+func printStatusLine(elapsed time.Duration) {
+	model := os.Getenv("ITERATE_MODEL")
+	if model == "" {
+		model = os.Getenv("ITERATE_PROVIDER")
+	}
+	total := sess.InputTokens + sess.OutputTokens
+
+	fmt.Printf("%s●%s %s%s%s",
+		colorCyan, colorReset,
+		colorCyan, formatElapsed(elapsed), colorReset)
+
+	if model != "" {
+		fmt.Printf("%s · %s%s", colorDim, model, colorReset)
+	}
+
+	fmt.Print(formatTokenCount(total))
+	fmt.Print(formatContextWindow(total))
+
+	if gs := formatGitStatus(); gs != "" {
+		fmt.Print(gs)
 	}
 
 	if cfg.SafeMode {

@@ -175,6 +175,26 @@ func (e *Engine) WithThinking(level iteragent.ThinkingLevel) *Engine {
 }
 
 // Run executes one full evolution session.
+func (e *Engine) handlePostRunTests(ctx context.Context, day int, output string, p iteragent.Provider, tools []iteragent.Tool, skills *iteragent.SkillSet, result *RunResult) error {
+	testResult, testErr := e.runTests(ctx)
+	_ = testResult
+
+	if testErr != nil {
+		e.logger.Info("tests failed, reverting changes")
+		result.Status = "reverted"
+		_ = e.revert(ctx)
+		return nil
+	}
+
+	e.logger.Info("tests passed, creating feature branch")
+	if err := e.handleCommitAndPR(ctx, day, output, p, result); err != nil {
+		return nil
+	}
+
+	e.handlePRReviewAndMerge(ctx, p, tools, skills, output, result)
+	return nil
+}
+
 func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (*RunResult, error) {
 	e.logger.Info("evolution run started", "repo", e.repo)
 	result := &RunResult{
@@ -208,22 +228,9 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		return result, nil
 	}
 
-	testResult, testErr := e.runTests(ctx)
-	_ = testResult
-
-	if testErr != nil {
-		e.logger.Info("tests failed, reverting changes")
-		result.Status = "reverted"
-		_ = e.revert(ctx)
-		return result, nil
+	if err := e.handlePostRunTests(ctx, day, output, p, tools, skills, result); err != nil {
+		return result, err
 	}
-
-	e.logger.Info("tests passed, creating feature branch")
-	if err := e.handleCommitAndPR(ctx, day, output, p, result); err != nil {
-		return result, nil
-	}
-
-	e.handlePRReviewAndMerge(ctx, p, tools, skills, output, result)
 
 	e.logger.Info("evolution run completed", "status", result.Status, "duration", result.FinishedAt.Sub(result.StartedAt).String())
 	return result, nil

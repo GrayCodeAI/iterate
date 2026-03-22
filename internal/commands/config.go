@@ -91,6 +91,21 @@ func registerConfigEnvCommands(r *Registry) {
 	})
 }
 
+func printCurrentConfig(cfg *RuntimeConfig) {
+	temp := "default"
+	if cfg.Temperature != nil {
+		temp = fmt.Sprintf("%.2f", *cfg.Temperature)
+	}
+	maxt := "default"
+	if cfg.MaxTokens != nil {
+		maxt = fmt.Sprintf("%d", *cfg.MaxTokens)
+	}
+	fmt.Printf("%s── Runtime config ──────────────────%s\n", ColorDim, ColorReset)
+	fmt.Printf("  temperature:  %s\n", temp)
+	fmt.Printf("  max_tokens:   %s\n", maxt)
+	fmt.Printf("%sUsage: /set temperature 0.7 | /set max_tokens 4096 | /set reset%s\n\n", ColorDim, ColorReset)
+}
+
 func cmdSet(ctx Context) Result {
 	if ctx.RuntimeConfig == nil {
 		PrintError("runtime config not available")
@@ -98,18 +113,7 @@ func cmdSet(ctx Context) Result {
 	}
 
 	if !ctx.HasArg(2) {
-		temp := "default"
-		if ctx.RuntimeConfig.Temperature != nil {
-			temp = fmt.Sprintf("%.2f", *ctx.RuntimeConfig.Temperature)
-		}
-		maxt := "default"
-		if ctx.RuntimeConfig.MaxTokens != nil {
-			maxt = fmt.Sprintf("%d", *ctx.RuntimeConfig.MaxTokens)
-		}
-		fmt.Printf("%s── Runtime config ──────────────────%s\n", ColorDim, ColorReset)
-		fmt.Printf("  temperature:  %s\n", temp)
-		fmt.Printf("  max_tokens:   %s\n", maxt)
-		fmt.Printf("%sUsage: /set temperature 0.7 | /set max_tokens 4096 | /set reset%s\n\n", ColorDim, ColorReset)
+		printCurrentConfig(ctx.RuntimeConfig)
 		return Result{Handled: true}
 	}
 
