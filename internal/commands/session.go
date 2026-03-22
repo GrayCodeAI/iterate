@@ -12,6 +12,12 @@ import (
 
 // RegisterSessionCommands adds session management commands.
 func RegisterSessionCommands(r *Registry) {
+	registerSessionCRUDCommands(r)
+	registerSessionBookmarkCommands(r)
+	registerSessionUtilityCommands(r)
+}
+
+func registerSessionCRUDCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/quit",
 		Aliases:     []string{"/exit", "/q"},
@@ -43,7 +49,9 @@ func RegisterSessionCommands(r *Registry) {
 		Category:    "session",
 		Handler:     cmdLoad,
 	})
+}
 
+func registerSessionBookmarkCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/bookmark",
 		Aliases:     []string{},
@@ -67,7 +75,9 @@ func RegisterSessionCommands(r *Registry) {
 		Category:    "session",
 		Handler:     cmdHistory,
 	})
+}
 
+func registerSessionUtilityCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/templates",
 		Aliases:     []string{},
