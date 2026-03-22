@@ -52,11 +52,12 @@ acquire_lock
 
 log "=== iterate evolution cycle started ==="
 
-# ── Guard: require API key ──
-if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
-  log "ERROR: OPENCODE_API_KEY (OpenRouter key) is not set. Exiting."
+# ── Guard: require opencode CLI ──
+if ! command -v opencode &>/dev/null; then
+  log "ERROR: opencode CLI not found. Install with: npm install -g opencode-ai"
   exit 1
 fi
+log "Using opencode-cli with mimo-v2-pro-free (no API key required)"
 
 # Calculate current day from birth date
 if [[ -f "${REPOPATH}/BIRTH_DATE" ]]; then
