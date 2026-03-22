@@ -52,8 +52,8 @@ acquire_lock
 
 log "=== iterate evolution cycle started ==="
 
-# ── Guard: require API key ──
-if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
+# ── Guard: require API key (only for REST providers) ──
+if [[ -z "${OPENCODE_API_KEY:-}" ]] && [[ "${ITERATE_PROVIDER:-}" != "opencode-cli" ]]; then
   log "ERROR: OPENCODE_API_KEY is not set. Add it as a GitHub Actions secret."
   exit 1
 fi
