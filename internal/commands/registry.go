@@ -14,6 +14,7 @@ import (
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/agent"
+	"github.com/GrayCodeAI/iterate/internal/ui"
 )
 
 // SessionCallbacks groups session management callbacks.
@@ -256,29 +257,25 @@ func (r *Registry) Execute(name string, ctx Context) Result {
 	return cmd.Handler(ctx)
 }
 
-// Color helpers (reassignable for /theme support)
+// Color helpers — delegated to internal/ui (reassignable for /theme support)
 var (
-	ColorReset  = "\033[0m"
-	ColorLime   = "\033[38;5;154m"
-	ColorYellow = "\033[38;5;220m"
-	ColorDim    = "\033[2m"
-	ColorBold   = "\033[1m"
-	ColorCyan   = "\033[36m"
-	ColorRed    = "\033[31m"
+	ColorReset  = ui.ColorReset
+	ColorLime   = ui.ColorLime
+	ColorYellow = ui.ColorYellow
+	ColorDim    = ui.ColorDim
+	ColorBold   = ui.ColorBold
+	ColorCyan   = ui.ColorCyan
+	ColorRed    = ui.ColorRed
 )
 
-// Print helpers
-func PrintSuccess(format string, args ...any) {
-	fmt.Printf("%s✓ %s%s\n", ColorLime, fmt.Sprintf(format, args...), ColorReset)
-}
+// PrintSuccess prints a success message — delegates to ui.PrintSuccess.
+var PrintSuccess = ui.PrintSuccess
 
-func PrintError(format string, args ...any) {
-	fmt.Printf("%serror: %s%s\n", ColorRed, fmt.Sprintf(format, args...), ColorReset)
-}
+// PrintError prints an error message — delegates to ui.PrintError.
+var PrintError = ui.PrintError
 
-func PrintDim(format string, args ...any) {
-	fmt.Printf("%s%s%s\n", ColorDim, fmt.Sprintf(format, args...), ColorReset)
-}
+// PrintDim prints a dimmed message — delegates to ui.PrintDim.
+var PrintDim = ui.PrintDim
 
 // Stdout is the default writer for commands.
 var Stdout io.Writer = os.Stdout
