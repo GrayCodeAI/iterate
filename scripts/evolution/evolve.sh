@@ -175,8 +175,7 @@ fi
 
 # Phase B: Implementation
 if [[ -f "$PLAN_FILE" ]]; then
-  log "Phase B: Implementation (waiting 60s for rate limit reset)..."
-  sleep 60
+  log "Phase B: Implementation..."
   ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate \
     2>>"$LOG_FILE" || log "Implementation phase exited with status $?"
 else
@@ -186,7 +185,6 @@ fi
 # Phase C: Communication
 log "Phase C: Communication..."
 if [[ -f "$PLAN_FILE" ]]; then
-  sleep 30
   ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate \
     2>>"$LOG_FILE" || log "Communication phase exited with status $?"
 fi
