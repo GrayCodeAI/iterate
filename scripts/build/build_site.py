@@ -400,17 +400,6 @@ def main():
     </div>
   </section>
 
-  <section class="cta-section">
-    <div class="cta-box">
-      <h2 class="cta-title">Watch it grow in real time</h2>
-      <p class="cta-sub">Star the repo and follow along. Every commit is a step forward — or an honest revert.</p>
-      <div class="cta-actions">
-        <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">Star on GitHub</a>
-        <a href="https://github.com/{gh}/commits/main" class="btn btn-outline" target="_blank" rel="noopener">View commits</a>
-      </div>
-    </div>
-  </section>
-
   <section id="identity">
     <div class="section-head">
       <span class="section-label">identity</span>
@@ -432,6 +421,17 @@ def main():
         <ul class="rules">
 {rules_html}
         </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-box">
+      <h2 class="cta-title">Watch it grow in real time</h2>
+      <p class="cta-sub">Star the repo and follow along. Every commit is a step forward — or an honest revert.</p>
+      <div class="cta-actions">
+        <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">Star on GitHub</a>
+        <a href="https://github.com/{gh}/commits/main" class="btn btn-outline" target="_blank" rel="noopener">View commits</a>
       </div>
     </div>
   </section>
