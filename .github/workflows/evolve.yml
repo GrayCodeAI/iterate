@@ -62,6 +62,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
+          which opencode || echo "opencode not found in PATH"
+          opencode --version || echo "opencode version check failed"
           bash scripts/evolution/evolve.sh
 
       - name: Show evolution log
