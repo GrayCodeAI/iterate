@@ -66,5 +66,6 @@ jobs:
             git add -A
             git commit -m "iterate: auto-evolution session $(date -u +'%Y-%m-%d %H:%M:%S')"
           fi
+          git checkout main
           git pull --rebase origin main
-          git push
+          git push origin main
