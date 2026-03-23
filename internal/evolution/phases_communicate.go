@@ -107,10 +107,16 @@ Or if there are issues that prevent merge, reply with details about what needs f
 	_ = e.switchToMain(ctx)
 }
 
-// postIssueComments posts GitHub comments for each issue response in the plan.
+// postIssueComments posts GitHub comments for each issue response in the plan,
+// skipping any issue that already has a bot comment from this session's day.
 func (e *Engine) postIssueComments(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, plan string) {
 	responses := parseIssueResponses(plan)
+	day := e.readDayCount()
 	for _, resp := range responses {
+		if e.issueAlreadyCommented(ctx, resp.IssueNum, day) {
+			e.logger.Info("skipping issue comment, already posted today", "issue", resp.IssueNum, "day", day)
+			continue
+		}
 		body := fmt.Sprintf("Status: %s\nReason: %s", resp.Status, resp.Reason)
 		if e.prURL != "" && (resp.Status == "implement" || resp.Status == "partial") {
 			body += fmt.Sprintf("\n\nPR: %s", e.prURL)
@@ -128,6 +134,21 @@ Use: gh issue comment %d --repo %s --body "..."`,
 		e.forwardEvents(a.Prompt(ctx, userMsg))
 		a.Finish()
 	}
+}
+
+// issueAlreadyCommented checks whether the bot has already commented on the given issue
+// during the current day by inspecting recent comments via gh CLI.
+func (e *Engine) issueAlreadyCommented(ctx context.Context, issueNum int, day string) bool {
+	out, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf("gh issue view %d --repo %s --comments --json comments --jq '.comments[-3:][].body' 2>/dev/null || echo ''", issueNum, e.repo),
+	})
+	if err != nil || out == "" {
+		return false
+	}
+	// Match "Day <N>" as a whole word to avoid "Day 1" matching "Day 10".
+	pattern := `\bDay ` + day + `\b`
+	matched, _ := regexp.MatchString(pattern, out)
+	return matched
 }
 
 // writeJournalEntry generates and writes the journal entry for this session.
