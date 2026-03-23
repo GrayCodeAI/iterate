@@ -2,7 +2,91 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 )
+
+// SymbolLocation represents where a symbol is defined in Go code.
+// Used by code intelligence features for go-to-definition.
+type SymbolLocation struct {
+	File      string // file path
+	Line      int    // line number
+	Column    int    // column number
+	Kind      string // "func", "type", "method", "var", "const"
+	Signature string // function signature or type definition
+}
+
+// String returns a human-readable location string.
+func (loc SymbolLocation) String() string {
+	return fmt.Sprintf("%s:%d:%d", loc.File, loc.Line, loc.Column)
+}
+
+// FormatContext returns the location formatted for inclusion in prompts.
+func (loc SymbolLocation) FormatContext() string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("File: %s\n", loc.File))
+	b.WriteString(fmt.Sprintf("Line: %d, Column: %d\n", loc.Line, loc.Column))
+	if loc.Kind != "" {
+		b.WriteString(fmt.Sprintf("Kind: %s\n", loc.Kind))
+	}
+	if loc.Signature != "" {
+		b.WriteString(fmt.Sprintf("Signature:\n```go\n%s\n```\n", loc.Signature))
+	}
+	return b.String()
+}
+
+// BuildGoDefPrompt builds a prompt asking the LLM to explain a found definition.
+func BuildGoDefPrompt(symbol string, loc SymbolLocation) string {
+	prompt := fmt.Sprintf(
+		"Explain the following Go %s definition:\n\n"+
+			"Symbol: %s\n"+
+			"Location: %s\n",
+		loc.Kind, symbol, loc.String())
+
+	if loc.Signature != "" {
+		prompt += fmt.Sprintf("\nSignature:\n```go\n%s\n```\n", loc.Signature)
+	}
+
+	prompt += "\nPlease explain:\n" +
+		"1. What this symbol does and its purpose\n" +
+		"2. The parameters and return values (if applicable)\n" +
+		"3. How it fits into the overall codebase\n" +
+		"4. Any important implementation details or patterns used"
+
+	return prompt
+}
+
+// BuildCodeIntelligenceContext builds context about code intelligence capabilities.
+// This can be included in the system prompt for /ask mode to enable smarter responses.
+func BuildCodeIntelligenceContext() string {
+	return "Code intelligence features available:\n" +
+		"- Symbol resolution across the entire codebase\n" +
+		"- Support for functions, types, methods, variables, and constants\n" +
+		"- Go AST-based analysis for accurate navigation\n"
+}
+
+// FormatSymbolSearchResults formats multiple symbol locations for display.
+func FormatSymbolSearchResults(symbol string, locations []SymbolLocation) string {
+	if len(locations) == 0 {
+		return fmt.Sprintf("No definitions found for '%s'", symbol)
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Found %d definition(s) for '%s':\n\n", len(locations), symbol))
+
+	for i, loc := range locations {
+		b.WriteString(fmt.Sprintf("%d. %s (%s) at %s\n", i+1, symbol, loc.Kind, loc.String()))
+		if loc.Signature != "" {
+			// Truncate long signatures
+			sig := loc.Signature
+			if len(sig) > 100 {
+				sig = sig[:97] + "..."
+			}
+			b.WriteString(fmt.Sprintf("   %s\n", sig))
+		}
+	}
+
+	return b.String()
+}
 
 // RegisterAnalysisCommands adds repository analysis commands.
 func RegisterAnalysisCommands(r *Registry) {
