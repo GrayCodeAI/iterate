@@ -37,8 +37,20 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 
 	e.selfReviewAndMergePR(ctx, p, tools, systemPrompt, skills)
 
+	// Pull latest main so journal commit doesn't conflict with merged PR.
+	if _, err := e.runTool(ctx, "bash", map[string]string{"cmd": "git pull --rebase origin main 2>/dev/null || true"}); err != nil {
+		e.logger.Warn("failed to pull main before journal write", "err", err)
+	}
+
 	day := e.readDayCount()
 	e.writeJournalEntry(ctx, p, tools, systemPrompt, skills, day)
+
+	// Commit journal entry directly so it's not lost if the workflow push step skips.
+	if _, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf(`git add docs/JOURNAL.md memory/ && git diff --cached --quiet || git commit -m "journal: Day %s session entry"`, day),
+	}); err != nil {
+		e.logger.Warn("failed to commit journal entry", "err", err)
+	}
 
 	e.postIssueComments(ctx, p, tools, systemPrompt, skills, string(planBytes))
 	e.recordLearnings(ctx, p, tools, systemPrompt, skills, day)
