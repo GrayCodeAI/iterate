@@ -193,12 +193,6 @@ if ! grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   log "WARNING: No journal entry written for Day $DAY"
 fi
 
-# Rebuild GitHub Pages site
-if command -v python3 &>/dev/null && [[ -f "${REPOPATH}/scripts/build/build_site.py" ]]; then
-  log "Rebuilding GitHub Pages site..."
-  python3 "${REPOPATH}/scripts/build/build_site.py" 2>>"$LOG_FILE" || log "build_site.py failed"
-fi
-
 rm -f "$PR_STATE_FILE"
 
 log "=== iterate evolution cycle completed ==="
