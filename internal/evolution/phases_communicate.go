@@ -135,27 +135,28 @@ func (e *Engine) writeJournalEntry(ctx context.Context, p iteragent.Provider, to
 	// Use a fresh context so journal writing can't be starved by earlier phase work.
 	journalCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	journalMsg := `First, run this tool call to see recent commits:
 
-` + "```tool" + `
-{"tool":"bash","args":{"cmd":"git log --oneline -10"}}
-` + "```" + `
+	// Read recent commits to give the agent context without requiring a tool call.
+	recentCommits, _ := e.runTool(journalCtx, "bash", map[string]string{"cmd": "git log --oneline -8"})
 
-Then write a journal entry based on the output. Your ENTIRE reply must start with "## Day" and contain ONLY the journal entry — no explanation, no preamble, no markdown fences.
+	journalMsg := `Write a journal entry for this evolution session. Reply with ONLY the journal entry — no explanation, no preamble, no markdown fences.
 
-Format:
+Recent commits:
+` + recentCommits + `
+
+Format (use exactly this structure):
 ## Day ` + day + ` — HH:MM — Title
 
-Body paragraph here (2-4 honest sentences).
+Body paragraph here (2-4 honest sentences about what was done, what worked, what failed).
 
 Rules:
-- HH:MM = current UTC time
-- Title = specific description of what was done this session
-- Be honest: say what you tried, what worked, what failed
-- If nothing was implemented, say "Evolution session completed." and nothing more
-- Your reply MUST start with "## Day" — no text before it`
+- HH:MM = current UTC time in 24h format
+- Title = specific description of what happened this session
+- Be honest: mention what was tried, what worked, what failed
+- If nothing was implemented, write "Evolution session completed." as the body
+- Start your reply with "## Day" — nothing before it`
 
-	a := e.newAgent(p, tools, systemPrompt, skills)
+	a := e.newAgent(p, nil, systemPrompt, skills) // no tools — pure text response
 	var journalEntry string
 	for ev := range a.Prompt(journalCtx, journalMsg) {
 		if e.eventSink != nil {
