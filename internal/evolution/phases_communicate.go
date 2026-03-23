@@ -66,20 +66,19 @@ func (e *Engine) selfReviewAndMergePR(ctx context.Context, p iteragent.Provider,
 		"cmd": fmt.Sprintf("gh pr diff %d --repo %s 2>/dev/null || echo ''", e.prNumber, e.repo),
 	})
 
-	reviewPrompt := fmt.Sprintf(`Review PR #%d changes critically. Check for bugs, security issues, missing tests, and code quality.
+	// Ask for a plain text verdict only — no tool calls, just LGTM or BLOCK.
+	reviewPrompt := fmt.Sprintf(`Review PR #%d diff for blocking issues only (build failures, panics, security holes).
 
 ## PR Diff:
 %s
 
-If you find issues, fix them, amend your commit, and push. 
-If changes are good, reply: "LGTM"
+Reply with exactly one word:
+- LGTM — no blocking issues, safe to merge
+- BLOCK — has a blocking issue (explain briefly on the same line)
 
-After your review, also merge this PR using:
-gh pr merge %d --repo %s --squash --delete-branch
+Do not use any tools. Reply with just your verdict.`, e.prNumber, util.Truncate(prDiff, 6000))
 
-Or if there are issues that prevent merge, reply with details about what needs fixing.`, e.prNumber, util.Truncate(prDiff, 6000), e.prNumber, e.repo)
-
-	a := e.newAgent(p, tools, systemPrompt, skills)
+	a := e.newAgent(p, nil, systemPrompt, skills) // no tools — pure text verdict
 	var reviewOutput string
 	for ev := range a.Prompt(ctx, reviewPrompt) {
 		if e.eventSink != nil {
@@ -94,14 +93,18 @@ Or if there are issues that prevent merge, reply with details about what needs f
 	}
 	a.Finish()
 
-	if strings.Contains(strings.ToLower(reviewOutput), "lgtm") || strings.Contains(strings.ToLower(reviewOutput), "looks good") {
+	verdict := strings.ToUpper(strings.TrimSpace(reviewOutput))
+	blocked := strings.HasPrefix(verdict, "BLOCK")
+
+	if blocked {
+		e.logger.Warn("PR self-review blocked merge", "output", util.Truncate(reviewOutput, 200))
+	} else {
+		// Default to merge — if the agent didn't explicitly block, proceed.
 		if err := e.mergePR(ctx); err != nil {
 			e.logger.Warn("PR merge failed in communicate phase", "err", err)
 		} else {
 			e.logger.Info("PR merged successfully in communicate phase", "pr", e.prNumber)
 		}
-	} else {
-		e.logger.Warn("PR self-review found issues, not merging", "output", util.Truncate(reviewOutput, 200))
 	}
 
 	_ = e.switchToMain(ctx)
