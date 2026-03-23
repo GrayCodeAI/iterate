@@ -19,7 +19,7 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
-	planPath := filepath.Join(e.repoPath, "docs/SESSION_PLAN.md")
+	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
 		e.logger.Warn("SESSION_PLAN.md not found, skipping communicate phase")
