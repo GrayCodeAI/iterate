@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/GrayCodeAI/iterate/internal/util"
 
@@ -35,10 +36,11 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 
 	e.selfReviewAndMergePR(ctx, p, tools, systemPrompt, skills)
-	e.postIssueComments(ctx, p, tools, systemPrompt, skills, string(planBytes))
 
 	day := e.readDayCount()
 	e.writeJournalEntry(ctx, p, tools, systemPrompt, skills, day)
+
+	e.postIssueComments(ctx, p, tools, systemPrompt, skills, string(planBytes))
 	e.recordLearnings(ctx, p, tools, systemPrompt, skills, day)
 
 	return nil
@@ -130,6 +132,9 @@ Use: gh issue comment %d --repo %s --body "..."`,
 
 // writeJournalEntry generates and writes the journal entry for this session.
 func (e *Engine) writeJournalEntry(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, day string) {
+	// Use a fresh context so journal writing can't be starved by earlier phase work.
+	journalCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	journalMsg := `First, run this tool call to see recent commits:
 
 ` + "```tool" + `
@@ -152,7 +157,7 @@ Rules:
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var journalEntry string
-	for ev := range a.Prompt(ctx, journalMsg) {
+	for ev := range a.Prompt(journalCtx, journalMsg) {
 		if e.eventSink != nil {
 			select {
 			case e.eventSink <- ev:
