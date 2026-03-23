@@ -192,6 +192,49 @@ func buildGenerateCommitPrompt(repoPath string) string {
 }
 
 // ---------------------------------------------------------------------------
+// Go-to-definition prompt helpers (code intelligence)
+// ---------------------------------------------------------------------------
+
+// SymbolLocation represents where a symbol is defined.
+type SymbolLocation struct {
+	File      string // file path
+	Line      int    // line number
+	Column    int    // column number
+	Kind      string // "func", "type", "method", "var"
+	Signature string // function signature or type definition
+}
+
+// buildGoDefPrompt builds a prompt asking the LLM to explain a found definition.
+func buildGoDefPrompt(symbol string, loc SymbolLocation) string {
+	prompt := fmt.Sprintf(
+		"Explain the following Go %s definition:\n\n"+
+			"Symbol: %s\n"+
+			"Location: %s:%d:%d\n",
+		loc.Kind, symbol, loc.File, loc.Line, loc.Column)
+
+	if loc.Signature != "" {
+		prompt += fmt.Sprintf("\nSignature:\n```go\n%s\n```\n", loc.Signature)
+	}
+
+	prompt += "\nPlease explain:\n" +
+		"1. What this symbol does and its purpose\n" +
+		"2. The parameters and return values (if applicable)\n" +
+		"3. How it fits into the overall codebase\n" +
+		"4. Any important implementation details or patterns used"
+
+	return prompt
+}
+
+// buildCodeIntelligenceContext builds context about code intelligence capabilities.
+func buildCodeIntelligenceContext() string {
+	return "Code intelligence features available:\n" +
+		"- /go-def <symbol> — find where a symbol is defined\n" +
+		"- Symbol resolution across the entire codebase\n" +
+		"- Support for functions, types, methods, and variables\n" +
+		"- Automatic signature extraction for Go code\n"
+}
+
+// ---------------------------------------------------------------------------
 // /release — create a GitHub release
 // ---------------------------------------------------------------------------
 
