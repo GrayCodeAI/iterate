@@ -149,7 +149,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	ctx, cancel := withTimeout(ctx)
 	defer cancel()
 
-	planPath := filepath.Join(e.repoPath, "docs/SESSION_PLAN.md")
+	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	planBytes, err := os.ReadFile(planPath)
 	if err != nil {
 		return fmt.Errorf("SESSION_PLAN.md not found: %w", err)

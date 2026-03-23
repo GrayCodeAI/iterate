@@ -322,7 +322,7 @@ func (e *Engine) handleCommitAndPR(ctx context.Context, day int, output string, 
 func (e *Engine) createPRFromBranch(ctx context.Context, day int, output string, commitMsg string, p iteragent.Provider, result *RunResult) error {
 	e.logger.Info("creating PR")
 
-	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "docs/SESSION_PLAN.md"))
+	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
 	if err != nil {
 		e.logger.Warn("failed to read SESSION_PLAN.md", "err", err)
 	}

@@ -7,7 +7,7 @@ set -e
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
-PLAN_FILE="${REPOPATH}/docs/SESSION_PLAN.md"
+PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
 PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
 PID_FILE="${REPOPATH}/.iterate/evolve.pid"
 LOCK_TIMEOUT=3600  # 1 hour max lock
