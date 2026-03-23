@@ -25,8 +25,31 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
 	a := e.newAgent(p, tools, systemPrompt, skills)
 
-	e.forwardEvents(a.Prompt(ctx, userMessage))
+	var lastContent string
+	for ev := range a.Prompt(ctx, userMessage) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+		if ev.Type == string(iteragent.EventMessageEnd) {
+			lastContent = ev.Content
+		}
+	}
 	a.Finish()
+
+	// If the agent didn't write SESSION_PLAN.md via tool call, extract it from text output.
+	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
+	if _, err := os.Stat(planPath); os.IsNotExist(err) && lastContent != "" {
+		if idx := strings.Index(lastContent, "## Session Plan"); idx >= 0 {
+			extracted := strings.TrimSpace(lastContent[idx:])
+			if writeErr := os.WriteFile(planPath, []byte(extracted), 0o644); writeErr == nil {
+				e.logger.Info("extracted SESSION_PLAN.md from agent text output")
+			}
+		}
+	}
+
 	return nil
 }
 
