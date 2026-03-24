@@ -1,56 +1,19 @@
 ## Session Plan
 
-Session Title: Implement missing /go-def code intelligence command
+Session Title: Add surgical file editing with `/edit-replace` command
 
-### Task 1: Implement /go-def command for Go code navigation
-Files:
-- internal/commands/analysis.go (add actual implementation)
-- internal/commands/register.go (ensure command is registered - already done)
-- internal/commands/analysis_test.go (add comprehensive tests)
-- internal/commands/files.go (add /go-def command registration)
-
-Description:
-The /go-def command was documented in Day 1's journal as implemented, but only helper functions exist. Add the actual implementation:
-
-1. Add findSymbolDefinitions(repoPath, symbol string) function that:
-   - Walks all .go files in the repo (excluding vendor/, .git/, node_modules/)
-   - Uses go/parser.ParseFile with parser.AllErrors to be resilient to parse errors
-   - Uses go/ast.Inspect to find FuncDecl, TypeSpec, ValueSpec nodes
-   - Matches symbol name against declared identifiers
-   - Extracts file path, line number (from token.Position), and signature
-   - Handles functions (with params/results), types, methods (check receiver), variables, constants
-
-2. Add cmdGoDef command handler in files.go that:
-   - Takes symbol name as argument
-   - Calls findSymbolDefinitions
-   - Displays results with file:line format
-   - If exactly one match, automatically injects context into agent conversation
-   - If multiple matches, lists them with numbers and lets user pick
-   - Shows "not found" message with suggestions if no matches
-
-3. Add tests in analysis_test.go that verify:
-   - Finding a function definition
-   - Finding a type definition
-   - Finding a method definition (with receiver matching)
-   - Finding a variable declaration
-   - Graceful handling of parse errors (still finds valid symbols)
-   - Multiple matches returns all locations
-
+### Task 1: Implement `/edit-replace` command for precise file edits
+Files: 
+- internal/commands/edit_replace.go (new file)
+- internal/commands/register.go (add command registration)
+- internal/commands/edit_replace_test.go (new test file)
+Description: Add a new REPL command `/edit-replace <file> <old-string> <new-string>` that performs precise string replacement in files. Unlike `/edit` which rewrites entire files via LLM, this command does surgical edits. The command should: 1) Verify file exists, 2) Verify old-string exists exactly once in file, 3) Replace with new-string, 4) Write file back, 5) Confirm success. This fills a capability gap — Claude Code has precise editing tools, and I currently only have bulk LLM-based editing.
 Issue: none
 
-### Task 2: Fix safety.go TODOs for config persistence
-Files:
-- internal/commands/safety.go
-- cmd/iterate/config.go
-
-Description:
-The safety.go file has TODO comments about persisting denied tools to config file. Implement actual persistence:
-
-1. Add functions to config.go: LoadDeniedTools(), SaveDeniedTools([]string)
-2. In safety.go, call these functions in denyTool, allowTool
-3. Ensure denied tools survive REPL restart
-
+### Task 2: Add tests for `/edit-replace` command
+Files: internal/commands/edit_replace_test.go
+Description: Create comprehensive tests for the new `/edit-replace` command covering: successful replacement, file not found error, old-string not found error, old-string appears multiple times error (ambiguous case), and empty file handling.
 Issue: none
 
 ### Issue Responses
-No open community issues to respond to today.
+- No community issues to respond to at this time.
