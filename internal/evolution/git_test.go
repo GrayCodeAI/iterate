@@ -408,9 +408,9 @@ func TestPersistJournalEntry_ZeroDay(t *testing.T) {
 	e.persistJournalEntry(entry, "0")
 
 	data, _ := os.ReadFile(filepath.Join(dir, "docs/JOURNAL.md"))
-	// day 0 means don't replace, so Day 99 should remain
-	if !strings.Contains(string(data), "Day 99") {
-		t.Errorf("should keep original day when day='0', got:\n%s", string(data))
+	// day 0 should normalize agent's wrong day to Day 0
+	if !strings.Contains(string(data), "## Day 0") {
+		t.Errorf("should normalize to Day 0, got:\n%s", string(data))
 	}
 }
 

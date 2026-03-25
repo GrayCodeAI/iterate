@@ -119,10 +119,9 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 	}
 
 	extracted = strings.TrimSpace(extracted)
-	if dayNum > 0 {
-		dayPattern := regexp.MustCompile(`^(#+)\s*Day\s*\d+`)
-		extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
-	}
+	// Always normalize day number — agent might output wrong day
+	dayPattern := regexp.MustCompile(`^(#+)\s*Day\s*\d+`)
+	extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
 
 	journalPath := filepath.Join(e.repoPath, "docs/JOURNAL.md")
 	_ = os.MkdirAll(filepath.Dir(journalPath), 0o755)
