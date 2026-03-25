@@ -42,11 +42,6 @@ func incrementDayCount(repoPath string) {
 	}
 }
 
-func banner() string {
-	// ASCII logo moved to printHeader in repl.go
-	return ""
-}
-
 func saveSessionToFile(path string, messages []iteragent.Message) error {
 	_ = os.MkdirAll(filepath.Dir(path), 0o755) // best-effort cleanup
 	data, err := json.Marshal(messages)

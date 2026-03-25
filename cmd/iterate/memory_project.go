@@ -105,3 +105,23 @@ func printProjectMemory(repoPath string) {
 	}
 	fmt.Printf("%s──────────────────────────────────────────%s\n\n", colorDim, colorReset)
 }
+
+// ---------------------------------------------------------------------------
+// Active learnings reader
+// ---------------------------------------------------------------------------
+
+func readActiveLearnings(repoPath string) string {
+	data, err := os.ReadFile(filepath.Join(repoPath, "memory", "ACTIVE_LEARNINGS.md"))
+	if err != nil {
+		raw, err2 := os.ReadFile(filepath.Join(repoPath, "memory", "learnings.jsonl"))
+		if err2 != nil {
+			return ""
+		}
+		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+		if len(lines) > 10 {
+			lines = lines[len(lines)-10:]
+		}
+		return strings.Join(lines, "\n")
+	}
+	return string(data)
+}

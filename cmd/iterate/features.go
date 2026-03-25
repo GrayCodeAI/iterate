@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/ui/highlight"
-	"golang.org/x/term"
 )
 
 // ---------------------------------------------------------------------------
@@ -114,34 +112,6 @@ func listGitHubIssues(repoPath string, limit int) (string, error) {
 
 var lastResponse string
 var lastPrompt string
-
-// ---------------------------------------------------------------------------
-// /multi — multi-line paste/input mode
-// ---------------------------------------------------------------------------
-
-// readMultiLine collects lines until the user enters a line that is exactly "."
-// Returns the collected text (without the terminating ".").
-func readMultiLine() (string, bool) {
-	fd := int(os.Stdin.Fd())
-	// Restore normal mode for multi-line
-	oldState, _ := term.MakeRaw(fd)
-	term.Restore(fd, oldState)
-
-	fmt.Printf("%s[multi-line mode — enter . on a blank line to send, Ctrl+C to cancel]%s\n", colorDim, colorReset)
-	var lines []string
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "." {
-			break
-		}
-		lines = append(lines, line)
-	}
-	if err := scanner.Err(); err != nil {
-		return "", false
-	}
-	return strings.Join(lines, "\n"), true
-}
 
 // ---------------------------------------------------------------------------
 // /search-replace — find and replace text across all Go files
@@ -254,125 +224,6 @@ func formatPinnedMessages(msgs []iteragent.Message) string {
 		lines = append(lines, fmt.Sprintf("  %d  [%s] %s", i+1, m.Role, snippet))
 	}
 	return strings.Join(lines, "\n")
-}
-
-// ---------------------------------------------------------------------------
-// /snapshot — save a named snapshot of the repo state
-// ---------------------------------------------------------------------------
-
-func snapshotsDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".iterate", "snapshots")
-}
-
-type snapshot struct {
-	Name      string              `json:"name"`
-	CreatedAt time.Time           `json:"created_at"`
-	Branch    string              `json:"branch"`
-	Commit    string              `json:"commit"`
-	Messages  []iteragent.Message `json:"messages"`
-}
-
-func saveSnapshot(repoPath, name string, messages []iteragent.Message) error {
-	dir := snapshotsDir()
-	_ = os.MkdirAll(dir, 0o755)
-
-	branchOut, _ := exec.Command("git", "-C", repoPath, "branch", "--show-current").Output()
-	commitOut, _ := exec.Command("git", "-C", repoPath, "rev-parse", "--short", "HEAD").Output()
-
-	snap := snapshot{
-		Name:      name,
-		CreatedAt: time.Now(),
-		Branch:    strings.TrimSpace(string(branchOut)),
-		Commit:    strings.TrimSpace(string(commitOut)),
-		Messages:  messages,
-	}
-	data, err := json.MarshalIndent(snap, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, name+".json"), data, 0o644)
-}
-
-func listSnapshots() []snapshot {
-	entries, _ := os.ReadDir(snapshotsDir())
-	var snaps []snapshot
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".json") {
-			data, err := os.ReadFile(filepath.Join(snapshotsDir(), e.Name()))
-			if err != nil {
-				continue
-			}
-			var s snapshot
-			if json.Unmarshal(data, &s) == nil {
-				snaps = append(snaps, s)
-			}
-		}
-	}
-	return snaps
-}
-
-// ---------------------------------------------------------------------------
-// /pair — pair programming mode system prompt
-// ---------------------------------------------------------------------------
-
-const pairModePrompt = `You are in pair programming mode. Act as an experienced pair programmer:
-- Think out loud as you work through problems
-- Explain what you're about to do before doing it
-- Ask clarifying questions when requirements are ambiguous
-- Point out potential issues or edge cases you notice
-- Suggest alternative approaches when relevant
-- Keep the human in the loop on every significant decision`
-
-// ---------------------------------------------------------------------------
-// /template system
-// ---------------------------------------------------------------------------
-
-type promptTemplate struct {
-	Name    string    `json:"name"`
-	Prompt  string    `json:"prompt"`
-	Created time.Time `json:"created"`
-}
-
-func templatesPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".iterate", "templates.json")
-}
-
-func loadTemplates() []promptTemplate {
-	data, err := os.ReadFile(templatesPath())
-	if err != nil {
-		return nil
-	}
-	var ts []promptTemplate
-	if err := json.Unmarshal(data, &ts); err != nil {
-		slog.Warn("failed to parse templates", "err", err)
-	}
-	return ts
-}
-
-func saveTemplates(ts []promptTemplate) {
-	data, _ := json.MarshalIndent(ts, "", "  ")
-	if err := os.MkdirAll(filepath.Dir(templatesPath()), 0o755); err != nil {
-		slog.Warn("failed to create templates dir", "err", err)
-		return
-	}
-	if err := os.WriteFile(templatesPath(), data, 0o644); err != nil {
-		slog.Warn("failed to write templates file", "err", err)
-	}
-}
-
-func addTemplate(name, prompt string) {
-	ts := loadTemplates()
-	for i, t := range ts {
-		if t.Name == name {
-			ts[i] = promptTemplate{Name: name, Prompt: prompt, Created: time.Now()}
-			saveTemplates(ts)
-			return
-		}
-	}
-	ts = append(ts, promptTemplate{Name: name, Prompt: prompt, Created: time.Now()})
-	saveTemplates(ts)
 }
 
 // ---------------------------------------------------------------------------
