@@ -1,0 +1,43 @@
+name: Cleanup stale branches
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "iterate-evolve[bot]"
+          git config user.email "iterate-evolve[bot]@users.noreply.github.com"
+
+      - name: Delete merged branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all evolution branches
+          git fetch origin
+          git branch -r | grep 'origin/evolution/' | while read -r branch; do
+            branch_name=$(echo "$branch" | sed 's|origin/||')
+            
+            # Check if PR is merged or closed
+            state=$(gh pr list --head "$branch_name" --json state --jq '.[0].state' 2>/dev/null || echo "")
+            
+            if [[ "$state" == "MERGED" || "$state" == "CLOSED" || -z "$state" ]]; then
+              echo "Deleting branch: $branch_name"
+              git push origin --delete "$branch_name" 2>/dev/null || true
+            fi
+          done
+          
+          echo "Cleanup complete"
