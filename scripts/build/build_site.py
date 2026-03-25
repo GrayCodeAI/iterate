@@ -427,6 +427,12 @@ def main():
   </section>
 
   <section id="quickstart">
+    <div class="section-head">
+      <span class="section-label">quickstart</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 class="sec-h2">Try it yourself</h2>
+    <p class="sec-sub">A Go CLI that runs in any project. Three commands and you're in.</p>
     <div class="qs-steps">
       <div class="qs-step">
         <div class="qs-num">1</div>
