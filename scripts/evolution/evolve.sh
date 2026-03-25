@@ -322,3 +322,32 @@ log "Day: $DAY"
 log "Branch: $BRANCH"
 log "PR: #${PR_NUMBER:-none}"
 log "Duration: ${SESSION_DURATION}s"
+
+# ── Discord notification ──
+if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
+  log "Sending Discord notification..."
+  
+  # Get journal entry for this day
+  JOURNAL_ENTRY=$(grep -A3 "^## Day $DAY" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
+  
+  DISCORD_MSG="{
+    \"embeds\": [{
+      \"title\": \"🧬 Evolution Day $DAY Complete\",
+      \"color\": 5814783,
+      \"fields\": [
+        {\"name\": \"PR\", \"value\": \"${PR_NUMBER:-none}\", \"inline\": true},
+        {\"name\": \"Duration\", \"value\": \"${SESSION_DURATION}s\", \"inline\": true},
+        {\"name\": \"Commits\", \"value\": \"$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')\", \"inline\": true},
+        {\"name\": \"Journal\", \"value\": \"$(echo "$JOURNAL_ENTRY" | head -3 | tr '\n' ' ' | cut -c1-100)\"}
+      ],
+      \"footer\": {\"text\": \"iterate-evolve[bot]\"},
+      \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+    }]
+  }"
+  
+  curl -s -H "Content-Type: application/json" \
+    -d "$DISCORD_MSG" \
+    "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || log "Discord notification failed"
+  
+  log "Discord notification sent"
+fi
