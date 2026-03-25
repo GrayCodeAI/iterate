@@ -465,14 +465,22 @@ def main():
 def generate_rss(days, entries):
     """Generate RSS feed from journal entries."""
     site_url = "https://graycodeai.github.io/iterate"
-    gh = os.environ.get("GITHUB_REPOSITORY", "GrayCodeAI/iterate")
 
     items = ""
     for entry in entries:
         title = html.escape(entry["title"])
         body = html.escape(entry["body"][:500])
         day = entry["day"]
-        date_str = entry.get("date", datetime.now().strftime("%Y-%m-%d"))
+        # Use RFC 2822 format for pubDate
+        date_str = entry.get("date", "")
+        if date_str:
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                date_str = dt.strftime("%a, %d %b %Y 00:00:00 GMT")
+            except ValueError:
+                date_str = datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        else:
+            date_str = datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         items += f"""
     <item>
@@ -483,6 +491,7 @@ def generate_rss(days, entries):
       <pubDate>{date_str}</pubDate>
     </item>"""
 
+    last_build = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
     rss = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
@@ -490,7 +499,7 @@ def generate_rss(days, entries):
     <link>{site_url}</link>
     <description>A coding agent that improves itself. Every session, documented.</description>
     <language>en</language>
-    <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
+    <lastBuildDate>{last_build}</lastBuildDate>
     {items}
   </channel>
 </rss>
