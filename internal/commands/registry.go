@@ -112,6 +112,10 @@ type Context struct {
 	// Runtime config
 	RuntimeConfig *RuntimeConfig
 
+	// PersistConfig saves the current live safety state (safe_mode, denied_tools) to the config file.
+	// Wired by the REPL; nil-safe — commands should check before calling.
+	PersistConfig func()
+
 	// Theme
 	Themes     map[string]interface{}
 	ApplyTheme func(name string)

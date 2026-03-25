@@ -33,9 +33,9 @@ func TestIsProtected(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "other yml file is not protected (glob only matches in same dir)",
+			name: "ci.yml is protected by .github/workflows/*.yml glob",
 			path: ".github/workflows/ci.yml",
-			want: false,
+			want: true,
 		},
 		{
 			name: "repl.go is protected",

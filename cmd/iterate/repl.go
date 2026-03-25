@@ -443,5 +443,11 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		Templates: commands.TemplateCallbacks{
 			FormatSessionChanges: sessionChanges.format,
 		},
+		PersistConfig: func() {
+			existing := loadConfig()
+			existing.SafeMode = cfg.SafeMode
+			existing.DeniedTools = getDeniedList()
+			saveConfig(existing)
+		},
 	}
 }

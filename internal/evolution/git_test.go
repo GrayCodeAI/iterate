@@ -761,8 +761,8 @@ func TestIsProtected_GitHubWorkflowDir(t *testing.T) {
 		path string
 		want bool
 	}{
-		{".github/workflows/ci.yml", false},
-		{".github/workflows/deploy.yml", false},
+		{".github/workflows/ci.yml", true},     // protected by *.yml glob
+		{".github/workflows/deploy.yml", true}, // protected by *.yml glob
 		{".github/ISSUE_TEMPLATE/bug.md", false},
 	}
 	for _, tt := range tests {

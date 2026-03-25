@@ -176,20 +176,39 @@ log "Generating stats..."
 python3 scripts/build/generate_stats.py . 2>/dev/null || true
 git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
 
+<<<<<<< Updated upstream
 # ── Final commit and PR ──
 log "Creating pull request..."
 
 BRANCH="evolution/day-${DAY}"
+=======
+# ── Final commit and push ──
+log "Pushing changes..."
+>>>>>>> Stashed changes
 
 # Re-calculate day after pull (pull may overwrite DAY_COUNT)
 DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
+<<<<<<< Updated upstream
 # Stage and commit all changes
+=======
+>>>>>>> Stashed changes
 if [[ -n $(git status -s) ]]; then
   git add -A
   git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
 fi
+<<<<<<< Updated upstream
+=======
+git pull --rebase origin main 2>/dev/null || true
+
+# Always ensure DAY_COUNT is correct after pull
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+git add DAY_COUNT 2>/dev/null || true
+git commit --amend --no-edit 2>/dev/null || git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
+
+git push origin main 2>/dev/null || log "Push failed"
+>>>>>>> Stashed changes
 
 # Pull latest main
 git pull --rebase origin main 2>/dev/null || true

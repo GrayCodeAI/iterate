@@ -51,7 +51,9 @@ func cmdSafe(ctx Context) Result {
 	if ctx.SafeMode != nil {
 		*ctx.SafeMode = true
 	}
-	// TODO: persist to config file
+	if ctx.PersistConfig != nil {
+		ctx.PersistConfig()
+	}
 	fmt.Printf("%s✓ Safe mode on — will ask before bash/write_file/edit_file%s\n\n", ColorLime, ColorReset)
 	return Result{Handled: true}
 }
@@ -60,7 +62,9 @@ func cmdTrust(ctx Context) Result {
 	if ctx.SafeMode != nil {
 		*ctx.SafeMode = false
 	}
-	// TODO: persist to config file
+	if ctx.PersistConfig != nil {
+		ctx.PersistConfig()
+	}
 	fmt.Printf("%s✓ Trust mode — tools run without confirmation%s\n\n", ColorLime, ColorReset)
 	return Result{Handled: true}
 }
@@ -74,7 +78,9 @@ func cmdAllow(ctx Context) Result {
 	if ctx.State.AllowTool != nil {
 		ctx.State.AllowTool(tool)
 	}
-	// TODO: persist to config file
+	if ctx.PersistConfig != nil {
+		ctx.PersistConfig()
+	}
 	PrintSuccess("%s removed from deny list", tool)
 	return Result{Handled: true}
 }
@@ -88,7 +94,9 @@ func cmdDeny(ctx Context) Result {
 	if ctx.State.DenyTool != nil {
 		ctx.State.DenyTool(tool)
 	}
-	// TODO: persist to config file
+	if ctx.PersistConfig != nil {
+		ctx.PersistConfig()
+	}
 	PrintSuccess("%s added to deny list", tool)
 	return Result{Handled: true}
 }
