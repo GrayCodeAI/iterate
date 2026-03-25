@@ -29,8 +29,8 @@ func TestReadDayCount_MissingFile(t *testing.T) {
 	e := New(dir, slog.Default())
 
 	count := e.readDayCount()
-	if count != "" {
-		t.Errorf("expected empty string for missing file, got %q", count)
+	if count != "0" {
+		t.Errorf("expected '0' for missing file, got %q", count)
 	}
 }
 

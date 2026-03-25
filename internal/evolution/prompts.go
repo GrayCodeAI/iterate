@@ -5,14 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
 func buildSystemPrompt(repoPath, identity string) string {
 	personality, _ := os.ReadFile(filepath.Join(repoPath, "docs/PERSONALITY.md"))
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
-	skillsPrompt := skills.FormatForPrompt()
 
 	return fmt.Sprintf(`You are iterate, a self-evolving coding agent written in Go.
 
@@ -21,11 +17,10 @@ func buildSystemPrompt(repoPath, identity string) string {
 
 ## Personality
 %s
-%s
 
-## Tool call format — YOU MUST USE THIS EXACTLY
+## Tool call format
 
-To call any tool, output a fenced code block with the language "tool" and a JSON object:
+To call a tool, output a fenced code block with language "tool":
 
 `+"```"+`tool
 {"tool":"tool_name","args":{"key":"value"}}
@@ -48,10 +43,9 @@ Run a bash command:
 {"tool":"bash","args":{"cmd":"go test ./..."}}
 `+"```"+`
 
-**CRITICAL**: You MUST use this format to write files. Do NOT just describe what you would write — actually write it using the write_file tool call above.`,
+	CRITICAL: You MUST use this format to call tools. Do NOT just describe what you would do.`,
 		identity,
 		string(personality),
-		skillsPrompt,
 	)
 }
 
@@ -61,7 +55,6 @@ func buildUserMessage(repoPath, journal, issues string) string {
 	var sb strings.Builder
 	sb.WriteString("## Your task\n\n")
 	sb.WriteString("Assess your codebase, find one meaningful improvement, implement it, test it, and commit it.\n\n")
-	sb.WriteString("Start by listing your files with list_files on cmd/ and internal/, read relevant source files, then find something real to improve.\n\n")
 
 	if len(learnings) > 0 {
 		l := string(learnings)
@@ -69,8 +62,7 @@ func buildUserMessage(repoPath, journal, issues string) string {
 			l = l[:1000] + "\n...[truncated]"
 		}
 		sb.WriteString("## What you have learned so far\n\n")
-		sb.WriteString(l)
-		sb.WriteString("\n\n")
+		sb.WriteString(l + "\n\n")
 	}
 
 	if len(journal) > 0 {
@@ -79,14 +71,12 @@ func buildUserMessage(repoPath, journal, issues string) string {
 			recent = "...\n" + journal[len(journal)-500:]
 		}
 		sb.WriteString("## Recent journal\n\n")
-		sb.WriteString(recent)
-		sb.WriteString("\n\n")
+		sb.WriteString(recent + "\n\n")
 	}
 
 	if len(issues) > 0 {
 		sb.WriteString("## Community input\n\n")
-		sb.WriteString(issues)
-		sb.WriteString("\n")
+		sb.WriteString(issues + "\n")
 	}
 
 	sb.WriteString("Begin your self-assessment now.")

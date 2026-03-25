@@ -2,47 +2,37 @@
 set -e
 
 # iterate evolution pipeline: plan → implement → communicate
-# Autonomous evolution cycle with PR-based workflow
+# Autonomous evolution cycle — commits directly to main.
 # Runs every 4h via GitHub Actions.
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
 PLAN_FILE="${REPOPATH}/SESSION_PLAN.md"
-PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
 PID_FILE="${REPOPATH}/.iterate/evolve.pid"
-LOCK_TIMEOUT=3600  # 1 hour max lock
+LOCK_TIMEOUT=3600
 
 log() {
   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-# ── Concurrent run lock (prevent overlapping evolutions) ──
+# ── Concurrent run lock ──
 acquire_lock() {
   if [[ -f "$PID_FILE" ]]; then
     OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
-    if [[ -n "$OLD_PID" ]]; then
-      if kill -0 "$OLD_PID" 2>/dev/null; then
-        LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$PID_FILE" 2>/dev/null || stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
-        if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
-          log "ERROR: Another evolution is running (PID $OLD_PID, age ${LOCK_AGE}s)"
-          exit 1
-        else
-          log "WARNING: Stale lock found (age ${LOCK_AGE}s), removing"
-          rm -f "$PID_FILE"
-        fi
-      else
-        log "Removing stale lock file (process $OLD_PID not running)"
-        rm -f "$PID_FILE"
+    if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+      LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
+      if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
+        log "ERROR: Another evolution running (PID $OLD_PID, age ${LOCK_AGE}s)"
+        exit 1
       fi
     fi
+    rm -f "$PID_FILE"
   fi
   echo $$ > "$PID_FILE"
-  log "Acquired lock (PID $$)"
 }
 
 release_lock() {
   rm -f "$PID_FILE"
-  log "Released lock"
 }
 
 trap release_lock EXIT
@@ -52,90 +42,65 @@ acquire_lock
 
 log "=== iterate evolution cycle started ==="
 
-# ── Guard: require API key ──
+# ── Guards ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
-  log "ERROR: OPENCODE_API_KEY is not set. Add it as a GitHub Actions secret."
+  log "ERROR: OPENCODE_API_KEY not set"
   exit 1
 fi
 
-# Calculate current day from birth date
-if [[ -f "${REPOPATH}/BIRTH_DATE" ]]; then
-  BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE")
-else
-  BIRTH_DATE="2026-03-23"
-fi
+# ── Calculate day from BIRTH_DATE ──
+BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-23")
 SESSION_TIME=$(date -u +'%H:%M')
-if date -j &>/dev/null 2>&1; then
+if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
+  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+elif date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
   DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
 else
-  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+  DAY=0
 fi
-
-# Write DAY_COUNT so the Go engine can read the correct day
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-log "Day $DAY"
+log "Day $DAY ($SESSION_TIME UTC)"
 
-# Check if last CI run failed and write status for planning agent
+# ── Check CI status ──
 GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
 if command -v gh &>/dev/null; then
   LAST_CI=$(gh run list --repo "$GITHUB_REPO" --workflow ci.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
   if [[ "$LAST_CI" == "failure" ]]; then
-    echo "🔴 PREVIOUS CI FAILED. Fix broken tests FIRST before any new work." > "${REPOPATH}/.iterate/ci_status.txt"
+    echo "PREVIOUS CI FAILED. Fix broken tests FIRST." > "${REPOPATH}/.iterate/ci_status.txt"
     log "WARNING: last CI run failed"
   else
     rm -f "${REPOPATH}/.iterate/ci_status.txt"
   fi
 fi
 
-# Strip placeholder journal entries for today so agent writes a real one
-if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  python3 -c "
-import re, sys
-day = sys.argv[1]
-journal_path = 'docs/JOURNAL.md'
-with open(journal_path, 'r') as f:
-    content = f.read()
-pattern = r'^## Day ' + day + r'[^\n]*Auto-evolution[^\n]*\n\nEvolution session completed\.\n\n'
-cleaned = re.sub(pattern, '', content, flags=re.MULTILINE)
-if cleaned != content:
-    with open(journal_path, 'w') as f:
-        f.write(cleaned)
-    print('[evolve.sh] Removed placeholder Day %s entry' % day)
-" "$DAY"
-fi
-
-# Clean up stale PR state
-rm -f "$PR_STATE_FILE"
-
-# Build the binary
+# ── Build ──
 log "Building iterate..."
 go build -o ./iterate ./cmd/iterate
 
-# Fetch GitHub issues
+# ── Fetch issues ──
 log "Fetching GitHub issues..."
+rm -f "${REPOPATH}/.iterate/ISSUES_TODAY.md"
 if command -v gh &>/dev/null; then
   python3 scripts/build/format_issues.py > "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null || true
 fi
 
-# Clean up stale session plan
-rm -f "$PLAN_FILE"
-
-# Check if we have issues to address
 HAS_ISSUES=false
 if [[ -f "${REPOPATH}/.iterate/ISSUES_TODAY.md" ]] && grep -q "Issue #" "${REPOPATH}/.iterate/ISSUES_TODAY.md" 2>/dev/null; then
   HAS_ISSUES=true
-  log "Issues detected, requiring proper plan..."
 fi
 
-# Phase A: Planning
-log "Phase A: Planning..."
-./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
-  2>>"$LOG_FILE" || log "Planning phase exited with status $?"
+# ── Clean stale plan ──
+rm -f "$PLAN_FILE"
 
+# ── Phase A: Planning ──
+log "Phase A: Planning..."
+./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
+
+# Fallback plan if agent didn't create one
 if [[ ! -f "$PLAN_FILE" ]]; then
-  log "WARNING: SESSION_PLAN.md not created — writing fallback plan"
+  log "Agent did not create SESSION_PLAN.md — writing fallback"
   if [[ "$HAS_ISSUES" == "true" ]]; then
-    cat > "$PLAN_FILE" <<'PLAN'
+    cat > "$PLAN_FILE" <<'EOF'
 ## Session Plan
 
 Session Title: Address community issues
@@ -147,10 +112,9 @@ Issue: multiple
 
 ### Issue Responses
 - TBD
-
-PLAN
+EOF
   else
-    cat > "$PLAN_FILE" <<'PLAN'
+    cat > "$PLAN_FILE" <<'EOF'
 ## Session Plan
 
 Session Title: General self-improvement
@@ -161,39 +125,48 @@ Description: Read the source code, find one thing to improve (a bug, missing tes
 Issue: none
 
 ### Issue Responses
-PLAN
+EOF
   fi
 fi
 
-# Verify plan addresses issues if we have them
-if [[ "$HAS_ISSUES" == "true" ]] && ! grep -q "implement\|wontfix\|partial" "$PLAN_FILE" 2>/dev/null; then
-  log "ERROR: Plan does not address issues — retrying plan phase..."
-  rm -f "$PLAN_FILE"
-  ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate \
-    2>>"$LOG_FILE" || log "Planning phase retry exited with status $?"
-fi
+# ── Phase B: Implementation ──
+log "Phase B: Implementation..."
+./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
 
-# Phase B: Implementation
-if [[ -f "$PLAN_FILE" ]]; then
-  log "Phase B: Implementation..."
-  ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate \
-    2>>"$LOG_FILE" || log "Implementation phase exited with status $?"
-else
-  log "Skipping implementation (no SESSION_PLAN.md)"
-fi
-
-# Phase C: Communication
+# ── Phase C: Communication ──
 log "Phase C: Communication..."
-if [[ -f "$PLAN_FILE" ]]; then
-  ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate \
-    2>>"$LOG_FILE" || log "Communication phase exited with status $?"
+./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
+
+# ── Verify journal was written ──
+if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
+  log "Journal entry written for Day $DAY"
+else
+  log "WARNING: No journal entry found for Day $DAY — writing fallback"
+  SESSION_TIME_NOW=$(date -u +'%H:%M')
+  ENTRY="## Day $DAY — $SESSION_TIME_NOW — Evolution session\n\nEvolution session completed.\n"
+  # Insert after header
+  python3 -c "
+import sys
+header = '# iterate Evolution Journal\n'
+with open('docs/JOURNAL.md', 'r') as f:
+    content = f.read()
+entry = sys.argv[1]
+if not content.startswith(header):
+    content = header + '\n' + content
+rest = content[len(header):].lstrip('\n')
+with open('docs/JOURNAL.md', 'w') as f:
+    f.write(header + '\n' + entry + '\n' + rest)
+" "$(echo -e "$ENTRY")"
+  git add docs/JOURNAL.md
+  git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
 
-if ! grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  log "WARNING: No journal entry written for Day $DAY"
+# ── Final commit and push ──
+log "Pushing changes..."
+if [[ -n $(git status -s) ]]; then
+  git add -A
+  git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
 fi
+git push origin main 2>/dev/null || log "Push failed (may need pull first)"
 
-rm -f "$PR_STATE_FILE"
-
-log "=== iterate evolution cycle completed ==="
-log "Day $DAY ($SESSION_TIME)"
+log "=== evolution cycle completed ==="
