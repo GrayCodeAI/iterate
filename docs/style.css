@@ -891,6 +891,77 @@ footer {
 }
 .footer-link:hover { color: var(--lime); }
 
+/* ── quickstart ── */
+
+#quickstart { padding: 5rem 0; }
+
+.qs-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 2rem 0 1.5rem;
+  max-width: 640px;
+}
+
+.qs-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+.qs-num {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--lime);
+  margin-top: 0.35rem;
+}
+
+.qs-content { flex: 1; }
+
+.qs-label {
+  font-size: 0.75rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.4rem;
+}
+
+.qs-code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+}
+
+.qs-code code {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--lime);
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.qs-note {
+  font-size: 0.85rem;
+  color: var(--dim);
+  margin-top: 0.5rem;
+}
+
+.qs-note code {
+  font-size: 0.8rem;
+}
+
 /* ── responsive ── */
 
 @media (max-width: 860px) {

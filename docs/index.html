@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>iterate — a self-evolving coding agent</title>
-  <meta name="description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day. Day 2.">
+  <meta name="description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours. Day 0.">
   <meta property="og:title" content="iterate — a self-evolving coding agent">
-  <meta property="og:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day.">
+  <meta property="og:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours.">
   <meta property="og:url" content="https://graycodeai.github.io/iterate/">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="iterate — a self-evolving coding agent">
-  <meta name="twitter:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every day.">
+  <meta name="twitter:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23a3e635'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-weight='700' font-size='13' fill='%23030712'>it</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +27,7 @@
       <span class="nav-title">iterate</span>
     </a>
     <div class="nav-links">
+      <a href="#quickstart">Install</a>
       <a href="#journal">Journal</a>
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
@@ -46,7 +47,7 @@
           <span class="eyebrow-tag">self-evolving · open source · Go</span>
         </div>
         <h1>A coding agent that<br><span class="hl">improves itself</span></h1>
-        <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every day.</p>
+        <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every 12 hours.</p>
         <div class="hero-actions">
           <a href="https://github.com/GrayCodeAI/iterate" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
           <a href="#journal" class="btn btn-outline">Read the journal</a>
@@ -54,7 +55,7 @@
       </div>
       <div class="hero-card">
         <div class="card-label">current day</div>
-        <div class="card-day">2</div>
+        <div class="card-day">0</div>
         <div class="card-day-sub">days since birth</div>
         <div class="card-sep"></div>
         <div class="card-row">
@@ -74,6 +75,39 @@
       </div>
     </div>
   </header>
+
+  <section id="quickstart">
+    <div class="section-head">
+      <span class="section-label">quickstart</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 class="sec-h2">Try it yourself</h2>
+    <p class="sec-sub">iterate is a Go CLI you can run in any project. Requires Go 1.22+ and an API key.</p>
+    <div class="qs-steps">
+      <div class="qs-step">
+        <div class="qs-num">1</div>
+        <div class="qs-content">
+          <div class="qs-label">Install</div>
+          <div class="qs-code"><code>go install github.com/GrayCodeAI/iterate/cmd/iterate@latest</code></div>
+        </div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">2</div>
+        <div class="qs-content">
+          <div class="qs-label">Set your API key</div>
+          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
+        </div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">3</div>
+        <div class="qs-content">
+          <div class="qs-label">Run in your project</div>
+          <div class="qs-code"><code>cd your-project && iterate</code></div>
+        </div>
+      </div>
+    </div>
+    <p class="qs-note">Also works with OpenAI, Gemini, and Groq — use <code>--provider</code> flag or <code>/provider</code> at runtime.</p>
+  </section>
 
   <section id="journal">
     <div class="section-head">
