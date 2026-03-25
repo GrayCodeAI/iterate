@@ -41,8 +41,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config user.name "iterate[bot]"
-          git config user.email "iterate@users.noreply.github.com"
+          git config user.name "iterate-evolve[bot]"
+          git config user.email "iterate-evolve[bot]@users.noreply.github.com"
 
       - name: Build iterate
         run: go build ./cmd/iterate

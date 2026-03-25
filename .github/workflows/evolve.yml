@@ -36,8 +36,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config user.name "iterate[bot]"
-          git config user.email "iterate[bot]@users.noreply.github.com"
+          git config user.name "iterate-evolve[bot]"
+          git config user.email "iterate-evolve[bot]@users.noreply.github.com"
 
       - name: Run evolution
         env:
