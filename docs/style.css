@@ -939,6 +939,10 @@ footer {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .qs-code code {
@@ -949,6 +953,23 @@ footer {
   padding: 0;
   border-radius: 0;
 }
+
+.copy-btn {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--dim);
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.copy-btn:hover { color: var(--bright); border-color: var(--slate-500); }
+.copy-btn.copied { color: var(--lime); border-color: var(--lime-border); }
 
 .qs-note {
   font-size: 0.85rem;

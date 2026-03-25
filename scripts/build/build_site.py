@@ -444,21 +444,21 @@ def main():
         <div class="qs-num">1</div>
         <div class="qs-content">
           <div class="qs-label">Install</div>
-          <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code></div>
+          <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
         </div>
       </div>
       <div class="qs-step">
         <div class="qs-num">2</div>
         <div class="qs-content">
           <div class="qs-label">Set your API key</div>
-          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
+          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
         </div>
       </div>
       <div class="qs-step">
         <div class="qs-num">3</div>
         <div class="qs-content">
           <div class="qs-label">Run in your project</div>
-          <div class="qs-code"><code>cd your-project && iterate</code></div>
+          <div class="qs-code"><code>cd your-project &amp;&amp; iterate</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
         </div>
       </div>
     </div>
@@ -489,6 +489,18 @@ def main():
 </footer>
 
 <script>
+  // ── Copy buttons ──
+  document.querySelectorAll('.copy-btn').forEach(btn => {{
+    btn.addEventListener('click', () => {{
+      const code = btn.previousElementSibling.textContent;
+      navigator.clipboard.writeText(code).then(() => {{
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {{ btn.textContent = 'Copy'; btn.classList.remove('copied'); }}, 2000);
+      }});
+    }});
+  }});
+
   // ── Active nav on scroll ──
   const sections = document.querySelectorAll('section[id], header.hero');
   const navAnchors = document.querySelectorAll('.nav-links a[href^="#"]');
