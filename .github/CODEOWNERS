@@ -1,0 +1,13 @@
+# Default owners for everything
+* @GrayCodeAI
+
+# Workflows require extra care
+.github/workflows/ @GrayCodeAI
+
+# Core evolution engine
+internal/evolution/ @GrayCodeAI
+
+# Safety-critical files
+docs/IDENTITY.md @GrayCodeAI
+docs/PERSONALITY.md @GrayCodeAI
+scripts/evolution/evolve.sh @GrayCodeAI

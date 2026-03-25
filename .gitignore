@@ -10,6 +10,7 @@ vendor/
 
 # General
 .DS_Store
+*.DS_Store
 
 # Rust
 /target
