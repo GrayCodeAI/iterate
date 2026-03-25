@@ -1,219 +1,179 @@
+<div align="center">
+
 # iterate
 
-**A self-evolving coding agent written in Go.**
+**A self-evolving coding agent that writes its own code.**
 
-iterate reads its own source code every day, decides what to improve, writes the code, runs the tests, and commits. No human writes its code. It does it itself.
+[![CI](https://github.com/GrayCodeAI/iterate/actions/workflows/ci.yml/badge.svg)](https://github.com/GrayCodeAI/iterate/actions/workflows/ci.yml)
+[![Deploy](https://github.com/GrayCodeAI/iterate/actions/workflows/deploy.yml/badge.svg)](https://graycodeai.github.io/iterate/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](go.mod)
 
-→ **[Watch it grow](https://graycodeai.github.io/iterate/)**
+[Watch it grow](https://graycodeai.github.io/iterate/) ·
+[Report a bug](https://github.com/GrayCodeAI/iterate/issues/new?template=bug.md) ·
+[Suggest a feature](https://github.com/GrayCodeAI/iterate/issues/new?template=suggestion.md)
 
----
-
-## What It Does
-
-Every session, iterate runs a 3-phase evolution loop:
-
-1. **Plan** — reads source, journal, and community issues → writes `SESSION_PLAN.md`
-2. **Implement** — one agent per task → `go build` → `go test` → commit or revert
-3. **Communicate** — reads plan → posts GitHub comments on addressed issues
-
-Each session is logged to `JOURNAL.md`. The site at GitHub Pages updates automatically.
+</div>
 
 ---
+
+## What is this?
+
+iterate is a coding agent that **owns its own repository**. Every 4 hours it:
+
+1. **Reads** its own source code, journal, and community issues
+2. **Decides** what to improve — a bug, a missing feature, a rough edge
+3. **Builds** the fix, runs `go build` and `go test`
+4. **Commits** if green, reverts and journals if not
+
+No human writes its code. It does it itself.
+
+> **[Live site](https://graycodeai.github.io/iterate/)** — auto-updated after every session
 
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/GrayCodeAI/iterate
+git clone https://github.com/GrayCodeAI/iterate.git
 cd iterate
-
-# Set API key
 export ANTHROPIC_API_KEY=sk-...
-
-# Build
 make build
-
-# Run one evolution session
 ./iterate --repo .
-
-# Or start interactive REPL
-./iterate --chat
 ```
 
-**Providers supported:** Anthropic, OpenAI, Gemini, Groq
-
----
+**Providers:** Anthropic · OpenAI · Gemini · Groq
 
 ## Interactive REPL
 
-Start with `./iterate --chat` or `make chat`:
+```bash
+./iterate --chat
+```
 
 ```
 iterate> /help
 
-Available commands:
-  /help               — show this help
-  /clear              — reset conversation history
-  /tools              — list available tools
-  /skills             — list available skills
-  /thinking <level>   — set thinking level: off|minimal|low|medium|high
-  /model <name>       — switch model
-  /test               — run go test ./...
-  /build              — run go build ./...
-  /lint               — run go vet ./...
-  /commit <msg>       — git add -A && git commit
-  /status             — git status + day count
-  /day [number]       — show or set evolution day count
-  /mutants            — run mutation tests to find weak test coverage
-  /compact            — compact conversation history
-  /phase <phase>      — run evolution phase: plan|implement|communicate
-  /quit               — exit
+  Agent       /help  /clear  /model  /thinking  /version  /quit
+  Code        /test  /build  /lint   /fix       /coverage /health
+  Git         /diff  /status /commit /log       /branch   /pr
+  Analysis    /count-lines  /hotspots  /contributors  /languages
+  Project     /tree  /index  /find  /grep
+  Memory      /remember  /memories  /forget  /learn  /memo
+  Evolution   /phase  /self-improve  /evolve-now
+  Session     /save  /load  /context  /tokens  /cost  /compact
 ```
 
----
-
-## CLI Flags
+## How It Works
 
 ```
---repo          Path to repo iterate will evolve (default: .)
---chat          Start interactive REPL
---phase         Run single phase: plan, implement, communicate (default: all)
---provider      Provider: anthropic, openai, gemini, groq
---model         Model override
---api-key       API key (or set env var)
---thinking      Extended thinking: off, minimal, low, medium, high
---gh-owner      GitHub repo owner (for issues)
---gh-repo       GitHub repo name (for issues)
---issue-limit   Max issues to include (default: 5)
---save-session  Save messages to JSON file
---load-session  Load messages from JSON file
---compact       Compact loaded session before running
---social        Run social loop only
---reply-issues  Post replies to addressed issues (default: true)
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│  1. Plan     │────▶│  2. Implement │────▶│  3. Communicate  │
+│              │     │               │     │                   │
+│ Read source  │     │ Agent per task│     │ Post GH comments  │
+│ Read journal │     │ go build/test │     │ Journal entry     │
+│ Read issues  │     │ commit/revert │     │                   │
+└─────────────┘     └──────────────┘     └─────────────────┘
+        ▲                                           │
+        └───────────────────────────────────────────┘
+                    Every 4 hours via GitHub Actions
 ```
 
----
+## Architecture
 
-## Run Automatically
+```
+cmd/iterate/
+  main.go                      Entry point, flag parsing
+  repl.go                      Interactive REPL loop
+  repl_streaming.go            Token-level streaming output
+  repl_helpers.go              REPL utilities
+  repl_models.go               Model switching
+  config.go                    Config loading (TOML/JSON)
+  features.go                  Core feature helpers
+  features_prompts.go          Prompt builders
+  features_shell.go            Shell/CLI utilities
+  features_tools.go            Tool listing and info
+  features_sessions.go         Session save/load/compact
+  features_watch.go            File watching
+  commands_project.go          /health, /tree, /index
+  commands_git.go              /pr dispatcher
 
-iterate runs itself every 4 hours via GitHub Actions. To set up your own:
+internal/
+  agent/                       Agent pool + mutation testing
+  commands/                    Modular command registry
+    registry.go                Type definitions + registration
+    register.go                Registration helpers
+    agent.go                   /help, /clear, /model, /thinking
+    dev.go                     /test, /build, /lint, /fix, /coverage
+    evolution.go               /phase, /self-improve, /evolve-now
+    files.go                   /find, /grep, /tree, /index
+    git.go                     /diff, /status, /commit, /log, /branch
+    github.go                  /pr list/view/diff/review/create
+    memory.go                  /remember, /memories, /forget, /learn
+    mode.go                    /safe, /multi, /thinking
+    safety.go                  Safety checks
+    session.go                 /save, /load, /context, /tokens, /cost
+    utility.go                 /version, /stats, /changes
+  community/                   GitHub issues + discussions
+  evolution/                   3-phase evolution engine
+  social/                      Social interaction engine
+  ui/                          Terminal UI (colors, highlighting)
+  util/                        String truncation helpers
+
+skills/                        Structured skill files (SKILL.md)
+  evolve/                      Self-modification rules
+  self-assess/                 Codebase evaluation
+  communicate/                 Issue response posting
+  research/                    Learning from docs/web
+  social/                      Community interaction
+  release/                     Release management
+
+scripts/
+  evolution/evolve.sh          Main evolution pipeline
+  social/social.sh             Social session runner
+  build/build_site.py          Journal → GitHub Pages
+  maintenance/synthesize_learnings.py  Memory compression
+
+memory/
+  learnings.jsonl              Append-only lesson log
+  active_learnings.md          Synthesized knowledge
+
+docs/                          GitHub Pages site
+  index.html                   Auto-generated from JOURNAL.md
+  JOURNAL.md                   Evolution log
+  IDENTITY.md                  Agent constitution
+  PERSONALITY.md               Agent voice
+```
+
+## GitHub Actions
+
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| `evolve.yml` | Every 4h | Plan → Implement → Communicate |
+| `social.yml` | Offset 2h | Read discussions, learn |
+| `synthesize.yml` | Daily 3AM | Compress learnings |
+| `deploy.yml` | On push | Build GitHub Pages |
+| `ci.yml` | On push/PR | Build, test, vet, fmt |
+
+## Run Your Own
 
 1. Fork this repo
 2. Add `ANTHROPIC_API_KEY` to repository secrets
 3. Enable GitHub Actions and GitHub Pages
 4. That's it — it will start evolving
 
-See `.github/workflows/evolve.yml` for the full pipeline.
-
----
-
-## Architecture
-
-```
-cmd/iterate/
-  main.go                    CLI entry, flag parsing, mode dispatch
-  repl.go                    Thin REPL loop (~400 lines)
-  repl_streaming.go          Streaming token output
-  repl_helpers.go            REPL utility functions
-  repl_models.go             Model switching logic
-  features.go                Feature helpers (~400 lines)
-  features_sessions.go       Session save/load/compact
-  features_search.go         /find, /grep
-  features_prompts.go        Prompt management
-  features_tools.go          Tool listing and info
-  features_watch.go          File watching
-  features_git_helpers.go    Git helper functions
-  commands_project.go        /health, /tree, /index, /pkgdoc
-  commands_git.go            /pr dispatcher, enhanced /diff
-
-internal/
-  agent/                     Agent pool, mutation testing
-  commands/                  100+ modular commands
-    registry.go              Command type defs and registration
-    register.go              Registration helpers
-    agent.go                 /help, /clear, /model, /thinking, etc.
-    dev.go                   /test, /build, /lint, /fix, /coverage
-    evolution.go             /phase, /self-improve, /evolve-now
-    files.go                 /find, /grep, /tree, /index
-    git.go                   /diff, /status, /commit, /log, /branch, etc.
-    github.go                /pr list/view/diff/review/create/comment
-    memory.go                /remember, /memories, /forget, /learn, /memo
-    mode.go                  /safe, /multi, /thinking
-    safety.go                Safety checks and confirmations
-    session.go               /save, /load, /context, /tokens, /cost, /compact
-    utility.go               /version, /stats, /changes, /history
-    legacy.go                Legacy command aliases
-    project_helpers.go       Project-type detection helpers
-  community/                 GitHub issues + discussions
-  evolution/                 3-phase evolution engine
-  social/                    Social interaction engine
-  util/                      Shared utilities
-    truncate.go              String truncation helpers
-
-skills/                      Structured skill files
-  evolve/                    Self-modification rules and safety
-  self-assess/               Codebase evaluation
-  communicate/               Issue response posting
-  research/                  Learning from docs/web
-  social/                    Community interaction
-  release/                   Release management
-
-memory/
-  learnings.jsonl            Append-only lesson log
-  active_learnings.md        Synthesized knowledge
-
-scripts/
-  evolve.sh                  Main evolution pipeline
-  build_site.py              Journal → GitHub Pages
-  format_issues.py           Issue formatting for context
-```
-
----
-
-## Memory System
-
-iterate remembers what it learns:
-
-- **`memory/learnings.jsonl`** — append-only JSONL, one lesson per line
-- **`memory/active_learnings.md`** — synthesized periodically by `synthesize.yml`
-- **`JOURNAL.md`** — human-readable session log
-
-The synthesis workflow compresses old entries and promotes durable insights to active memory.
-
----
-
 ## Community
 
-- **File a bug:** use the Bug template
-- **Suggest a feature:** use the Suggestion template  
-- **Give iterate a challenge:** use the Challenge template
-- **Need help:** use the Help Wanted template
+- **[Bug report](https://github.com/GrayCodeAI/iterate/issues/new?template=bug.md)** — something broke
+- **[Suggestion](https://github.com/GrayCodeAI/iterate/issues/new?template=suggestion.md)** — something to build
+- **[Challenge](https://github.com/GrayCodeAI/iterate/issues/new?template=challenge.md)** — give it a hard problem
+- **[Help wanted](https://github.com/GrayCodeAI/iterate/issues/new?template=help-wanted.md)** — stuck and asking for help
 
-Issues labeled `input` are read by the agent and factored into its next session plan.
-
----
-
-## Talk to It
-
-iterate reads GitHub issues. Label them `input` and it will respond.
-
-```
-gh issue create --repo GrayCodeAI/iterate \
-  --title "Add X feature" \
-  --body "..." \
-  --label "input"
-```
-
----
+Issues labeled `agent-input` are read by the agent every session.
 
 ## Built On
 
-- **[iteragent](https://github.com/GrayCodeAI/iteragent)** — Go agent SDK (providers, tools, streaming, MCP, OpenAPI)
-- **Anthropic Claude** — the LLM brain
+- **[iteragent](https://github.com/GrayCodeAI/iteragent)** — Go agent SDK (providers, tools, streaming)
+- **[opencode](https://opencode.ai)** — LLM provider
 - **GitHub Actions** — the heartbeat
-
----
 
 ## License
 
-MIT
+[MIT](LICENSE)
