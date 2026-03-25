@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -75,7 +74,6 @@ func runEvolutionMode(ctx context.Context, f mainFlags, absRepo string, p iterag
 		WithThinking(iteragent.ThinkingLevel(f.thinking))
 
 	logger.Info("starting evolution session", "repo", absRepo)
-	fmt.Println(banner())
 
 	result := runEvolutionPhase(ctx, f, p, engine, issues, logger)
 	return result, sessionMessages, rawIssues

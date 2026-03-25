@@ -55,20 +55,6 @@ func buildRepoIndex(repoPath string) string {
 }
 
 // ---------------------------------------------------------------------------
-// /summarize — ask the model to summarize the conversation
-// ---------------------------------------------------------------------------
-
-func buildSummarizePrompt(messages []iteragent.Message) string {
-	if len(messages) == 0 {
-		return "The conversation is empty."
-	}
-	return fmt.Sprintf(
-		"Summarize this conversation in 3-5 bullet points. Focus on: what was asked, "+
-			"what was implemented, and any decisions made. Be brief.\n\n"+
-			"(Conversation has %d messages)", len(messages))
-}
-
-// ---------------------------------------------------------------------------
 // Error helpers for /fix and /explain-error
 // ---------------------------------------------------------------------------
 
@@ -95,24 +81,6 @@ func buildDiagramPrompt(repoPath string) string {
 			"Show: packages, their relationships, data flow, and key interfaces. "+
 			"Use ASCII box-drawing characters. Be clear and concise.\n\n"+
 			"Repo structure:\n```\n%s\n```", index)
-}
-
-// ---------------------------------------------------------------------------
-// /generate-readme — AI-generated README
-// ---------------------------------------------------------------------------
-
-func buildReadmePrompt(repoPath string) string {
-	index := buildRepoIndex(repoPath)
-	// Try to get existing README for context
-	existing, _ := os.ReadFile(filepath.Join(repoPath, "README.md"))
-	base := fmt.Sprintf(
-		"Generate a comprehensive README.md for this project. Include: "+
-			"title, description, features, installation, usage, configuration, "+
-			"and contributing sections. Make it compelling and clear.\n\nRepo:\n```\n%s\n```", index)
-	if len(existing) > 0 {
-		base += fmt.Sprintf("\n\nExisting README (improve this):\n```\n%s\n```", string(existing))
-	}
-	return base
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +138,37 @@ func buildChangelogPrompt(repoPath string, since string) string {
 }
 
 // ---------------------------------------------------------------------------
+// /summarize — ask the model to summarize the conversation
+// ---------------------------------------------------------------------------
+
+func buildSummarizePrompt(messages []iteragent.Message) string {
+	if len(messages) == 0 {
+		return "The conversation is empty."
+	}
+	return fmt.Sprintf(
+		"Summarize this conversation in 3-5 bullet points. Focus on: what was asked, "+
+			"what was implemented, and any decisions made. Be brief.\n\n"+
+			"(Conversation has %d messages)", len(messages))
+}
+
+// ---------------------------------------------------------------------------
+// /generate-readme — AI-generated README
+// ---------------------------------------------------------------------------
+
+func buildReadmePrompt(repoPath string) string {
+	index := buildRepoIndex(repoPath)
+	existing, _ := os.ReadFile(filepath.Join(repoPath, "README.md"))
+	base := fmt.Sprintf(
+		"Generate a comprehensive README.md for this project. Include: "+
+			"title, description, features, installation, usage, configuration, "+
+			"and contributing sections. Make it compelling and clear.\n\nRepo:\n```\n%s\n```", index)
+	if len(existing) > 0 {
+		base += fmt.Sprintf("\n\nExisting README (improve this):\n```\n%s\n```", string(existing))
+	}
+	return base
+}
+
+// ---------------------------------------------------------------------------
 // /generate-commit — AI-suggested commit message from current diff
 // ---------------------------------------------------------------------------
 
@@ -189,49 +188,6 @@ func buildGenerateCommitPrompt(repoPath string) string {
 		"Write a concise git commit message for this diff. "+
 			"Format: <type>(<scope>): <summary> — one line, under 72 chars. "+
 			"Types: feat/fix/refactor/docs/test/chore. Reply with ONLY the commit message, no explanation.\n\n```diff\n%s\n```", d)
-}
-
-// ---------------------------------------------------------------------------
-// Go-to-definition prompt helpers (code intelligence)
-// ---------------------------------------------------------------------------
-
-// SymbolLocation represents where a symbol is defined.
-type SymbolLocation struct {
-	File      string // file path
-	Line      int    // line number
-	Column    int    // column number
-	Kind      string // "func", "type", "method", "var"
-	Signature string // function signature or type definition
-}
-
-// buildGoDefPrompt builds a prompt asking the LLM to explain a found definition.
-func buildGoDefPrompt(symbol string, loc SymbolLocation) string {
-	prompt := fmt.Sprintf(
-		"Explain the following Go %s definition:\n\n"+
-			"Symbol: %s\n"+
-			"Location: %s:%d:%d\n",
-		loc.Kind, symbol, loc.File, loc.Line, loc.Column)
-
-	if loc.Signature != "" {
-		prompt += fmt.Sprintf("\nSignature:\n```go\n%s\n```\n", loc.Signature)
-	}
-
-	prompt += "\nPlease explain:\n" +
-		"1. What this symbol does and its purpose\n" +
-		"2. The parameters and return values (if applicable)\n" +
-		"3. How it fits into the overall codebase\n" +
-		"4. Any important implementation details or patterns used"
-
-	return prompt
-}
-
-// buildCodeIntelligenceContext builds context about code intelligence capabilities.
-func buildCodeIntelligenceContext() string {
-	return "Code intelligence features available:\n" +
-		"- /go-def <symbol> — find where a symbol is defined\n" +
-		"- Symbol resolution across the entire codebase\n" +
-		"- Support for functions, types, methods, and variables\n" +
-		"- Automatic signature extraction for Go code\n"
 }
 
 // ---------------------------------------------------------------------------
