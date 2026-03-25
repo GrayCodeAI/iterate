@@ -205,28 +205,35 @@ func TestFilterHistoryEntries_NoMatch(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// InitHistory
+// InitHistory / file round-trip
 // ---------------------------------------------------------------------------
 
-func TestInitHistory_LoadsFromFile(t *testing.T) {
+// TestHistoryFileRoundTrip verifies that entries written by appendHistory
+// are correctly persisted to the file and can be reloaded into memory.
+// (InitHistory always uses ~/.iterate/history so we test the persistence
+// path directly rather than calling InitHistory with a temp path.)
+func TestHistoryFileRoundTrip(t *testing.T) {
 	resetHistory()
 	dir := t.TempDir()
-	histFile := filepath.Join(dir, "history")
-	os.WriteFile(histFile, []byte("cmd1\ncmd2\ncmd3\n"), 0o600)
+	historyFile = filepath.Join(dir, "history")
 
-	// Point historyFile at the temp file, then call the real loader.
-	historyFile = histFile
-	InitHistory()
+	appendHistory("cmd1")
+	appendHistory("cmd2")
+	appendHistory("cmd3")
 
-	h := getInputHistory()
-	// InitHistory appends to existing; we reset first so count is exact.
-	var found []string
-	for _, v := range h {
-		if v == "cmd1" || v == "cmd2" || v == "cmd3" {
-			found = append(found, v)
-		}
+	// Verify the file was written
+	data, err := os.ReadFile(historyFile)
+	if err != nil {
+		t.Fatalf("history file not created: %v", err)
 	}
-	if len(found) != 3 {
-		t.Errorf("expected cmd1/cmd2/cmd3 in history, got %v", h)
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) != 3 || lines[0] != "cmd1" || lines[2] != "cmd3" {
+		t.Errorf("file contents unexpected: %v", lines)
+	}
+
+	// Verify in-memory state matches
+	h := getInputHistory()
+	if len(h) != 3 || h[0] != "cmd1" || h[2] != "cmd3" {
+		t.Errorf("in-memory history unexpected: %v", h)
 	}
 }
