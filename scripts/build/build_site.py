@@ -400,8 +400,8 @@ def main():
       <span class="section-label">features</span>
       <div class="section-rule"></div>
     </div>
-    <h2 class="sec-h2">Built different</h2>
-    <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase and improves it.</p>
+    <h2 class="sec-h2">Honest by design</h2>
+    <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase, ships only what passes tests, and logs everything — including failures.</p>
     <div class="bento">
 {bento_html}
     </div>
