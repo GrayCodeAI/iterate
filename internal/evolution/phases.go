@@ -205,6 +205,18 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		e.logger.Warn("failed to parse DAY_COUNT", "err", err, "raw", string(dayBytes))
 	}
 
+	// Skip PR flow if ITERATE_SKIP_PR is set (e.g., in CI with GITHUB_TOKEN restrictions).
+	if os.Getenv("ITERATE_SKIP_PR") == "true" {
+		e.logger.Info("ITERATE_SKIP_PR set, committing directly to main")
+		systemPrompt, tools, skills := e.loadImplementContext()
+		protectedWarning := "\n\n⚠️ PROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go (evolution engine)\n- .github/workflows/*.yml (CI/CD)\n- cmd/iterate/*.go (REPL)\n- scripts/evolution/evolve.sh (evolution trigger)\n\nIf a task requires editing these, skip it and note in your response.\n"
+		for _, task := range tasks {
+			e.logger.Info("implementing task (direct)", "number", task.Number, "title", task.Title)
+			e.runSingleTaskLegacy(ctx, p, task, systemPrompt, tools, skills, protectedWarning)
+		}
+		return nil
+	}
+
 	if _, err := e.createFeatureBranch(ctx, day); err != nil {
 		e.logger.Warn("failed to create feature branch, falling back to direct commit", "err", err)
 		return e.runImplementPhaseLegacy(ctx, p, tasks, plan)
