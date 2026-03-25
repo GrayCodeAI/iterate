@@ -489,6 +489,22 @@ def main():
 </footer>
 
 <script>
+  // ── Active nav on scroll ──
+  const sections = document.querySelectorAll('section[id], header.hero');
+  const navAnchors = document.querySelectorAll('.nav-links a[href^="#"]');
+  const observer = new IntersectionObserver((entries) => {{
+    entries.forEach(entry => {{
+      if (entry.isIntersecting) {{
+        const id = entry.target.id || '';
+        navAnchors.forEach(a => {{
+          a.classList.toggle('nav-active', a.getAttribute('href') === '#' + id);
+        }});
+      }}
+    }});
+  }}, {{ rootMargin: '-20% 0px -70% 0px' }});
+  sections.forEach(s => observer.observe(s));
+
+  // ── Hamburger ──
   const hamburger = document.getElementById('nav-hamburger');
   const navLinks  = document.getElementById('nav-links');
   hamburger.addEventListener('click', () => {{

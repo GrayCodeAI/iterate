@@ -140,6 +140,7 @@ nav {
   transition: color 0.15s, background 0.15s;
 }
 .nav-links a:hover { color: var(--bright); background: var(--surface); }
+.nav-links a.nav-active { color: var(--lime); }
 
 .nav-gh {
   background: var(--surface) !important;
