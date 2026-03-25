@@ -168,12 +168,14 @@ func (e *Engine) issueAlreadyCommented(ctx context.Context, issueNum int, day st
 
 // writeJournalEntry generates and writes the journal entry for this session.
 func (e *Engine) writeJournalEntry(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, day string) {
-	// Use a fresh context so journal writing can't be starved by earlier phase work.
-	journalCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	journalCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	// Read recent commits to give the agent context without requiring a tool call.
 	recentCommits, _ := e.runTool(journalCtx, "bash", map[string]string{"cmd": "git log --oneline -8"})
+
+	// Use a minimal system prompt — no tools, no skills. Just write.
+	minimalPrompt := "You are iterate, a self-evolving coding agent. You write honest journal entries about your evolution sessions."
 
 	journalMsg := `Write a journal entry for this evolution session. Reply with ONLY the journal entry — no explanation, no preamble, no markdown fences.
 
@@ -192,7 +194,7 @@ Rules:
 - If nothing was implemented, write "Evolution session completed." as the body
 - Start your reply with "## Day" — nothing before it`
 
-	a := e.newAgent(p, nil, systemPrompt, skills) // no tools — pure text response
+	a := e.newAgent(p, nil, minimalPrompt, nil) // no tools, no skills — pure text
 	var journalEntry string
 	for ev := range a.Prompt(journalCtx, journalMsg) {
 		if e.eventSink != nil {
@@ -213,8 +215,10 @@ Rules:
 // persistJournalEntry extracts and writes a valid journal entry to JOURNAL.md.
 func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 	if journalEntry == "" {
-		e.logger.Warn("journal entry is empty — skipping journal write")
-		return
+		e.logger.Warn("journal entry is empty — generating fallback from git log")
+		dayNum, _ := strconv.Atoi(day)
+		now := time.Now().UTC().Format("15:04")
+		journalEntry = fmt.Sprintf("## Day %d — %s — Evolution session\n\nEvolution session completed.\n", dayNum, now)
 	}
 
 	// Try to find the journal header. Agents format things differently.
