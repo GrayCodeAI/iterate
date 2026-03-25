@@ -328,7 +328,7 @@ def main():
       <div class="nav-icon">it</div>
       <span class="nav-title">iterate</span>
     </a>
-    <div class="nav-links">
+    <div class="nav-links" id="nav-links">
       {journal_nav_link}
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
@@ -336,6 +336,9 @@ def main():
       <a href="#quickstart">Quickstart</a>
       <a href="https://github.com/{gh}" target="_blank" rel="noopener" class="nav-gh">GitHub ↗</a>
     </div>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
 
@@ -485,6 +488,22 @@ def main():
   </div>
 </footer>
 
+<script>
+  const hamburger = document.getElementById('nav-hamburger');
+  const navLinks  = document.getElementById('nav-links');
+  hamburger.addEventListener('click', () => {{
+    const open = navLinks.classList.toggle('open');
+    hamburger.setAttribute('aria-expanded', open);
+    hamburger.classList.toggle('open', open);
+  }});
+  navLinks.querySelectorAll('a').forEach(a => {{
+    a.addEventListener('click', () => {{
+      navLinks.classList.remove('open');
+      hamburger.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', false);
+    }});
+  }});
+</script>
 </body>
 </html>
 """
