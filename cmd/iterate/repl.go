@@ -224,11 +224,13 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 			_ = (*a).Close() // best-effort cleanup
 			*a = makeAgent(*p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
-			saveConfig(iterConfig{
-				Provider:      os.Getenv("ITERATE_PROVIDER"),
-				Model:         os.Getenv("ITERATE_MODEL"),
-				OllamaBaseURL: os.Getenv("OLLAMA_BASE_URL"),
-			})
+			// Preserve all existing config — only update provider/model fields.
+			updatedCfg := loadConfig()
+			updatedCfg.Provider = (*p).Name()
+			if model := os.Getenv("ITERATE_MODEL"); model != "" {
+				updatedCfg.Model = model
+			}
+			saveConfig(updatedCfg)
 		}
 		return true
 	}

@@ -20,7 +20,6 @@ type Pool struct {
 	rateLimiter *RateLimiter
 	logger      *slog.Logger
 	maxAgents   int
-	wg          sync.WaitGroup
 }
 
 // RateLimiter controls API call frequency using token bucket algorithm.
@@ -28,6 +27,7 @@ type RateLimiter struct {
 	tokens   chan struct{}
 	refill   time.Duration
 	stopChan chan struct{}
+	stopOnce sync.Once
 }
 
 // NewRateLimiter creates a rate limiter with the given requests per second.
@@ -70,9 +70,11 @@ func (rl *RateLimiter) Wait(ctx context.Context) error {
 	}
 }
 
-// Stop stops the rate limiter goroutine.
+// Stop stops the rate limiter goroutine. Safe to call multiple times.
 func (rl *RateLimiter) Stop() {
-	close(rl.stopChan)
+	rl.stopOnce.Do(func() {
+		close(rl.stopChan)
+	})
 }
 
 // NewPool creates an agent pool with rate limiting.
@@ -142,10 +144,6 @@ func (p *Pool) Spawn(ctx context.Context, task string, handler func(*iteragent.A
 		return err
 	}
 	defer p.Release(agent)
-
-	p.wg.Add(1)
-	defer p.wg.Done()
-
 	return handler(agent)
 }
 
@@ -154,10 +152,13 @@ func (p *Pool) Spawn(ctx context.Context, task string, handler func(*iteragent.A
 func (p *Pool) SpawnAll(ctx context.Context, tasks []string, handler func(*iteragent.Agent, string) error) []error {
 	errs := make([]error, len(tasks))
 	var errMu sync.Mutex
+	var wg sync.WaitGroup
 
 	for i, task := range tasks {
 		i, task := i, task // capture loop variables
+		wg.Add(1)          // must be before goroutine launch to avoid Wait() returning early
 		go func() {
+			defer wg.Done()
 			err := p.Spawn(ctx, task, func(agent *iteragent.Agent) error {
 				return handler(agent, task)
 			})
@@ -167,7 +168,7 @@ func (p *Pool) SpawnAll(ctx context.Context, tasks []string, handler func(*itera
 		}()
 	}
 
-	p.wg.Wait()
+	wg.Wait()
 	return errs
 }
 

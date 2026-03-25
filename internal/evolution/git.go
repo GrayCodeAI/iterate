@@ -13,9 +13,7 @@ import (
 )
 
 func (e *Engine) runTool(ctx context.Context, name string, args map[string]string) (string, error) {
-	tools := iteragent.DefaultTools(e.repoPath)
-	tm := iteragent.ToolMap(tools)
-	tool, ok := tm[name]
+	tool, ok := e.toolMap[name]
 	if !ok {
 		return "", fmt.Errorf("tool %q not found", name)
 	}
@@ -127,10 +125,10 @@ func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []i
 
 	url := strings.TrimSpace(out)
 	var prNum int
-	fmt.Sscanf(url, "%*s/%d", &prNum)
 	if idx := strings.LastIndex(url, "/"); idx >= 0 {
-		numStr := url[idx+1:]
-		fmt.Sscanf(numStr, "%d", &prNum)
+		if _, err := fmt.Sscanf(url[idx+1:], "%d", &prNum); err != nil {
+			e.logger.Warn("could not parse PR number from URL", "url", url)
+		}
 	}
 
 	e.prURL = url
@@ -208,7 +206,7 @@ func (e *Engine) mergePR(ctx context.Context) error {
 	})
 	if err != nil {
 		if strings.Contains(strings.ToLower(out), "no mergeable") || strings.Contains(strings.ToLower(out), "conflict") {
-			e.logger.Warn("PR has merge conflicts, attempting auto-merge")
+			e.logger.Warn("PR has merge conflicts, attempting merge with --admin flag (bypasses branch protection)", "pr", e.prNumber)
 			mergeOut, mergeErr := e.runTool(ctx, "bash", map[string]string{
 				"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --admin --delete-branch 2>&1 || echo 'MERGE_FAILED'", e.prNumber, e.repo),
 			})
@@ -254,9 +252,7 @@ func (e *Engine) forwardEvents(src <-chan iteragent.Event) {
 }
 
 func (e *Engine) runTests(ctx context.Context) (string, error) {
-	tools := iteragent.DefaultTools(e.repoPath)
-	tm := iteragent.ToolMap(tools)
-	return tm["run_tests"].Execute(ctx, nil)
+	return e.toolMap["run_tests"].Execute(ctx, nil)
 }
 
 // defaultPhaseTimeout is the maximum duration for any evolution phase.
@@ -268,25 +264,19 @@ func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 }
 
 func (e *Engine) revert(ctx context.Context) error {
-	tools := iteragent.DefaultTools(e.repoPath)
-	tm := iteragent.ToolMap(tools)
-
-	// First, reset all staged and unstaged changes
-	_, err := e.runTool(ctx, "bash", map[string]string{
+	// Reset uncommitted changes first.
+	if _, err := e.runTool(ctx, "bash", map[string]string{
 		"cmd": "git checkout -- . && git clean -fd",
-	})
-	if err != nil {
-		e.logger.Warn("git checkout failed, trying revert tool", "err", err)
+	}); err == nil {
+		return nil
 	}
-
-	// Then use the revert tool for any committed changes
-	_, err = tm["git_revert"].Execute(ctx, nil)
+	// Fall back: use git_revert tool for any committed changes.
+	e.logger.Warn("git checkout failed, trying revert tool")
+	_, err := e.toolMap["git_revert"].Execute(ctx, nil)
 	return err
 }
 
 func (e *Engine) commit(ctx context.Context, msg string) error {
-	tools := iteragent.DefaultTools(e.repoPath)
-	tm := iteragent.ToolMap(tools)
-	_, err := tm["git_commit"].Execute(ctx, map[string]string{"message": msg})
+	_, err := e.toolMap["git_commit"].Execute(ctx, map[string]string{"message": msg})
 	return err
 }

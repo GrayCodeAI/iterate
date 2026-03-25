@@ -42,10 +42,21 @@ func InitHistory() {
 
 const maxHistoryLines = 500
 
+// redactSensitiveInput replaces potential API keys with [redacted] before history storage.
+// Handles: /provider <name> <key>
+func redactSensitiveInput(line string) string {
+	parts := strings.Fields(line)
+	if len(parts) >= 3 && strings.EqualFold(parts[0], "/provider") {
+		return parts[0] + " " + parts[1] + " [redacted]"
+	}
+	return line
+}
+
 func appendHistory(line string) {
 	if line == "" {
 		return
 	}
+	line = redactSensitiveInput(line)
 	inputHistoryMu.Lock()
 	// Avoid duplicate of last entry
 	if len(inputHistory) > 0 && inputHistory[len(inputHistory)-1] == line {

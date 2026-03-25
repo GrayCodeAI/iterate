@@ -42,6 +42,10 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 		}
 	}
 
+	// Verify a plan was produced — fail explicitly rather than silently proceeding.
+	if _, err := os.Stat(planPath); os.IsNotExist(err) {
+		return fmt.Errorf("planning phase produced no SESSION_PLAN.md")
+	}
 	return nil
 }
 
@@ -161,9 +165,10 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		e.executeTask(ctx, p, task, systemPrompt, tools, skills, protectedWarning)
 	}
 
-	// Commit any remaining changes
+	// Commit any remaining tracked-file changes.
+	// Use git add -u (not -A) to avoid staging untracked artifacts from failed tasks.
 	if _, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": "git add -A && git diff --cached --quiet || git commit -m 'iterate: implement session changes'",
+		"cmd": "git add -u && git diff --cached --quiet || git commit -m 'iterate: implement session changes'",
 	}); err != nil {
 		e.logger.Warn("final commit failed", "err", err)
 	}
@@ -173,23 +178,24 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 
 // executeTask runs a single task. On failure, reverts and retries once with error context.
 func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning string) {
-	if ok := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, ""); ok {
+	ok, errCtx := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, "")
+	if ok {
 		return
 	}
 
-	// First attempt failed. Retry with error context.
+	// First attempt failed. Retry with the actual error context captured before revert.
 	e.logger.Info("retrying task after failure", "number", task.Number)
-	v := e.verify(ctx)
-	errorCtx := fmt.Sprintf("Previous attempt failed. Build passed: %v, Test passed: %v. Fix the errors and try again.", v.BuildPassed, v.TestPassed)
-	if ok := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, errorCtx); ok {
+	retryCtx := "Previous attempt failed.\n\n" + errCtx + "\n\nFix the errors and try again."
+	if ok, _ := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, retryCtx); ok {
 		e.logger.Info("task succeeded on retry", "number", task.Number)
 	} else {
 		e.logger.Warn("task failed after retry, skipping", "number", task.Number)
 	}
 }
 
-// runTaskAttempt executes one attempt at a task. Returns true on success.
-func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning, extraContext string) bool {
+// runTaskAttempt executes one attempt at a task. Returns (success, errorContext).
+// errorContext is populated on failure with build/test output captured before reverting.
+func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning, extraContext string) (bool, string) {
 	userMsg := fmt.Sprintf("Implement Task %d: %s\n\n%s", task.Number, task.Description, protectedWarning)
 	if extraContext != "" {
 		userMsg += "\n\n" + extraContext
@@ -212,24 +218,26 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	if taskErr != nil {
 		e.logger.Warn("task error", "number", task.Number, "err", taskErr)
 		_ = e.revert(ctx)
-		return false
+		return false, fmt.Sprintf("Agent error: %s", taskErr)
 	}
 
 	if violations, _ := e.verifyProtected(ctx); len(violations) > 0 {
 		e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
 		_ = e.revert(ctx)
-		return false
+		return false, fmt.Sprintf("Protected files were modified (not allowed): %v", violations)
 	}
 
 	v := e.verify(ctx)
 	if !v.BuildPassed || !v.TestPassed {
+		// Capture error output BEFORE reverting so the retry has meaningful context.
+		errCtx := fmt.Sprintf("Build passed: %v, Test passed: %v.\n\nOutput:\n%s", v.BuildPassed, v.TestPassed, v.Output)
 		e.logger.Warn("verification failed, reverting", "number", task.Number, "build", v.BuildPassed, "test", v.TestPassed)
 		_ = e.revert(ctx)
-		return false
+		return false, errCtx
 	}
 
 	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, "")
-	return true
+	return true, ""
 }
 
 // loadImplementContext prepares system prompt, tools, and skills for implementation.

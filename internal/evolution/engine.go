@@ -34,7 +34,8 @@ var ProtectedFiles = []string{
 	"scripts/social/social.sh",
 }
 
-// isProtected checks if a file path matches any protected pattern.
+// isProtected checks if a relative file path matches any protected pattern.
+// path must already be relative to the repo root.
 func isProtected(path string) bool {
 	cleanPath := filepath.Clean(path)
 	for _, pattern := range ProtectedFiles {
@@ -42,15 +43,11 @@ func isProtected(path string) bool {
 		if cleanPath == filepath.Clean(pattern) {
 			return true
 		}
-		// Check glob pattern match
-		if matched, _ := filepath.Match(pattern, filepath.Base(cleanPath)); matched {
-			dir := filepath.Dir(cleanPath)
-			patternDir := filepath.Dir(pattern)
-			if dir == patternDir || patternDir == "." {
-				return true
-			}
+		// Check glob pattern match against the full relative path
+		if matched, _ := filepath.Match(pattern, cleanPath); matched {
+			return true
 		}
-		// Check if path is inside a protected directory
+		// Check if path is inside a protected directory (handles /*.go and /* suffixes)
 		if strings.HasSuffix(pattern, "/*") || strings.HasSuffix(pattern, "/*.go") {
 			protectedDir := strings.TrimSuffix(pattern, "/*")
 			protectedDir = strings.TrimSuffix(protectedDir, "/*.go")
@@ -73,6 +70,7 @@ type Engine struct {
 	prURL         string
 	branchName    string
 	traceID       string
+	toolMap       map[string]iteragent.Tool // cached at construction to avoid re-init per call
 }
 
 // generateTraceID creates a random hex trace ID for request correlation.
@@ -107,11 +105,13 @@ func New(repoPath string, logger *slog.Logger) *Engine {
 		repo = "GrayCodeAI/iterate"
 	}
 	tid := generateTraceID()
+	tools := iteragent.DefaultTools(repoPath)
 	e := &Engine{
 		repoPath: repoPath,
 		repo:     repo,
 		logger:   logger.With("traceID", tid),
 		traceID:  tid,
+		toolMap:  iteragent.ToolMap(tools),
 	}
 	// Load PR state from previous phase if exists
 	e.loadPRState()
@@ -177,10 +177,9 @@ func (e *Engine) WithThinking(level iteragent.ThinkingLevel) *Engine {
 // Run executes one full evolution session.
 func (e *Engine) handlePostRunTests(ctx context.Context, day int, output string, p iteragent.Provider, tools []iteragent.Tool, skills *iteragent.SkillSet, result *RunResult) error {
 	testResult, testErr := e.runTests(ctx)
-	_ = testResult
 
 	if testErr != nil {
-		e.logger.Info("tests failed, reverting changes")
+		e.logger.Info("tests failed, reverting changes", "output", testResult)
 		result.Status = "reverted"
 		_ = e.revert(ctx)
 		return nil
@@ -259,7 +258,7 @@ func (e *Engine) readContextFiles() ([]byte, []byte, int) {
 func (e *Engine) runAgentAndCollectEvents(ctx context.Context, a *iteragent.Agent, userMessage string) (string, error) {
 	eventCh := a.Prompt(ctx, userMessage)
 	var output string
-	var runErr error
+	var errs []string
 	for ev := range eventCh {
 		if e.eventSink != nil {
 			select {
@@ -271,10 +270,13 @@ func (e *Engine) runAgentAndCollectEvents(ctx context.Context, a *iteragent.Agen
 			output = ev.Content
 		}
 		if ev.Type == string(iteragent.EventError) {
-			runErr = fmt.Errorf("%s", ev.Content)
+			errs = append(errs, ev.Content)
 		}
 	}
-	return output, runErr
+	if len(errs) > 0 {
+		return output, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return output, nil
 }
 
 // handleCommitAndPR creates a branch, commits, pushes, and creates a PR.

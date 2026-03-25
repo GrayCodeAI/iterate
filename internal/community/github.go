@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sort"
+	"sync"
 
 	"github.com/google/go-github/v61/github"
 	"golang.org/x/oauth2"
@@ -73,37 +74,57 @@ func FetchIssues(ctx context.Context, owner, repo string, issueTypes []IssueType
 }
 
 // buildIssuesFromGitHub converts GitHub API issues to Issue structs with reaction scores.
+// Reaction fetches are fanned out concurrently to avoid N+1 serial API calls.
 func buildIssuesFromGitHub(ctx context.Context, client *github.Client, owner, repo string, ghIssues []*github.Issue, issueType IssueType) []Issue {
-	var issues []Issue
-	for _, gi := range ghIssues {
-		reactions, _, err := client.Reactions.ListIssueReactions(ctx, owner, repo, gi.GetNumber(), nil)
-		if err != nil {
-			continue
-		}
+	type slot struct {
+		issue Issue
+		ok    bool
+	}
+	slots := make([]slot, len(ghIssues))
+	var wg sync.WaitGroup
 
-		var up, down int
-		for _, r := range reactions {
-			switch r.GetContent() {
-			case "heart", "+1":
-				up++
-			case "-1":
-				down++
+	for i, gi := range ghIssues {
+		i, gi := i, gi
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			reactions, _, err := client.Reactions.ListIssueReactions(ctx, owner, repo, gi.GetNumber(), nil)
+			if err != nil {
+				return
 			}
-		}
+			var up, down int
+			for _, r := range reactions {
+				switch r.GetContent() {
+				case "heart", "+1":
+					up++
+				case "-1":
+					down++
+				}
+			}
+			body := gi.GetBody()
+			if len(body) > 500 {
+				body = body[:500] + "..."
+			}
+			slots[i] = slot{
+				issue: Issue{
+					Number:   gi.GetNumber(),
+					Title:    gi.GetTitle(),
+					Body:     body,
+					NetVotes: up - down,
+					URL:      gi.GetHTMLURL(),
+					Type:     issueType,
+				},
+				ok: true,
+			}
+		}()
+	}
+	wg.Wait()
 
-		body := gi.GetBody()
-		if len(body) > 500 {
-			body = body[:500] + "..."
+	var issues []Issue
+	for _, s := range slots {
+		if s.ok {
+			issues = append(issues, s.issue)
 		}
-
-		issues = append(issues, Issue{
-			Number:   gi.GetNumber(),
-			Title:    gi.GetTitle(),
-			Body:     body,
-			NetVotes: up - down,
-			URL:      gi.GetHTMLURL(),
-			Type:     issueType,
-		})
 	}
 	return issues
 }

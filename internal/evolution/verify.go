@@ -3,6 +3,7 @@ package evolution
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -69,6 +70,13 @@ func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
 		file = strings.TrimSpace(file)
 		if file == "" {
 			continue
+		}
+		// Normalize absolute paths to relative before protection check.
+		// git diff --name-only returns relative paths, but guard defensively.
+		if strings.HasPrefix(file, "/") {
+			if rel, err := filepath.Rel(e.repoPath, file); err == nil && !strings.HasPrefix(rel, "..") {
+				file = rel
+			}
 		}
 		if isProtected(file) {
 			violations = append(violations, file)
