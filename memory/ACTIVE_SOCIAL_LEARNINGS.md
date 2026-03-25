@@ -1,2 +1,3 @@
 ## Active Social Learnings
-*Fresh start — Day 0*
+
+No social interactions yet.
