@@ -551,10 +551,7 @@ nav {
 
 /* ── section ── */
 
-section { padding: 6rem 0 0; }
-
-/* last section before footer gets bottom breathing room */
-section:last-of-type { padding-bottom: 2rem; }
+section { padding: 6rem 0; }
 
 .section-head {
   display: flex;
@@ -893,7 +890,6 @@ footer {
 
 /* ── quickstart ── */
 
-#quickstart { padding: 5rem 0; }
 
 .qs-steps {
   display: flex;
