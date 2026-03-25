@@ -60,7 +60,6 @@ jobs:
           ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           bash scripts/evolution/evolve.sh
 

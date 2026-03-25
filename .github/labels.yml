@@ -13,3 +13,35 @@ labels:
   - name: agent-help-wanted
     description: "Issues where iterate is stuck and asking humans for help"
     color: "008672"
+
+  - name: bug
+    description: "Something broke or behaved unexpectedly"
+    color: "d73a4a"
+
+  - name: enhancement
+    description: "New feature or improvement"
+    color: "a2eeef"
+
+  - name: documentation
+    description: "Documentation improvements"
+    color: "0075ca"
+
+  - name: good first issue
+    description: "Good for newcomers"
+    color: "7057ff"
+
+  - name: help wanted
+    description: "Extra attention is needed"
+    color: "008672"
+
+  - name: duplicate
+    description: "This issue or pull request already exists"
+    color: "cfd3d7"
+
+  - name: invalid
+    description: "This doesn't seem right"
+    color: "e4e669"
+
+  - name: wontfix
+    description: "This will not be worked on"
+    color: "ffffff"
