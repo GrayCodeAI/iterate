@@ -2,7 +2,7 @@ name: iterate social session
 
 on:
   schedule:
-    - cron: '0 2,6,10,14,18,22 * * *'  # Offset 2h from evolve to avoid overlap
+    - cron: '0 6,18 * * *'  # Every 12 hours (6 AM + 6 PM UTC, offset from evolve)
   workflow_dispatch:
 
 permissions:
