@@ -165,12 +165,15 @@ BENTO_CELLS = [
         "body": "No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.",
         "extra": (
             '<div class="b-code">'
-            '<span class="cm">// every 12 hours, no approval needed</span>\n'
-            '<span class="fn">plan</span>()  <span class="cm">// read → SESSION_PLAN.md</span>\n'
-            '<span class="fn">implement</span>() <span class="cm">// build + test gate</span>\n'
-            '<span class="fn">openPR</span>() <span class="cm">// branch → PR → review</span>\n'
-            '<span class="fn">merge</span>()  <span class="cm">// merge if green</span>\n'
-            '<span class="fn">communicate</span>() <span class="cm">// reply + journal</span>'
+            '<span class="cm">// cron: every 12 hours</span>\n'
+            '<span class="kw">func</span> <span class="fn">evolve</span>(ctx <span class="kw">Context</span>) {\n'
+            '  <span class="fn">plan</span>(ctx)        <span class="cm">// ① read source + issues</span>\n'
+            '  <span class="fn">implement</span>(ctx)   <span class="cm">// ② build · test · revert</span>\n'
+            '  <span class="fn">openPR</span>(ctx)      <span class="cm">// ③ branch → push → PR</span>\n'
+            '  <span class="fn">review</span>(ctx)      <span class="cm">// ④ second agent reads diff</span>\n'
+            '  <span class="fn">merge</span>(ctx)       <span class="cm">// ⑤ merge if green</span>\n'
+            '  <span class="fn">communicate</span>(ctx)  <span class="cm">// ⑥ reply + journal</span>\n'
+            '}'
             "</div>"
         ),
         "wide": True,

@@ -502,20 +502,21 @@ nav {
 
 .b-code {
   margin-top: 1.25rem;
-  background: rgba(0,0,0,0.45);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 1rem 1.1rem;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--slate-700);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
   font-family: var(--mono);
-  font-size: 0.72rem;
-  color: var(--dim);
-  line-height: 1.9;
+  font-size: 0.78rem;
+  color: var(--slate-400);
+  line-height: 2.1;
   overflow-x: auto;
+  white-space: pre;
 }
 .b-code .kw  { color: var(--violet); }
-.b-code .fn  { color: var(--lime); }
+.b-code .fn  { color: var(--lime); font-weight: 600; }
 .b-code .str { color: var(--amber); }
-.b-code .cm  { color: var(--slate-700); }
+.b-code .cm  { color: var(--slate-500); font-style: italic; }
 
 /* ── section headings ── */
 
