@@ -3,7 +3,7 @@ set -e
 
 # iterate evolution pipeline: plan → implement → communicate
 # Autonomous evolution cycle — commits directly to main.
-# Runs every 4h via GitHub Actions.
+# Runs every 12h via GitHub Actions.
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
@@ -49,7 +49,7 @@ if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
 fi
 
 # ── Calculate day from BIRTH_DATE ──
-BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-23")
+BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-27")
 SESSION_TIME=$(date -u +'%H:%M')
 if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
   DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
@@ -143,20 +143,21 @@ if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
 else
   log "WARNING: No journal entry found for Day $DAY — writing fallback"
   SESSION_TIME_NOW=$(date -u +'%H:%M')
-  ENTRY="## Day $DAY — $SESSION_TIME_NOW — Evolution session\n\nEvolution session completed.\n"
-  # Insert after header
-  python3 -c "
+  # Insert fallback entry after header
+  python3 << PYEOF
 import sys
 header = '# iterate Evolution Journal\n'
+day = "$DAY"
+time_now = "$SESSION_TIME_NOW"
+entry = f"## Day {day} — {time_now} — Evolution session\n\nEvolution session completed.\n"
 with open('docs/JOURNAL.md', 'r') as f:
     content = f.read()
-entry = sys.argv[1]
 if not content.startswith(header):
     content = header + '\n' + content
 rest = content[len(header):].lstrip('\n')
 with open('docs/JOURNAL.md', 'w') as f:
     f.write(header + '\n' + entry + '\n' + rest)
-" "$(echo -e "$ENTRY")"
+PYEOF
   git add docs/JOURNAL.md
   git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
