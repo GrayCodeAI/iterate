@@ -7,7 +7,7 @@ Runs `go test -cover` and appends the result to memory/coverage_history.jsonl.
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def get_coverage(repo_path="."):
@@ -91,7 +91,7 @@ def main():
     test_count = count_tests(repo_path)
 
     entry = {
-        "date": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "coverage_pct": round(coverage, 1),
         "test_count": test_count,
     }

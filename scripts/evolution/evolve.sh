@@ -38,6 +38,8 @@ release_lock() {
 trap release_lock EXIT
 
 mkdir -p "${REPOPATH}/.iterate"
+mkdir -p "${REPOPATH}/memory"
+mkdir -p "${REPOPATH}/docs"
 acquire_lock
 
 log "=== iterate evolution cycle started ==="
@@ -131,10 +133,12 @@ fi
 
 # ── Phase B: Implementation ──
 log "Phase B: Implementation..."
+sleep 5  # Brief pause between phases
 ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
 
 # ── Phase C: Communication ──
 log "Phase C: Communication..."
+sleep 5  # Brief pause between phases
 ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
 
 # ── Verify journal was written ──

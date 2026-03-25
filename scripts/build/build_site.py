@@ -4,7 +4,7 @@
 import html
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -491,7 +491,7 @@ def generate_rss(days, entries):
       <pubDate>{date_str}</pubDate>
     </item>"""
 
-    last_build = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+    last_build = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
     rss = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
