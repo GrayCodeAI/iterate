@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: write
 
 jobs:
   evolve:
@@ -30,21 +29,17 @@ jobs:
         with:
           go-version: '1.25'
 
-      - name: Setup iteragent path
+      - name: Setup iteragent
         run: |
-          cd $GITHUB_WORKSPACE
           mkdir -p ..
           cp -r iteragent-pkg ../iteragent
 
       - name: Configure git
         run: |
-          git config user.name "iterate-evolve[bot]"
-          git config user.email "iterate-evolve[bot]@users.noreply.github.com"
+          git config user.name "iterate[bot]"
+          git config user.email "iterate[bot]@users.noreply.github.com"
 
-      - name: Build iterate
-        run: go build ./cmd/iterate
-
-      - name: Run evolution loop
+      - name: Run evolution
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_BASE_URL: https://opencode.ai/zen/go/v1
@@ -52,20 +47,9 @@ jobs:
           ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ITERATE_SKIP_PR: "true"
         run: |
           bash scripts/evolution/evolve.sh
 
-      - name: Show evolution log
+      - name: Show log
         if: always()
-        run: cat .iterate/evolution.log 2>/dev/null || echo "(no log file)"
-
-      - name: Push changes
-        run: |
-          if [[ -n $(git status -s) ]]; then
-            git add -A
-            git commit -m "iterate: auto-evolution session $(date -u +'%Y-%m-%d %H:%M:%S')"
-          fi
-          git checkout main
-          git pull --rebase origin main
-          git push origin main
+        run: cat .iterate/evolution.log 2>/dev/null || echo "(no log)"
