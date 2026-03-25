@@ -365,3 +365,30 @@ func (e *Engine) handlePRReviewAndMerge(ctx context.Context, p iteragent.Provide
 
 	_ = e.switchToMain(ctx)
 }
+
+// auditLog appends a tool call or error to .iterate/audit.jsonl for debugging.
+func (e *Engine) auditLog(eventType, tool, detail string) {
+	auditPath := filepath.Join(e.repoPath, ".iterate", "audit.jsonl")
+	_ = os.MkdirAll(filepath.Dir(auditPath), 0o755)
+
+	entry := map[string]string{
+		"ts":   time.Now().UTC().Format(time.RFC3339),
+		"type": eventType,
+		"tool": tool,
+	}
+	if detail != "" {
+		// Truncate long details
+		if len(detail) > 200 {
+			detail = detail[:200] + "..."
+		}
+		entry["detail"] = detail
+	}
+
+	data, _ := json.Marshal(entry)
+	f, err := os.OpenFile(auditPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.Write(append(data, '\n'))
+}

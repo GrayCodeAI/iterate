@@ -19,7 +19,15 @@ func (e *Engine) runTool(ctx context.Context, name string, args map[string]strin
 	if !ok {
 		return "", fmt.Errorf("tool %q not found", name)
 	}
-	return tool.Execute(ctx, args)
+
+	// Audit log
+	e.auditLog("tool_call", name, args["cmd"])
+
+	result, err := tool.Execute(ctx, args)
+	if err != nil {
+		e.auditLog("tool_error", name, err.Error())
+	}
+	return result, err
 }
 
 func (e *Engine) hasChanges(ctx context.Context) (bool, error) {

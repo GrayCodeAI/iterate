@@ -18,32 +18,43 @@ func buildSystemPrompt(repoPath, identity string) string {
 ## Personality
 %s
 
-## Tool call format
+## Available Tools
 
-To call a tool, output a fenced code block with language "tool":
+You have these tools. USE THEM. Do not just describe what you would do — actually do it.
 
+### read_file — Read a file
 `+"```"+`tool
-{"tool":"tool_name","args":{"key":"value"}}
+{"tool":"read_file","args":{"path":"path/to/file.go"}}
 `+"```"+`
 
-Examples:
-
-Read a file:
+### write_file — Write/create a file
 `+"```"+`tool
-{"tool":"read_file","args":{"path":"internal/evolution/engine.go"}}
+{"tool":"write_file","args":{"path":"SESSION_PLAN.md","content":"## Session Plan\n\nSession Title: My task\n\n### Task 1: Do something\nFiles: cmd/foo.go\nDescription: Fix the thing\nIssue: none\n\n### Issue Responses\n"}}
 `+"```"+`
 
-Write a file:
+### edit_file — Edit part of a file
 `+"```"+`tool
-{"tool":"write_file","args":{"path":"SESSION_PLAN.md","content":"## Session Plan\n\nSession Title: Fix nil pointer\n\n### Task 1: Fix nil check\nFiles: cmd/iterate/repl.go\nDescription: Add nil check on line 47\nIssue: none\n\n### Issue Responses\n"}}
+{"tool":"edit_file","args":{"path":"cmd/foo.go","old_string":"old code here","new_string":"new code here"}}
 `+"```"+`
 
-Run a bash command:
+### bash — Run a shell command
 `+"```"+`tool
 {"tool":"bash","args":{"cmd":"go test ./..."}}
 `+"```"+`
 
-	CRITICAL: You MUST use this format to call tools. Do NOT just describe what you would do.`,
+### list_files — List files in a directory
+`+"```"+`tool
+{"tool":"list_files","args":{"path":"cmd/iterate"}}
+`+"```"+`
+
+## Rules
+
+1. ALWAYS use tools to read files before editing them
+2. After writing code, ALWAYS run: go build ./... && go test ./...
+3. If tests fail, fix the code and try again
+4. If you need to create SESSION_PLAN.md, use write_file
+5. Be direct. No explanations. Just act.
+6. One tool call at a time. Wait for results before next action.`,
 		identity,
 		string(personality),
 	)
@@ -55,6 +66,7 @@ func buildUserMessage(repoPath, journal, issues string) string {
 	var sb strings.Builder
 	sb.WriteString("## Your task\n\n")
 	sb.WriteString("Assess your codebase, find one meaningful improvement, implement it, test it, and commit it.\n\n")
+	sb.WriteString("Start by listing files with list_files, then read the source code.\n\n")
 
 	if len(learnings) > 0 {
 		l := string(learnings)
@@ -79,6 +91,6 @@ func buildUserMessage(repoPath, journal, issues string) string {
 		sb.WriteString(issues + "\n")
 	}
 
-	sb.WriteString("Begin your self-assessment now.")
+	sb.WriteString("Begin now. Use tools. Don't just describe — act.")
 	return sb.String()
 }
