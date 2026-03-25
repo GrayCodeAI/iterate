@@ -257,10 +257,7 @@ nav {
 }
 
 .hero h1 .hl {
-  background: linear-gradient(135deg, var(--lime) 0%, #86efac 60%, var(--lime-400) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--lime);
   position: relative;
 }
 
