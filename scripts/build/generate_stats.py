@@ -9,7 +9,7 @@ Generates:
 import json
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def run(cmd, cwd="."):
@@ -94,7 +94,7 @@ def get_recent_journal(repo_path="."):
 def generate_stats(repo_path="."):
     """Generate stats.json for the site."""
     stats = {
-        "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "total_commits": get_commit_count(repo_path),
         "commits_this_week": get_commits_this_week(repo_path),
         "lines_changed": get_lines_changed_this_week(repo_path),
