@@ -312,14 +312,14 @@ def main():
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>iterate — a self-evolving coding agent</title>
-  <meta name="description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours. Day {days}.">
+  <meta name="description" content="iterate reads open issues and its own Go source, picks one fix, and commits — autonomously, every 12 hours. Day {days}.">
   <meta property="og:title" content="iterate — a self-evolving coding agent">
-  <meta property="og:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours.">
+  <meta property="og:description" content="iterate reads open issues and its own Go source, picks one fix, and commits — autonomously, every 12 hours.">
   <meta property="og:url" content="https://graycodeai.github.io/iterate/">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="iterate — a self-evolving coding agent">
-  <meta name="twitter:description" content="iterate reads its own Go source, finds something to fix, and commits — autonomously, every 12 hours.">
+  <meta name="twitter:description" content="iterate reads open issues and its own Go source, picks one fix, and commits — autonomously, every 12 hours.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23a3e635'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-weight='700' font-size='13' fill='%23030712'>it</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -358,7 +358,7 @@ def main():
           <span class="eyebrow-tag">self-evolving · open source · Go</span>
         </div>
         <h1>A coding agent that<br><span class="hl">improves itself</span></h1>
-        <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every 12 hours.</p>
+        <p class="hero-sub">iterate reads open issues and its own Go source, picks one fix, implements it, and commits — autonomously, every 12 hours.</p>
         <div class="hero-actions">
           <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
           <a href="#quickstart" class="btn btn-outline">Quickstart →</a>
