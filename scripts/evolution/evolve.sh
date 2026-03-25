@@ -184,6 +184,9 @@ BRANCH="evolution/day-${DAY}"
 =======
 # ── Final commit and push ──
 log "Pushing changes..."
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 # Re-calculate day after pull (pull may overwrite DAY_COUNT)
@@ -191,7 +194,10 @@ DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s 2>/dev/null || date -j -f 
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # Stage and commit all changes
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 if [[ -n $(git status -s) ]]; then
@@ -201,6 +207,16 @@ fi
 <<<<<<< Updated upstream
 =======
 git pull --rebase origin main 2>/dev/null || true
+<<<<<<< Updated upstream
+=======
+
+# Always ensure DAY_COUNT is correct after pull
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+git add DAY_COUNT 2>/dev/null || true
+git commit --amend --no-edit 2>/dev/null || git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
+
+git push origin main 2>/dev/null || log "Push failed"
+>>>>>>> Stashed changes
 
 # Always ensure DAY_COUNT is correct after pull
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"

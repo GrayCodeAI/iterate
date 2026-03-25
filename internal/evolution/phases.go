@@ -19,9 +19,7 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	userMessage := buildPlanPrompt(e.repoPath, string(journal), day, issues)
 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
-	a := e.newAgent(p, tools, systemPrompt, skills)
+	a := e.newAgent(p, e.tools, systemPrompt, e.skills)
 
 	var lastContent string
 	for ev := range a.Prompt(ctx, userMessage) {
@@ -240,11 +238,9 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	return true, ""
 }
 
-// loadImplementContext prepares system prompt, tools, and skills for implementation.
+// loadImplementContext prepares the system prompt for implementation using cached tools and skills.
 func (e *Engine) loadImplementContext() (string, []iteragent.Tool, *iteragent.SkillSet) {
 	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "docs/IDENTITY.md"))
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
-	return systemPrompt, tools, skills
+	return systemPrompt, e.tools, e.skills
 }

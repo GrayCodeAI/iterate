@@ -70,7 +70,9 @@ type Engine struct {
 	prURL         string
 	branchName    string
 	traceID       string
-	toolMap       map[string]iteragent.Tool // cached at construction to avoid re-init per call
+	toolMap       map[string]iteragent.Tool // cached at construction — avoids re-init per call
+	tools         []iteragent.Tool          // cached tool slice for agent construction
+	skills        *iteragent.SkillSet       // cached skills — loaded once per engine
 }
 
 // generateTraceID creates a random hex trace ID for request correlation.
@@ -106,12 +108,15 @@ func New(repoPath string, logger *slog.Logger) *Engine {
 	}
 	tid := generateTraceID()
 	tools := iteragent.DefaultTools(repoPath)
+	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
 	e := &Engine{
 		repoPath: repoPath,
 		repo:     repo,
 		logger:   logger.With("traceID", tid),
 		traceID:  tid,
 		toolMap:  iteragent.ToolMap(tools),
+		tools:    tools,
+		skills:   skills,
 	}
 	// Load PR state from previous phase if exists
 	e.loadPRState()
@@ -206,9 +211,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	userMessage := buildUserMessage(e.repoPath, string(journal), issues)
 
-	tools := iteragent.DefaultTools(e.repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(e.repoPath, "skills")})
-	a := e.newAgent(p, tools, systemPrompt, skills)
+	a := e.newAgent(p, e.tools, systemPrompt, e.skills)
 
 	output, runErr := e.runAgentAndCollectEvents(ctx, a, userMessage)
 	a.Finish()
@@ -227,7 +230,7 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		return result, nil
 	}
 
-	if err := e.handlePostRunTests(ctx, day, output, p, tools, skills, result); err != nil {
+	if err := e.handlePostRunTests(ctx, day, output, p, e.tools, e.skills, result); err != nil {
 		return result, err
 	}
 
@@ -392,5 +395,5 @@ func (e *Engine) auditLog(eventType, tool, detail string) {
 		return
 	}
 	defer f.Close()
-	f.Write(append(data, '\n'))
+	_, _ = f.Write(append(data, '\n'))
 }

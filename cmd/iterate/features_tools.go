@@ -242,6 +242,8 @@ var themes = map[string]theme{
 }
 
 func applyTheme(t theme) {
+	colorMu.Lock()
+	defer colorMu.Unlock()
 	colorLime = t.lime
 	colorYellow = t.yellow
 	colorCyan = t.cyan

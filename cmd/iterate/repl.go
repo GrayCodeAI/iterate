@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,8 +18,10 @@ import (
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
-// Color variables — reassignable for /theme support
+// Color variables — reassignable for /theme support.
+// Protected by colorMu: applyTheme writes, signal handler goroutine reads.
 var (
+	colorMu     sync.RWMutex
 	colorReset  = "\033[0m"
 	colorLime   = "\033[38;5;154m"
 	colorYellow = "\033[38;5;220m"
@@ -116,7 +119,11 @@ func setupSigintHandler() {
 		for range sigCh {
 			if sess.RequestCancel != nil {
 				sess.RequestCancel()
-				fmt.Printf("\r\033[K%s[cancelled]%s\n", colorYellow, colorReset)
+				// Snapshot colors under read lock — applyTheme writes these from the main goroutine.
+				colorMu.RLock()
+				y, r := colorYellow, colorReset
+				colorMu.RUnlock()
+				fmt.Printf("\r\033[K%s[cancelled]%s\n", y, r)
 			}
 		}
 	}()

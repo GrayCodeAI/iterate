@@ -145,9 +145,9 @@ func TestFormatElapsed(t *testing.T) {
 		input    int64 // nanoseconds
 		contains string
 	}{
-		{500_000_000, "ms"},        // 500ms
-		{5_500_000_000, "s"},       // 5.5s
-		{65_000_000_000, "m"},      // 1m5s
+		{500_000_000, "ms"},   // 500ms
+		{5_500_000_000, "s"},  // 5.5s
+		{65_000_000_000, "m"}, // 1m5s
 	}
 	for _, tt := range tests {
 		got := formatElapsed(time.Duration(tt.input))
