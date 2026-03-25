@@ -1,1 +1,10 @@
-## Session Plan\n\nSession Title: Persist safety settings to config file\n\n### Task 1: Fix safety command persistence\nFiles: \n- internal/commands/safety.go (modify cmdSafe, cmdTrust, cmdAllow, cmdDeny to persist config)\n- internal/commands/safety_test.go (new file - add tests for persistence)\n\nDescription: The `/safe`, `/trust`, `/allow`, and `/deny` commands currently only modify in-memory state but don't persist to the config file, despite having TODO comments indicating they should. The `iterConfig` struct already has `SafeMode` and `DeniedTools` fields that are loaded at startup. Modify these commands to:\n1. Access the config loading/saving callbacks via Context.Config\n2. Load current config, update the relevant field (SafeMode or DeniedTools), and save back\n3. Handle edge cases like duplicate tool entries in DeniedTools\n4. Add tests verifying that calling these commands results in config file changes\n\nIssue: none\n\n### Issue Responses\n- none: implement — This is a self-identified bug from code inspection. The TODO comments in safety.go (lines 54, 63, 77, 91) explicitly state config persistence is needed but not implemented. Users expect safety settings to persist across sessions.\n"}}
+## Session Plan
+
+Session Title: General self-improvement
+
+### Task 1: Self-assessment and improvement
+Files: cmd/iterate/, internal/evolution/
+Description: Read the source code, find one thing to improve (a bug, missing test, or UX gap), implement it, test it, and commit it.
+Issue: none
+
+### Issue Responses
