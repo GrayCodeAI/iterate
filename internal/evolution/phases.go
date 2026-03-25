@@ -69,8 +69,14 @@ func buildPlanPrompt(repoPath, journal, day, issues string) string {
 	learnings, _ := os.ReadFile(filepath.Join(repoPath, "memory", "ACTIVE_LEARNINGS.md"))
 	ciStatus, _ := os.ReadFile(filepath.Join(repoPath, ".iterate", "ci_status.txt"))
 
+	// Run codebase analysis for smarter task selection
+	analysis := AnalyzeCodebase(repoPath)
+	analysisStr := analysis.FormatAnalysis()
+
 	var sb strings.Builder
 	appendPlanInstructions(&sb, ciStatus, day)
+	sb.WriteString("## Codebase Analysis\n\n")
+	sb.WriteString(analysisStr)
 	appendPlanContext(&sb, learnings, journal, issues)
 	return sb.String()
 }
@@ -165,9 +171,30 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	return nil
 }
 
-// executeTask runs a single task, reverts on failure.
+// executeTask runs a single task. On failure, reverts and retries once with error context.
 func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning string) {
-	userMsg := fmt.Sprintf("Implement Task %d: %s\n\n%s\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes.", task.Number, task.Description, protectedWarning)
+	if ok := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, ""); ok {
+		return
+	}
+
+	// First attempt failed. Retry with error context.
+	e.logger.Info("retrying task after failure", "number", task.Number)
+	v := e.verify(ctx)
+	errorCtx := fmt.Sprintf("Previous attempt failed. Build passed: %v, Test passed: %v. Fix the errors and try again.", v.BuildPassed, v.TestPassed)
+	if ok := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, errorCtx); ok {
+		e.logger.Info("task succeeded on retry", "number", task.Number)
+	} else {
+		e.logger.Warn("task failed after retry, skipping", "number", task.Number)
+	}
+}
+
+// runTaskAttempt executes one attempt at a task. Returns true on success.
+func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning, extraContext string) bool {
+	userMsg := fmt.Sprintf("Implement Task %d: %s\n\n%s", task.Number, task.Description, protectedWarning)
+	if extraContext != "" {
+		userMsg += "\n\n" + extraContext
+	}
+	userMsg += "\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes."
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var taskOutput string
@@ -183,26 +210,26 @@ func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task pla
 	a.Finish()
 
 	if taskErr != nil {
-		e.logger.Warn("task failed, reverting", "number", task.Number, "err", taskErr)
+		e.logger.Warn("task error", "number", task.Number, "err", taskErr)
 		_ = e.revert(ctx)
-		return
+		return false
 	}
 
 	if violations, _ := e.verifyProtected(ctx); len(violations) > 0 {
 		e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
 		_ = e.revert(ctx)
-		return
+		return false
 	}
 
 	v := e.verify(ctx)
 	if !v.BuildPassed || !v.TestPassed {
 		e.logger.Warn("verification failed, reverting", "number", task.Number, "build", v.BuildPassed, "test", v.TestPassed)
 		_ = e.revert(ctx)
-		return
+		return false
 	}
 
 	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, "")
-	_ = taskOutput
+	return true
 }
 
 // loadImplementContext prepares system prompt, tools, and skills for implementation.

@@ -34,9 +34,11 @@ func initGitRepo(t *testing.T, dir string) {
 			t.Fatalf("%v failed: %v\n%s", c.args, err, out)
 		}
 	}
+	// Add .gitignore to exclude .iterate/ directory
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(".iterate/\n"), 0o644)
 	// initial commit so HEAD exists
 	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# test\n"), 0o644)
-	cmd := exec.Command("git", "add", "README.md")
+	cmd := exec.Command("git", "add", "README.md", ".gitignore")
 	cmd.Dir = dir
 	cmd.CombinedOutput()
 	cmd = exec.Command("git", "commit", "-m", "init")
@@ -725,8 +727,8 @@ func TestHasChanges_WithIgnoredFiles(t *testing.T) {
 	dir := t.TempDir()
 	initGitRepo(t, dir)
 
-	// Create .gitignore
-	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.tmp\n"), 0o644)
+	// Create .gitignore with both patterns
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.tmp\n.iterate/\n"), 0o644)
 	cmd := exec.Command("git", "add", ".gitignore")
 	cmd.Dir = dir
 	cmd.CombinedOutput()

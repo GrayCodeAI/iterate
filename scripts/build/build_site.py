@@ -455,7 +455,48 @@ def main():
     DOCS.mkdir(exist_ok=True)
     (DOCS / "index.html").write_text(page)
     (DOCS / ".nojekyll").touch()
+
+    # Generate RSS feed
+    generate_rss(days, entries)
+
     print(f"Site built: docs/index.html (Day {days}, {sessions} sessions)")
+
+
+def generate_rss(days, entries):
+    """Generate RSS feed from journal entries."""
+    site_url = "https://graycodeai.github.io/iterate"
+    gh = os.environ.get("GITHUB_REPOSITORY", "GrayCodeAI/iterate")
+
+    items = ""
+    for entry in entries:
+        title = html.escape(entry["title"])
+        body = html.escape(entry["body"][:500])
+        day = entry["day"]
+        date_str = entry.get("date", datetime.now().strftime("%Y-%m-%d"))
+
+        items += f"""
+    <item>
+      <title>Day {day} — {title}</title>
+      <link>{site_url}</link>
+      <guid>{site_url}#day-{day}</guid>
+      <description>{body}</description>
+      <pubDate>{date_str}</pubDate>
+    </item>"""
+
+    rss = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>iterate — Self-Evolving Coding Agent</title>
+    <link>{site_url}</link>
+    <description>A coding agent that improves itself. Every session, documented.</description>
+    <language>en</language>
+    <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
+    {items}
+  </channel>
+</rss>
+"""
+    (DOCS / "feed.xml").write_text(rss)
+    print(f"RSS feed written: docs/feed.xml")
 
 
 if __name__ == "__main__":

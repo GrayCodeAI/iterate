@@ -161,6 +161,16 @@ with open('docs/JOURNAL.md', 'w') as f:
   git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
 
+# ── Track coverage ──
+log "Tracking test coverage..."
+python3 scripts/build/track_coverage.py . 2>/dev/null || true
+git add memory/coverage_history.jsonl 2>/dev/null || true
+
+# ── Generate stats ──
+log "Generating stats..."
+python3 scripts/build/generate_stats.py . 2>/dev/null || true
+git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
+
 # ── Final commit and push ──
 log "Pushing changes..."
 if [[ -n $(git status -s) ]]; then

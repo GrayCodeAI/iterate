@@ -140,8 +140,8 @@ func TestBuildUserMessage_Basic(t *testing.T) {
 	if !strings.Contains(result, "Your task") {
 		t.Error("should mention task")
 	}
-	if !strings.Contains(result, "self-assessment") {
-		t.Error("should mention self-assessment")
+	if !strings.Contains(result, "Begin now") {
+		t.Error("should have action prompt")
 	}
 }
 
