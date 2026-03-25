@@ -167,6 +167,7 @@ if [[ -n $(git status -s) ]]; then
   git add -A
   git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
 fi
-git push origin main 2>/dev/null || log "Push failed (may need pull first)"
+git pull --rebase origin main 2>/dev/null || true
+git push origin main 2>/dev/null || log "Push failed"
 
 log "=== evolution cycle completed ==="
