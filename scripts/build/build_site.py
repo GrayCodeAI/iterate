@@ -339,7 +339,7 @@ def main():
         <p class="hero-sub">iterate reads its own source code, finds something broken or missing, fixes it, and commits — autonomously, every 12 hours.</p>
         <div class="hero-actions">
           <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
-          <a href="#journal" class="btn btn-outline">Read the journal</a>
+          <a href="#quickstart" class="btn btn-outline">Quickstart →</a>
         </div>
       </div>
       <div class="hero-card">
