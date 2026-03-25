@@ -165,7 +165,7 @@ nav {
 /* ── hero ── */
 
 .hero {
-  padding: 7rem 0 6rem;
+  padding: 9rem 0 7rem;
   position: relative;
   overflow: hidden;
 }
@@ -248,11 +248,11 @@ nav {
 }
 
 .hero h1 {
-  font-size: clamp(2.6rem, 5.5vw, 4.2rem);
+  font-size: clamp(3rem, 6vw, 5rem);
   font-weight: 800;
   color: var(--bright);
-  line-height: 1.08;
-  letter-spacing: -0.04em;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
   margin-bottom: 1.5rem;
 }
 
@@ -262,11 +262,11 @@ nav {
 }
 
 .hero-sub {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   color: var(--slate-400);
   line-height: 1.75;
-  max-width: 500px;
-  margin-bottom: 2.5rem;
+  max-width: 520px;
+  margin-bottom: 2rem;
   font-weight: 400;
 }
 
@@ -276,13 +276,36 @@ nav {
   flex-wrap: wrap;
 }
 
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+}
+
+.hero-pill {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--slate-500);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.28rem 0.9rem;
+  letter-spacing: 0.01em;
+  transition: border-color 0.15s, color 0.15s;
+}
+.hero-pill:hover {
+  border-color: var(--border2);
+  color: var(--slate-400);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  padding: 0.65rem 1.3rem;
+  padding: 0.75rem 1.6rem;
   border-radius: var(--radius);
   transition: all 0.18s;
   cursor: pointer;
@@ -404,6 +427,47 @@ nav {
   margin-top: 0.3rem;
 }
 
+/* ── stats strip ── */
+
+.stats-strip {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 2.5rem 0;
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+  padding: 0 1.5rem;
+}
+
+.stat-num {
+  font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+  font-weight: 800;
+  color: var(--bright);
+  font-family: var(--mono);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.68rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 0.45rem;
+  font-family: var(--mono);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
 /* ── how it works ── */
 
 .how-grid {
@@ -434,11 +498,12 @@ nav {
 
 .step-num {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: var(--step-color, var(--lime));
-  letter-spacing: 0.1em;
-  margin-bottom: 1.25rem;
+  letter-spacing: 0.14em;
+  margin-bottom: 1rem;
+  opacity: 0.7;
 }
 
 .step-icon {
@@ -449,10 +514,10 @@ nav {
 }
 
 .step-title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--bright);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   margin-bottom: 0.5rem;
 }
 
@@ -535,12 +600,12 @@ nav {
 /* ── section headings ── */
 
 .sec-h2 {
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-size: clamp(2rem, 3.5vw, 3rem);
   font-weight: 800;
   color: var(--bright);
   letter-spacing: -0.04em;
   margin-bottom: 0.75rem;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .sec-sub {
@@ -553,13 +618,13 @@ nav {
 
 /* ── section ── */
 
-section { padding: 6rem 0; }
+section { padding: 8rem 0; }
 
 .section-head {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 3rem;
+  margin-bottom: 1.25rem;
 }
 
 .section-label {
@@ -1065,12 +1130,17 @@ footer {
   .bento-cell.wide { grid-column: span 2; }
   .identity-grid { grid-template-columns: 1fr; }
   .id-card.span2 { grid-column: 1; }
+  .stats-strip { gap: 0; }
+  .stat-item { padding: 0 1rem; }
 }
 
 @media (max-width: 600px) {
   .page-wrap, .nav-inner, .footer-inner { padding: 0 1.25rem; }
   .hero { padding: 4.5rem 0 4rem; }
   .hero h1 { font-size: 2.4rem; }
+  .stats-strip { flex-wrap: wrap; gap: 0; padding: 1.75rem 0; }
+  .stat-item { flex: 0 0 50%; padding: 1rem 1.25rem; }
+  .stat-divider { display: none; }
   .how-grid { grid-template-columns: 1fr; }
   .bento { grid-template-columns: 1fr; }
   .bento-cell.wide { grid-column: 1; }

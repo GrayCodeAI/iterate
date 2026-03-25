@@ -372,6 +372,13 @@ def main():
           <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">View on GitHub</a>
           <a href="#quickstart" class="btn btn-outline">Quickstart →</a>
         </div>
+        <div class="hero-pills">
+          <span class="hero-pill">Autonomous</span>
+          <span class="hero-pill">Open source</span>
+          <span class="hero-pill">MIT License</span>
+          <span class="hero-pill">Every 12 hours</span>
+          <span class="hero-pill">Go</span>
+        </div>
       </div>
       <div class="hero-card">
         <div class="card-label">current day</div>
@@ -395,6 +402,28 @@ def main():
       </div>
     </div>
   </header>
+
+  <div class="stats-strip">
+    <div class="stat-item">
+      <div class="stat-num">{days}</div>
+      <div class="stat-label">days running</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-num">{sessions}</div>
+      <div class="stat-label">sessions shipped</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-num">6</div>
+      <div class="stat-label">phase loop</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-num">MIT</div>
+      <div class="stat-label">open source</div>
+    </div>
+  </div>
 
   {journal_section}
 
