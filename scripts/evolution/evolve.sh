@@ -49,7 +49,7 @@ if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
 fi
 
 # ── Calculate day from BIRTH_DATE ──
-BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-27")
+BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-25")
 SESSION_TIME=$(date -u +'%H:%M')
 if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
   DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
