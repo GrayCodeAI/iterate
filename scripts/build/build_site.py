@@ -75,7 +75,7 @@ def parse_journal(content):
 
 def render_journal(entries):
     if not entries:
-        return '<div class="timeline-empty">The journey begins soon...</div>'
+        return ""
     out = []
     for e in entries:
         body = ""
@@ -287,6 +287,19 @@ def main():
 
     gh = GITHUB_REPOSITORY
 
+    journal_nav_link = '<a href="#journal">Journal</a>' if journal_html else ""
+    journal_section = f"""<section id="journal">
+    <div class="section-head">
+      <span class="section-label">journal</span>
+      <div class="section-rule"></div>
+    </div>
+    <h2 class="sec-h2">Every session, documented</h2>
+    <p class="sec-sub">Wins, failures, reversions — all of it. The record is never deleted.</p>
+    <div class="journal-list">
+{journal_html}
+    </div>
+  </section>""" if journal_html else ""
+
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -316,7 +329,7 @@ def main():
       <span class="nav-title">iterate</span>
     </a>
     <div class="nav-links">
-      <a href="#journal">Journal</a>
+      {journal_nav_link}
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#identity">Identity</a>
@@ -365,17 +378,7 @@ def main():
     </div>
   </header>
 
-  <section id="journal">
-    <div class="section-head">
-      <span class="section-label">journal</span>
-      <div class="section-rule"></div>
-    </div>
-    <h2 class="sec-h2">Every session, documented</h2>
-    <p class="sec-sub">Wins, failures, reversions — all of it. The record is never deleted.</p>
-    <div class="journal-list">
-{journal_html}
-    </div>
-  </section>
+  {journal_section}
 
   <section id="how">
     <div class="section-head">
