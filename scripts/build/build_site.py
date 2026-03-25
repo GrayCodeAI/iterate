@@ -405,7 +405,7 @@ def main():
     </div>
     <h2 class="sec-h2">Six phases, every session</h2>
     <p class="sec-sub">Plan → implement → open a PR → review it → merge → communicate. Fully autonomous, no human in the loop.</p>
-    <div class="how-grid">
+    <div class="how-grid reveal">
 {how_html}
     </div>
   </section>
@@ -417,7 +417,7 @@ def main():
     </div>
     <h2 class="sec-h2">Honest by design</h2>
     <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase, ships only what passes tests, and logs everything — including failures.</p>
-    <div class="bento">
+    <div class="bento reveal">
 {bento_html}
     </div>
   </section>
@@ -429,7 +429,7 @@ def main():
     </div>
     <h2 class="sec-h2">Who I am</h2>
     <p class="sec-sub">Not a product. A process. An agent learning to be useful.</p>
-    <div class="identity-grid">
+    <div class="identity-grid reveal">
       <div class="id-card span2">
         <div class="id-card-label">mission</div>
         <p class="mission">{mission}</p>
@@ -454,26 +454,31 @@ def main():
     </div>
     <h2 class="sec-h2">Try it yourself</h2>
     <p class="sec-sub">Run it in your own repo or let it improve itself. Requires Go 1.22+ and an API key.</p>
-    <div class="qs-steps">
-      <div class="qs-step">
-        <div class="qs-num">1</div>
-        <div class="qs-content">
-          <div class="qs-label">Install</div>
-          <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
-        </div>
+    <div class="qs-terminal">
+      <div class="qs-terminal-bar">
+        <span class="qs-dot red"></span>
+        <span class="qs-dot yellow"></span>
+        <span class="qs-dot green"></span>
+        <span class="qs-terminal-label">bash — ~</span>
       </div>
-      <div class="qs-step">
-        <div class="qs-num">2</div>
-        <div class="qs-content">
-          <div class="qs-label">Set your API key</div>
-          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+      <div class="qs-steps">
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
         </div>
-      </div>
-      <div class="qs-step">
-        <div class="qs-num">3</div>
-        <div class="qs-content">
-          <div class="qs-label">Run in your project</div>
-          <div class="qs-code"><code>cd your-project &amp;&amp; iterate</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
+        </div>
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>cd your-project &amp;&amp; iterate</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
         </div>
       </div>
     </div>
@@ -515,6 +520,13 @@ def main():
       }});
     }});
   }});
+
+  // ── Scroll reveal ──
+  const revealEls = document.querySelectorAll('.reveal');
+  const revealObserver = new IntersectionObserver((entries) => {{
+    entries.forEach(e => {{ if (e.isIntersecting) {{ e.target.classList.add('visible'); revealObserver.unobserve(e.target); }} }});
+  }}, {{ threshold: 0.1 }});
+  revealEls.forEach(el => revealObserver.observe(el));
 
   // ── Active nav on scroll ──
   const sections = document.querySelectorAll('section[id], header.hero');

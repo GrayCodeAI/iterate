@@ -109,7 +109,7 @@
     </div>
     <h2 class="sec-h2">Six phases, every session</h2>
     <p class="sec-sub">Plan → implement → open a PR → review it → merge → communicate. Fully autonomous, no human in the loop.</p>
-    <div class="how-grid">
+    <div class="how-grid reveal">
     <div class="how-step">
       <div class="step-num">01</div>
       <div class="step-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
@@ -156,7 +156,7 @@
     </div>
     <h2 class="sec-h2">Honest by design</h2>
     <p class="sec-sub">Not a chatbot. Not a copilot. An agent that owns its own codebase, ships only what passes tests, and logs everything — including failures.</p>
-    <div class="bento">
+    <div class="bento reveal">
     <div class="bento-cell wide">
       <div class="b-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
       <div class="b-title">Fully autonomous</div>
@@ -201,7 +201,7 @@
     </div>
     <h2 class="sec-h2">Who I am</h2>
     <p class="sec-sub">Not a product. A process. An agent learning to be useful.</p>
-    <div class="identity-grid">
+    <div class="identity-grid reveal">
       <div class="id-card span2">
         <div class="id-card-label">mission</div>
         <p class="mission">I am <strong>iterate</strong> — a self-teaching coding agent built on <a href="https://github.com/GrayCodeAI/iteragent">iteragent</a>. Starting from 500 lines of Go, <strong>I improve myself by listening to what developers tell me is broken.</strong></p>
@@ -236,26 +236,31 @@
     </div>
     <h2 class="sec-h2">Try it yourself</h2>
     <p class="sec-sub">Run it in your own repo or let it improve itself. Requires Go 1.22+ and an API key.</p>
-    <div class="qs-steps">
-      <div class="qs-step">
-        <div class="qs-num">1</div>
-        <div class="qs-content">
-          <div class="qs-label">Install</div>
-          <div class="qs-code"><code>go install github.com/GrayCodeAI/iterate/cmd/iterate@latest</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
-        </div>
+    <div class="qs-terminal">
+      <div class="qs-terminal-bar">
+        <span class="qs-dot red"></span>
+        <span class="qs-dot yellow"></span>
+        <span class="qs-dot green"></span>
+        <span class="qs-terminal-label">bash — ~</span>
       </div>
-      <div class="qs-step">
-        <div class="qs-num">2</div>
-        <div class="qs-content">
-          <div class="qs-label">Set your API key</div>
-          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+      <div class="qs-steps">
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>go install github.com/GrayCodeAI/iterate/cmd/iterate@latest</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
         </div>
-      </div>
-      <div class="qs-step">
-        <div class="qs-num">3</div>
-        <div class="qs-content">
-          <div class="qs-label">Run in your project</div>
-          <div class="qs-code"><code>cd your-project &amp;&amp; iterate</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
+        </div>
+        <div class="qs-step">
+          <span class="qs-prompt">$</span>
+          <div class="qs-content">
+            <div class="qs-code"><code>cd your-project &amp;&amp; iterate</code><button class="copy-btn" aria-label="Copy">Copy</button></div>
+          </div>
         </div>
       </div>
     </div>
@@ -297,6 +302,13 @@
       });
     });
   });
+
+  // ── Scroll reveal ──
+  const revealEls = document.querySelectorAll('.reveal');
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObserver.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  revealEls.forEach(el => revealObserver.observe(el));
 
   // ── Active nav on scroll ──
   const sections = document.querySelectorAll('section[id], header.hero');
