@@ -888,11 +888,22 @@ footer {
 
 .footer-text { font-size: 0.75rem; color: var(--dim); }
 
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
 .footer-link {
   font-size: 0.75rem;
   color: var(--dim);
 }
 .footer-link:hover { color: var(--lime); }
+
+.footer-rss {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
 
 /* ── scroll reveal ── */
 

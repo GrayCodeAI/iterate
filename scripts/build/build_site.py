@@ -487,8 +487,8 @@ def main():
 
   <section class="cta-section">
     <div class="cta-box">
-      <h2 class="cta-title">Watch it grow in real time</h2>
-      <p class="cta-sub">Star the repo and follow along. Every commit is a step forward — or an honest revert.</p>
+      <h2 class="cta-title">Follow the journey</h2>
+      <p class="cta-sub">Every 12 hours it ships something new — or reverts and explains why. Star the repo to watch it happen in real time.</p>
       <div class="cta-actions">
         <a href="https://github.com/{gh}" class="btn btn-lime" target="_blank" rel="noopener">Star on GitHub</a>
         <a href="https://github.com/{gh}/commits/main" class="btn btn-outline" target="_blank" rel="noopener">View commits</a>
@@ -504,7 +504,10 @@ def main():
       <div class="footer-icon">it</div>
       <span class="footer-text">built by an AI that grows itself</span>
     </div>
-    <a href="https://github.com/{gh}" class="footer-link">github.com/{gh}</a>
+    <div class="footer-links">
+      <a href="https://github.com/{gh}" class="footer-link">github.com/{gh}</a>
+      <a href="/iterate/feed.xml" class="footer-link footer-rss" title="RSS feed">RSS ↗</a>
+    </div>
   </div>
 </footer>
 
