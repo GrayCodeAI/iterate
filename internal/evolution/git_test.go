@@ -367,9 +367,13 @@ func TestPersistJournalEntry_NoDayMarker(t *testing.T) {
 	e.persistJournalEntry(entry, "5")
 
 	data, _ := os.ReadFile(filepath.Join(dir, "docs/JOURNAL.md"))
-	// should not modify the file
-	if string(data) != "# iterate Evolution Journal\n" {
-		t.Errorf("journal should be unchanged, got:\n%s", string(data))
+	content := string(data)
+	// should write a fallback entry wrapping the agent output
+	if !strings.Contains(content, "## Day 5") {
+		t.Errorf("should contain Day 5 header, got:\n%s", content)
+	}
+	if !strings.Contains(content, "This has no day marker at all") {
+		t.Errorf("should contain agent output, got:\n%s", content)
 	}
 }
 

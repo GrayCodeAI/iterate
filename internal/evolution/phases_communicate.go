@@ -212,7 +212,18 @@ Rules:
 
 // persistJournalEntry extracts and writes a valid journal entry to JOURNAL.md.
 func (e *Engine) persistJournalEntry(journalEntry string, day string) {
-	if idx := strings.Index(journalEntry, "## Day"); idx >= 0 {
+	if journalEntry == "" {
+		e.logger.Warn("journal entry is empty — skipping journal write")
+		return
+	}
+
+	// Try to find the journal header. Agents format things differently.
+	idx := strings.Index(journalEntry, "## Day")
+	if idx < 0 {
+		idx = strings.Index(journalEntry, "# Day")
+	}
+
+	if idx >= 0 {
 		extracted := journalEntry[idx:]
 		if nextIdx := strings.Index(extracted[1:], "\n## "); nextIdx >= 0 {
 			extracted = extracted[:nextIdx+1]
@@ -220,7 +231,7 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 		extracted = strings.TrimSpace(extracted)
 		dayNum, _ := strconv.Atoi(day)
 		if dayNum > 0 {
-			dayPattern := regexp.MustCompile(`^## Day \d+`)
+			dayPattern := regexp.MustCompile(`^(#+)\s*Day\s*\d+`)
 			extracted = dayPattern.ReplaceAllString(extracted, fmt.Sprintf("## Day %d", dayNum))
 		}
 		journalPath := filepath.Join(e.repoPath, "docs/JOURNAL.md")
@@ -231,9 +242,22 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 		}
 		header := "# iterate Evolution Journal\n"
 		newContent := header + "\n" + extracted + "\n\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
-		_ = os.WriteFile(journalPath, []byte(newContent), 0o644) // best-effort; journal is append-mostly
+		_ = os.WriteFile(journalPath, []byte(newContent), 0o644)
 	} else {
-		e.logger.Warn("agent output does not contain '## Day' — skipping journal write")
+		// Fallback: wrap the agent's output in a proper journal entry.
+		e.logger.Warn("agent output does not contain '## Day' — writing fallback journal entry")
+		now := time.Now().UTC().Format("15:04")
+		dayNum, _ := strconv.Atoi(day)
+		fallback := fmt.Sprintf("## Day %d — %s — Evolution session\n\n%s\n", dayNum, now, strings.TrimSpace(journalEntry))
+		journalPath := filepath.Join(e.repoPath, "docs/JOURNAL.md")
+		_ = os.MkdirAll(filepath.Dir(journalPath), 0o755)
+		journal, err := os.ReadFile(journalPath)
+		if err != nil {
+			e.logger.Warn("failed to read JOURNAL.md for journal update", "err", err)
+		}
+		header := "# iterate Evolution Journal\n"
+		newContent := header + "\n" + fallback + "\n" + strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
+		_ = os.WriteFile(journalPath, []byte(newContent), 0o644)
 	}
 }
 
