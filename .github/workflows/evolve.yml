@@ -2,7 +2,7 @@ name: iterate evolution
 
 on:
   schedule:
-    - cron: '0 0,4,8,12,16,20 * * *'  # Every 4 hours
+    - cron: '0 0,12 * * *'  # Every 12 hours (midnight + noon UTC)
   workflow_dispatch:
 
 permissions:
