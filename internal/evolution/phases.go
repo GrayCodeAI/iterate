@@ -42,8 +42,19 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	// If the agent didn't write SESSION_PLAN.md via tool call, extract it from text output.
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	if _, err := os.Stat(planPath); os.IsNotExist(err) && lastContent != "" {
-		if idx := strings.Index(lastContent, "## Session Plan"); idx >= 0 {
-			extracted := strings.TrimSpace(lastContent[idx:])
+		// Try multiple extraction patterns — agents format things differently.
+		extracted := ""
+		for _, prefix := range []string{"## Session Plan", "## Session plan", "# Session Plan", "## Plan"} {
+			if idx := strings.Index(lastContent, prefix); idx >= 0 {
+				extracted = strings.TrimSpace(lastContent[idx:])
+				break
+			}
+		}
+		// Last resort: if output looks like it contains task structure, use the whole thing.
+		if extracted == "" && (strings.Contains(lastContent, "Task 1") || strings.Contains(lastContent, "### Task")) {
+			extracted = strings.TrimSpace(lastContent)
+		}
+		if extracted != "" {
 			if writeErr := os.WriteFile(planPath, []byte(extracted), 0o644); writeErr == nil {
 				e.logger.Info("extracted SESSION_PLAN.md from agent text output")
 			}
