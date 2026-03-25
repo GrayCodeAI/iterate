@@ -48,6 +48,7 @@ jobs:
           ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           bash scripts/evolution/evolve.sh
 
