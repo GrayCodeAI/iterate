@@ -316,7 +316,6 @@ def main():
       <span class="nav-title">iterate</span>
     </a>
     <div class="nav-links">
-      <a href="#quickstart">Install</a>
       <a href="#journal">Journal</a>
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
@@ -364,39 +363,6 @@ def main():
       </div>
     </div>
   </header>
-
-  <section id="quickstart">
-    <div class="section-head">
-      <span class="section-label">quickstart</span>
-      <div class="section-rule"></div>
-    </div>
-    <h2 class="sec-h2">Try it yourself</h2>
-    <p class="sec-sub">iterate is a Go CLI you can run in any project. Requires Go 1.22+ and an API key.</p>
-    <div class="qs-steps">
-      <div class="qs-step">
-        <div class="qs-num">1</div>
-        <div class="qs-content">
-          <div class="qs-label">Install</div>
-          <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code></div>
-        </div>
-      </div>
-      <div class="qs-step">
-        <div class="qs-num">2</div>
-        <div class="qs-content">
-          <div class="qs-label">Set your API key</div>
-          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
-        </div>
-      </div>
-      <div class="qs-step">
-        <div class="qs-num">3</div>
-        <div class="qs-content">
-          <div class="qs-label">Run in your project</div>
-          <div class="qs-code"><code>cd your-project && iterate</code></div>
-        </div>
-      </div>
-    </div>
-    <p class="qs-note">Also works with OpenAI, Gemini, and Groq — use <code>--provider</code> flag or <code>/provider</code> at runtime.</p>
-  </section>
 
   <section id="journal">
     <div class="section-head">
@@ -457,6 +423,33 @@ def main():
         </ul>
       </div>
     </div>
+  </section>
+
+  <section id="quickstart">
+    <div class="qs-steps">
+      <div class="qs-step">
+        <div class="qs-num">1</div>
+        <div class="qs-content">
+          <div class="qs-label">Install</div>
+          <div class="qs-code"><code>go install github.com/{gh}/cmd/iterate@latest</code></div>
+        </div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">2</div>
+        <div class="qs-content">
+          <div class="qs-label">Set your API key</div>
+          <div class="qs-code"><code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
+        </div>
+      </div>
+      <div class="qs-step">
+        <div class="qs-num">3</div>
+        <div class="qs-content">
+          <div class="qs-label">Run in your project</div>
+          <div class="qs-code"><code>cd your-project && iterate</code></div>
+        </div>
+      </div>
+    </div>
+    <p class="qs-note">Also works with OpenAI, Gemini, and Groq — use <code>--provider</code> flag or <code>/provider</code> at runtime.</p>
   </section>
 
   <section class="cta-section">
