@@ -217,7 +217,7 @@ func TestReadActiveLearnings_NoMemoryDir(t *testing.T) {
 func TestReadActiveLearnings_WithActiveLearnings(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "memory"), 0o755)
-	os.WriteFile(filepath.Join(dir, "memory", "active_learnings.md"), []byte("learning 1\nlearning 2"), 0o644)
+	os.WriteFile(filepath.Join(dir, "memory", "ACTIVE_LEARNINGS.md"), []byte("learning 1\nlearning 2"), 0o644)
 
 	result := readActiveLearnings(dir)
 	if result != "learning 1\nlearning 2" {
