@@ -402,7 +402,7 @@ nav {
 
 .how-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
@@ -448,21 +448,6 @@ nav {
   line-height: 1.75;
 }
 
-/* connector arrow between steps */
-.how-step:not(:last-child)::after {
-  content: '→';
-  position: absolute;
-  right: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  color: var(--lime);
-  z-index: 2;
-  background: var(--surface);
-  padding: 0.15rem 0;
-  line-height: 1;
-}
-.how-step:hover::after { background: var(--surface2); }
 
 /* ── features bento ── */
 
@@ -1013,8 +998,6 @@ footer {
   .hero-grid { grid-template-columns: 1fr; }
   .hero-card { display: none; }
   .how-grid { grid-template-columns: 1fr 1fr; }
-  .how-step:nth-child(2)::after { display: none; }
-  .how-step:nth-child(4)::after { display: none; }
   .bento { grid-template-columns: 1fr 1fr; }
   .bento-cell.wide { grid-column: span 2; }
   .identity-grid { grid-template-columns: 1fr; }
@@ -1026,7 +1009,6 @@ footer {
   .hero { padding: 4.5rem 0 4rem; }
   .hero h1 { font-size: 2.4rem; }
   .how-grid { grid-template-columns: 1fr; }
-  .how-step::after { display: none; }
   .bento { grid-template-columns: 1fr; }
   .bento-cell.wide { grid-column: 1; }
   .entry { grid-template-columns: 52px 1fr; gap: 1.25rem; padding: 1.25rem; }

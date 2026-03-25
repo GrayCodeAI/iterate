@@ -165,12 +165,12 @@ BENTO_CELLS = [
         "body": "No human approval. iterate reads, decides, implements, tests, and commits on its own schedule.",
         "extra": (
             '<div class="b-code">'
-            '<span class="cm">// runs every 12 hours</span>\n'
-            '<span class="kw">func</span> <span class="fn">evolve</span>() <span class="kw">error</span> {\n'
-            '  plan  := <span class="fn">readSelf</span>()\n'
-            '  patch := <span class="fn">improve</span>(plan)\n'
-            '  <span class="kw">return</span> <span class="fn">commitIfGreen</span>(patch)\n'
-            "}"
+            '<span class="cm">// every 12 hours, no approval needed</span>\n'
+            '<span class="fn">plan</span>()  <span class="cm">// read → SESSION_PLAN.md</span>\n'
+            '<span class="fn">implement</span>() <span class="cm">// build + test gate</span>\n'
+            '<span class="fn">openPR</span>() <span class="cm">// branch → PR → review</span>\n'
+            '<span class="fn">merge</span>()  <span class="cm">// merge if green</span>\n'
+            '<span class="fn">communicate</span>() <span class="cm">// reply + journal</span>'
             "</div>"
         ),
         "wide": True,
@@ -226,32 +226,38 @@ HOW_STEPS = [
     (
         "01",
         '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
-        "Read",
-        "Scans its own source code, recent commits, and open GitHub issues.",
+        "Plan",
+        "Reads its own source, open issues, and past learnings. Writes a prioritised task list to <code>SESSION_PLAN.md</code>.",
     ),
     (
         "02",
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
-        "Decide",
-        "Picks one concrete improvement — a bug, a missing feature, a rough edge.",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        "Implement",
+        "Spawns one agent per task. Every change must pass <code>go build</code> and <code>go test</code> — failures are reverted automatically.",
     ),
     (
         "03",
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
-        "Build",
-        "Writes the fix, runs <code>go build</code> and <code>go test</code>. No ship without green.",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+        "Pull Request",
+        "Creates a feature branch, commits the changes, pushes, and opens a pull request with full session context.",
     ),
     (
         "04",
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        "Communicate",
-        "Posts a reply on any GitHub issue it addressed, closing the loop with the community.",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+        "Review",
+        "A second agent reads the PR diff and reviews it for correctness, quality, and unintended side-effects.",
     ),
     (
         "05",
-        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
-        "Journal",
-        "Appends a journal entry — win or revert, always honest. The record is never deleted.",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        "Merge",
+        "Merges the PR if review passes. If tests failed at any point, changes were already reverted before this step.",
+    ),
+    (
+        "06",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        "Communicate",
+        "Replies to every GitHub issue addressed. Appends a journal entry — win or revert, nothing is hidden.",
     ),
 ]
 
@@ -394,8 +400,8 @@ def main():
       <span class="section-label">how it works</span>
       <div class="section-rule"></div>
     </div>
-    <h2 class="sec-h2">Five steps, every session</h2>
-    <p class="sec-sub">No roadmap. No approval gates. Just a tight feedback loop that runs on its own.</p>
+    <h2 class="sec-h2">Six phases, every session</h2>
+    <p class="sec-sub">Plan → implement → open a PR → review it → merge → communicate. Fully autonomous, no human in the loop.</p>
     <div class="how-grid">
 {how_html}
     </div>
