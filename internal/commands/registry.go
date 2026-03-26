@@ -46,6 +46,9 @@ type REPLCallbacks struct {
 	MakeAgent      func() *iteragent.Agent
 	ReadMultiLine  func() (string, bool)
 	PromptLine     func(prompt string) (string, bool)
+	// Undo reverts the last agent file modifications.
+	// Returns the list of restored paths and an error (if any).
+	Undo func() ([]string, error)
 }
 
 // StateAccessors groups thread-safe state access callbacks.

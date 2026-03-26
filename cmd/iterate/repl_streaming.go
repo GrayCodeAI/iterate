@@ -121,6 +121,9 @@ func logTokenDelta(beforeTokens int) {
 
 // streamAndPrint runs the agent and prints the streamed response.
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repoPath string) {
+	beginUndoFrame()
+	defer commitUndoFrame()
+
 	recordMessage()
 
 	// Sync pinned messages into the agent before each request.

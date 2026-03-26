@@ -106,6 +106,14 @@ func registerUtilityActionCommands(r *Registry) {
 		Category:    "utility",
 		Handler:     cmdInject,
 	})
+
+	r.Register(Command{
+		Name:        "/undo",
+		Aliases:     []string{},
+		Description: "revert last agent file changes",
+		Category:    "utility",
+		Handler:     cmdUndoFiles,
+	})
 }
 
 func cmdContext(ctx Context) Result {
@@ -287,6 +295,30 @@ func cmdFork(ctx Context) Result {
 	}
 	ctx.Agent.Reset()
 	PrintSuccess("conversation forked (saved) — starting fresh")
+	return Result{Handled: true}
+}
+
+func cmdUndoFiles(ctx Context) Result {
+	if ctx.REPL.Undo == nil {
+		PrintError("undo not available in this session")
+		return Result{Handled: true}
+	}
+	restored, err := ctx.REPL.Undo()
+	if err != nil {
+		if len(restored) == 0 {
+			PrintError("%v", err)
+			return Result{Handled: true}
+		}
+		PrintError("partial undo: %v", err)
+	}
+	if len(restored) == 0 {
+		fmt.Println("Nothing to undo.")
+		return Result{Handled: true}
+	}
+	for _, p := range restored {
+		fmt.Printf("  %s✓%s restored %s\n", ColorLime, ColorReset, p)
+	}
+	PrintSuccess("undone (%d file(s))", len(restored))
 	return Result{Handled: true}
 }
 

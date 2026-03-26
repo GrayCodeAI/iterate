@@ -68,6 +68,100 @@ func getDeniedList() []string {
 // agentPool is the shared agent pool for /swarm command.
 var agentPool *agent.Pool
 
+// ---------------------------------------------------------------------------
+// Undo stack — snapshots of file contents before agent writes
+// ---------------------------------------------------------------------------
+
+// undoSnapshot records the state of a single file before an agent modification.
+type undoSnapshot struct {
+	Path    string
+	Content []byte // nil means the file did not exist (new file created)
+}
+
+// undoFrame is one agent turn's worth of file modifications.
+type undoFrame []undoSnapshot
+
+var (
+	undoStack   []undoFrame
+	undoStackMu sync.Mutex
+	// currentFrame accumulates snapshots for the in-progress turn.
+	currentFrame undoFrame
+)
+
+// beginUndoFrame starts a new undo frame for the current agent turn.
+func beginUndoFrame() {
+	undoStackMu.Lock()
+	defer undoStackMu.Unlock()
+	currentFrame = undoFrame{}
+}
+
+// commitUndoFrame pushes the current frame (if non-empty) onto the stack.
+func commitUndoFrame() {
+	undoStackMu.Lock()
+	defer undoStackMu.Unlock()
+	if len(currentFrame) > 0 {
+		undoStack = append(undoStack, currentFrame)
+		currentFrame = nil
+	}
+}
+
+// captureFileSnapshot saves the current content of path into the active frame.
+// Called just before a write/edit tool overwrites the file.
+func captureFileSnapshot(path string) {
+	undoStackMu.Lock()
+	defer undoStackMu.Unlock()
+	// Only capture once per path per frame.
+	for _, s := range currentFrame {
+		if s.Path == path {
+			return
+		}
+	}
+	content, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		currentFrame = append(currentFrame, undoSnapshot{Path: path, Content: nil})
+	} else if err == nil {
+		currentFrame = append(currentFrame, undoSnapshot{Path: path, Content: content})
+	}
+}
+
+// performUndo restores the most recent undo frame.
+// Returns the list of restored paths, or an error.
+func performUndo() ([]string, error) {
+	undoStackMu.Lock()
+	defer undoStackMu.Unlock()
+	if len(undoStack) == 0 {
+		return nil, fmt.Errorf("nothing to undo")
+	}
+	frame := undoStack[len(undoStack)-1]
+	undoStack = undoStack[:len(undoStack)-1]
+
+	var restored []string
+	var errs []string
+	for _, snap := range frame {
+		if snap.Content == nil {
+			// File was newly created — remove it.
+			if err := os.Remove(snap.Path); err != nil && !os.IsNotExist(err) {
+				errs = append(errs, fmt.Sprintf("remove %s: %v", snap.Path, err))
+				continue
+			}
+		} else {
+			if err := os.MkdirAll(filepath.Dir(snap.Path), 0o755); err != nil {
+				errs = append(errs, fmt.Sprintf("mkdir %s: %v", snap.Path, err))
+				continue
+			}
+			if err := os.WriteFile(snap.Path, snap.Content, 0o644); err != nil {
+				errs = append(errs, fmt.Sprintf("restore %s: %v", snap.Path, err))
+				continue
+			}
+		}
+		restored = append(restored, snap.Path)
+	}
+	if len(errs) > 0 {
+		return restored, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return restored, nil
+}
+
 // wrapToolsWithPermissions wraps tools that need approval in safe mode
 // and adds audit logging to all tools.
 func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
@@ -83,6 +177,13 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 			}
 
 			trackSessionChanges(t.Name, args)
+
+			// Capture file snapshot before any write/edit so /undo can restore.
+			if t.Name == "write_file" || t.Name == "edit_file" || t.Name == "create_file" {
+				if p, ok := args["path"]; ok {
+					captureFileSnapshot(p)
+				}
+			}
 
 			if denied := checkToolDirPermission(cfg, t.Name, args); denied != "" {
 				logAudit(t.Name, auditArgs, "DENIED (dir restriction)")
