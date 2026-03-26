@@ -14,7 +14,7 @@ import (
 // RunPRPhase creates a feature branch from the current HEAD, pushes it, and opens a PR.
 // It is designed to run after RunImplementPhase has already committed changes to main.
 func (e *Engine) RunPRPhase(ctx context.Context) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "pr")
 	defer cancel()
 
 	day := e.readDayCount()
@@ -85,7 +85,7 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 
 // RunReviewPhase runs an AI self-review of the open PR.
 func (e *Engine) RunReviewPhase(ctx context.Context, p iteragent.Provider) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "review")
 	defer cancel()
 
 	if e.prNumber == 0 {
@@ -107,7 +107,7 @@ func (e *Engine) RunReviewPhase(ctx context.Context, p iteragent.Provider) error
 
 // RunMergePhase merges the open PR, clears state, and returns to main.
 func (e *Engine) RunMergePhase(ctx context.Context) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "merge")
 	defer cancel()
 
 	if e.prNumber == 0 {

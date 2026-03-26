@@ -17,7 +17,7 @@ const maxParallelTasks = 3
 
 // RunPlanPhase runs the planning phase. Creates SESSION_PLAN.md via agent or fallback.
 func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues string) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "plan")
 	defer cancel()
 
 	identity, journal, day := readPlanContext(e.repoPath)
@@ -149,7 +149,7 @@ func appendPlanContext(sb *strings.Builder, learnings []byte, journal string, is
 
 // RunImplementPhase reads SESSION_PLAN.md and executes tasks.
 func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "implement")
 	defer cancel()
 
 	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))

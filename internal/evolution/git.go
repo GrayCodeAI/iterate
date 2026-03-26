@@ -252,12 +252,37 @@ func (e *Engine) runTests(ctx context.Context) (string, error) {
 	return e.toolMap["run_tests"].Execute(ctx, nil)
 }
 
-// defaultPhaseTimeout is the maximum duration for any evolution phase.
-const defaultPhaseTimeout = 30 * time.Minute
+// Per-phase timeouts tuned to each phase's actual workload.
+const (
+	timeoutPlan      = 8 * time.Minute  // read + plan only, no code changes
+	timeoutImplement = 40 * time.Minute // one timeout covers all parallel tasks
+	timeoutPR        = 3 * time.Minute  // git + gh CLI only
+	timeoutReview    = 10 * time.Minute // diff read + agent review
+	timeoutMerge     = 12 * time.Minute // merge + CI poll (short, CI poll has its own 10m timer)
+	timeoutCommunicate = 10 * time.Minute // journal + issue comments + learnings
+)
 
-// withTimeout wraps a context with the default phase timeout.
+// withTimeout wraps a context with the default phase timeout (kept for legacy callers).
 func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, defaultPhaseTimeout)
+	return context.WithTimeout(ctx, timeoutImplement)
+}
+
+// withPhaseTimeout wraps a context with the timeout for a specific named phase.
+func withPhaseTimeout(ctx context.Context, phase string) (context.Context, context.CancelFunc) {
+	d := timeoutImplement
+	switch phase {
+	case "plan":
+		d = timeoutPlan
+	case "pr":
+		d = timeoutPR
+	case "review":
+		d = timeoutReview
+	case "merge":
+		d = timeoutMerge
+	case "communicate":
+		d = timeoutCommunicate
+	}
+	return context.WithTimeout(ctx, d)
 }
 
 func (e *Engine) revert(ctx context.Context) error {

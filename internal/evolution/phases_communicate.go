@@ -17,7 +17,7 @@ import (
 
 // RunCommunicatePhase writes journal, posts issue comments, records learnings.
 func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) error {
-	ctx, cancel := withTimeout(ctx)
+	ctx, cancel := withPhaseTimeout(ctx, "communicate")
 	defer cancel()
 
 	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
