@@ -10,9 +10,15 @@ import (
 	"github.com/GrayCodeAI/iterate/internal/ui"
 )
 
+// inMultilineBlock is set when the user opens a triple-backtick block.
+// It is cleared when the closing ``` is entered or the input is cancelled.
+var inMultilineBlock bool
+
 // ReadInput reads user input in raw mode.
-// Enter submits. Shift+Enter adds a newline. Up/Down arrow navigates history.
-// Left/Right arrows move the cursor. Delete removes the char under the cursor.
+// Enter submits. Ctrl+J inserts a literal newline (multiline input).
+// Starting a line with ``` enters block mode; another ``` closes it.
+// Up/Down arrow navigates history. Left/Right arrows move the cursor.
+// Delete removes the char under the cursor.
 // Returns (text, true) or ("", false) on Ctrl+C/EOF.
 func ReadInput() (string, bool) {
 	fd := int(os.Stdin.Fd())
@@ -70,6 +76,44 @@ func ReadInput() (string, bool) {
 	}
 }
 
+// moveWordBackward moves cursorPos back to the start of the previous word and
+// emits the required backspace characters so the terminal cursor follows.
+func moveWordBackward(buf *[]byte, cursorPos *int) {
+	i := *cursorPos
+	// Skip trailing spaces.
+	for i > 0 && (*buf)[i-1] == ' ' {
+		i--
+	}
+	// Skip the word.
+	for i > 0 && (*buf)[i-1] != ' ' {
+		i--
+	}
+	delta := *cursorPos - i
+	if delta > 0 {
+		fmt.Printf("%s", strings.Repeat("\b", delta))
+		*cursorPos = i
+	}
+}
+
+// moveWordForward moves cursorPos to the end of the next word and emits the
+// required character output so the terminal cursor follows.
+func moveWordForward(buf *[]byte, cursorPos *int) {
+	i := *cursorPos
+	n := len(*buf)
+	// Skip leading spaces.
+	for i < n && (*buf)[i] == ' ' {
+		i++
+	}
+	// Skip the word.
+	for i < n && (*buf)[i] != ' ' {
+		i++
+	}
+	if i > *cursorPos {
+		fmt.Printf("%s", string((*buf)[*cursorPos:i]))
+		*cursorPos = i
+	}
+}
+
 // redrawFromCursor redraws buf[cursorPos:] on the terminal, appends erased
 // spaces to clear old characters, then repositions the cursor back to cursorPos.
 func redrawFromCursor(buf []byte, cursorPos, erased int) {
@@ -81,12 +125,25 @@ func redrawFromCursor(buf []byte, cursorPos, erased int) {
 // handleRawInput processes a single raw-mode key event and returns (done, text, ok).
 func handleRawInput(b []byte, n int, buf *[]byte, cursorPos *int, histSnapshot *[]string, histIdx *int, savedBuf *[]byte, killRing *string, replacePrompt func(string), fd int, oldState *term.State) (done bool, result string, ok bool) {
 	switch {
-	case b[0] == '\r' || b[0] == '\n':
+	case b[0] == '\r':
 		return handleLineSubmit(buf, cursorPos, histSnapshot, histIdx, savedBuf)
+
+	case b[0] == '\n': // Ctrl+J — insert literal newline (multiline input)
+		*buf = append(append((*buf)[:*cursorPos:*cursorPos], '\n'), (*buf)[*cursorPos:]...)
+		*cursorPos++
+		fmt.Print("\r\n")
+		fmt.Printf("%s  ...%s ", ui.ColorDim, ui.ColorReset)
+		// Reprint any text after the cursor on the new line.
+		if *cursorPos < len(*buf) {
+			fmt.Printf("%s", string((*buf)[*cursorPos:]))
+			fmt.Printf("%s", strings.Repeat("\b", len(*buf)-*cursorPos))
+		}
+		return false, "", false
 
 	case b[0] == 3:
 		// Two-stage Ctrl+C: first press clears the line, second press exits.
-		if len(*buf) > 0 {
+		if len(*buf) > 0 || inMultilineBlock {
+			inMultilineBlock = false
 			if *cursorPos > 0 {
 				fmt.Printf("%s", strings.Repeat("\b", *cursorPos))
 			}
@@ -113,6 +170,16 @@ func handleRawInput(b []byte, n int, buf *[]byte, cursorPos *int, histSnapshot *
 
 	case b[0] == 27 && n >= 3 && b[1] == '[':
 		handleEscSeq(b, n, buf, cursorPos, histSnapshot, histIdx, savedBuf, replacePrompt)
+		return false, "", false
+
+	case b[0] == 27 && n == 2 && b[1] == 'b':
+		// Alt+Left (ESC b) — move backward one word.
+		moveWordBackward(buf, cursorPos)
+		return false, "", false
+
+	case b[0] == 27 && n == 2 && b[1] == 'f':
+		// Alt+Right (ESC f) — move forward one word.
+		moveWordForward(buf, cursorPos)
 		return false, "", false
 
 	case b[0] == 27 && n == 1:
@@ -259,10 +326,45 @@ func handleEscSeq(b []byte, n int, buf *[]byte, cursorPos *int, histSnapshot *[]
 	}
 }
 
-// handleLineSubmit processes Enter key, handling backslash continuation.
+// handleLineSubmit processes Enter key, handling backslash continuation and
+// triple-backtick multiline blocks.
 func handleLineSubmit(buf *[]byte, cursorPos *int, histSnapshot *[]string, histIdx *int, savedBuf *[]byte) (done bool, result string, ok bool) {
 	fmt.Print("\r\n")
 	text := string(*buf)
+	trimmedText := strings.TrimSpace(text)
+
+	// Inside a triple-backtick block: ``` closes it, otherwise accumulate.
+	if inMultilineBlock {
+		if trimmedText == "```" {
+			// Close the block — strip the closing fence and submit accumulated content.
+			inMultilineBlock = false
+			// Remove the closing ``` from the buffer tail.
+			idx := strings.LastIndex(text, "```")
+			if idx >= 0 {
+				text = strings.TrimRight(text[:idx], "\n")
+			}
+			appendHistory(text)
+			return true, text, true
+		}
+		// Continue accumulating.
+		text = text + "\n"
+		*buf = []byte(text)
+		*cursorPos = len(*buf)
+		fmt.Printf("%s  ...%s ", ui.ColorDim, ui.ColorReset)
+		return false, "", false
+	}
+
+	// Opening triple-backtick block.
+	if trimmedText == "```" {
+		inMultilineBlock = true
+		fmt.Printf("%s  (multiline block — end with a line containing only ``` )%s\n", ui.ColorDim, ui.ColorReset)
+		fmt.Printf("%s  ...%s ", ui.ColorDim, ui.ColorReset)
+		*buf = []byte{}
+		*cursorPos = 0
+		return false, "", false
+	}
+
+	// Backslash continuation: "some text\" → append newline and keep reading.
 	if strings.HasSuffix(strings.TrimRight(text, " "), "\\") {
 		text = strings.TrimRight(text, " ")
 		text = text[:len(text)-1] + "\n"
@@ -271,6 +373,16 @@ func handleLineSubmit(buf *[]byte, cursorPos *int, histSnapshot *[]string, histI
 		fmt.Printf("%s  ...%s ", ui.ColorDim, ui.ColorReset)
 		return false, "", false
 	}
+
+	// Already in backslash continuation (buf has embedded newlines from prior \-Enter)?
+	if strings.Contains(text, "\n") {
+		// Keep accumulating: no trailing \ means next Enter will submit.
+		// (The user can end by pressing Enter without a trailing \.)
+		text = strings.TrimSpace(text)
+		appendHistory(text)
+		return true, text, true
+	}
+
 	text = strings.TrimSpace(text)
 	appendHistory(text)
 	return true, text, true

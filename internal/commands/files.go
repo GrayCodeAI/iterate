@@ -7,12 +7,36 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
+
+var (
+	reHTMLTag      = regexp.MustCompile(`<[^>]+>`)
+	reHTMLComment  = regexp.MustCompile(`<!--[\s\S]*?-->`)
+	reScriptStyle  = regexp.MustCompile(`(?i)<(script|style)[^>]*>[\s\S]*?</(script|style)>`)
+	reMultiSpace   = regexp.MustCompile(`[ \t]{2,}`)
+	reMultiNewline = regexp.MustCompile(`\n{3,}`)
+)
+
+// stripHTML removes HTML tags, strips scripts/styles, and normalises whitespace.
+func stripHTML(html string) string {
+	s := reHTMLComment.ReplaceAllString(html, "")
+	s = reScriptStyle.ReplaceAllString(s, "")
+	s = reHTMLTag.ReplaceAllString(s, " ")
+	s = strings.NewReplacer(
+		"&amp;", "&", "&lt;", "<", "&gt;", ">",
+		"&quot;", `"`, "&#39;", "'", "&nbsp;", " ",
+		"&mdash;", "—", "&ndash;", "–",
+	).Replace(s)
+	s = reMultiSpace.ReplaceAllString(s, " ")
+	s = reMultiNewline.ReplaceAllString(s, "\n\n")
+	return strings.TrimSpace(s)
+}
 
 // RegisterFileCommands adds file and search commands.
 func RegisterFileCommands(r *Registry) {
@@ -206,17 +230,23 @@ func cmdFind(ctx Context) Result {
 
 func cmdWeb(ctx Context) Result {
 	if !ctx.HasArg(1) {
-		fmt.Println("Usage: /web <url>")
+		fmt.Println("Usage: /web <url> [prompt]")
 		return Result{Handled: true}
 	}
-	url := ctx.Arg(1)
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
+	rawURL := ctx.Arg(1)
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
 	}
-	fmt.Printf("%sfetching %s…%s\n", ColorDim, url, ColorReset)
 
+	PrintDim("fetching %s …", rawURL)
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		PrintError("invalid URL: %v", err)
+		return Result{Handled: true}
+	}
+	req.Header.Set("User-Agent", "iterate-cli/1.0 (fetch)")
+	resp, err := client.Do(req)
 	if err != nil {
 		PrintError("fetch failed: %v", err)
 		return Result{Handled: true}
@@ -228,21 +258,58 @@ func cmdWeb(ctx Context) Result {
 		return Result{Handled: true}
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 100*1024))
+	const maxBodyBytes = 512 * 1024
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
 	if err != nil {
 		PrintError("read failed: %v", err)
 		return Result{Handled: true}
 	}
 
-	if ctx.Agent != nil {
-		content := fmt.Sprintf("Here is the content fetched from `%s`:\n\n%s", url, string(body))
-		ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.Message{
-			Role:    "user",
-			Content: content,
-		})
-		PrintSuccess("fetched %d bytes — injected into context", len(body))
+	ct := resp.Header.Get("Content-Type")
+	var text string
+	if strings.Contains(ct, "text/html") || strings.Contains(ct, "xhtml") {
+		text = stripHTML(string(body))
 	} else {
-		fmt.Println(string(body))
+		text = string(body)
+	}
+
+	const maxChars = 100_000
+	truncated := false
+	if len(text) > maxChars {
+		text = text[:maxChars]
+		truncated = true
+	}
+
+	header := fmt.Sprintf("[Web content from %s]\n\n", rawURL)
+	if truncated {
+		header += "(truncated to first 100 000 characters)\n\n"
+	}
+	content := header + text
+
+	// Optional follow-up prompt after the URL.
+	userPrompt := strings.TrimSpace(strings.TrimPrefix(ctx.Args(), ctx.Arg(1)))
+	if userPrompt != "" {
+		content = content + "\n\n" + userPrompt
+	}
+
+	if ctx.Agent == nil {
+		PrintError("no agent available")
+		return Result{Handled: true}
+	}
+
+	ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.Message{
+		Role:    "user",
+		Content: content,
+	})
+
+	suffix := ""
+	if truncated {
+		suffix = " (truncated)"
+	}
+	PrintSuccess("injected %d chars from %s%s", len(text), rawURL, suffix)
+
+	if userPrompt != "" && ctx.REPL.StreamAndPrint != nil {
+		ctx.REPL.StreamAndPrint(nil, ctx.Agent, "", ctx.RepoPath)
 	}
 	return Result{Handled: true}
 }

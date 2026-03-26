@@ -53,12 +53,52 @@ func registerMany(r *Registry, category string, args ...interface{}) {
 }
 
 func cmdModel(ctx Context) Result {
-	if ctx.Provider != nil {
-		PrintSuccess("current model: %s", ctx.Provider.Name())
-	} else {
-		fmt.Println("No provider configured.")
+	fmt.Printf("%s── Current Model ───────────────────%s\n", ColorDim, ColorReset)
+	if ctx.Provider == nil {
+		fmt.Println("  No provider configured.")
+		fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+		return Result{Handled: true}
 	}
-	fmt.Println("Use /provider <name> to switch provider.")
+
+	name := ctx.Provider.Name()
+	fmt.Printf("  %sProvider:%s  %s\n", ColorBold, ColorReset, name)
+
+	// Context window
+	if cw, ok := ctx.Provider.(interface{ ContextWindow() int }); ok {
+		w := cw.ContextWindow()
+		if w >= 1_000_000 {
+			fmt.Printf("  %sContext:%s   %.1fM tokens\n", ColorBold, ColorReset, float64(w)/1_000_000)
+		} else {
+			fmt.Printf("  %sContext:%s   %dk tokens\n", ColorBold, ColorReset, w/1_000)
+		}
+	}
+
+	// Thinking support
+	if ctx.Thinking != nil {
+		level := string(*ctx.Thinking)
+		if level == "" || level == "off" {
+			fmt.Printf("  %sThinking:%s  off\n", ColorBold, ColorReset)
+		} else {
+			fmt.Printf("  %sThinking:%s  %s\n", ColorBold, ColorReset, level)
+		}
+	}
+
+	// Session token usage
+	if ctx.SessionInputTokens != nil && ctx.SessionOutputTokens != nil {
+		total := *ctx.SessionInputTokens + *ctx.SessionOutputTokens
+		if total > 0 {
+			if ctx.ContextWindow != nil && *ctx.ContextWindow > 0 {
+				pct := float64(total) * 100 / float64(*ctx.ContextWindow)
+				fmt.Printf("  %sUsed:%s      %d tokens (%.1f%%)\n", ColorBold, ColorReset, total, pct)
+			} else {
+				fmt.Printf("  %sUsed:%s      %d tokens\n", ColorBold, ColorReset, total)
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("  Use %s/provider <name>%s to switch.\n", ColorBold, ColorReset)
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
 
