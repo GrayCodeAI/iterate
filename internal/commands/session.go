@@ -1,9 +1,12 @@
 package commands
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,6 +162,14 @@ func registerSessionUtilityB(r *Registry) {
 		Description: "generate ITERATE.md context file",
 		Category:    "session",
 		Handler:     cmdIterateInit,
+	})
+
+	r.Register(Command{
+		Name:        "/auditlog",
+		Aliases:     []string{"/alog"},
+		Description: "show recent audit log entries [n]",
+		Category:    "session",
+		Handler:     cmdAuditLog,
 	})
 }
 
@@ -456,6 +467,90 @@ func cmdChanges(ctx Context) Result {
 	}
 	fmt.Printf("%s── File changes this session ────────%s\n", ColorDim, ColorReset)
 	fmt.Println(ctx.Templates.FormatSessionChanges())
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	return Result{Handled: true}
+}
+
+// auditLogRecord mirrors the JSON Lines format written by logAudit in features_sessions.go.
+type auditLogRecord struct {
+	Timestamp string                 `json:"ts"`
+	Tool      string                 `json:"tool"`
+	Args      map[string]interface{} `json:"args,omitempty"`
+	Result    string                 `json:"result,omitempty"`
+	IsError   bool                   `json:"error,omitempty"`
+}
+
+func cmdAuditLog(ctx Context) Result {
+	n := 20
+	if ctx.HasArg(1) {
+		if v, err := strconv.Atoi(ctx.Arg(1)); err == nil && v > 0 {
+			n = v
+		}
+	}
+
+	home, _ := os.UserHomeDir()
+	logPath := filepath.Join(home, ".iterate", "audit.jsonl")
+
+	f, err := os.Open(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No audit log found.")
+		} else {
+			PrintError("open audit log: %v", err)
+		}
+		return Result{Handled: true}
+	}
+	defer f.Close()
+
+	// Read all lines then take the last n.
+	var lines []string
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1024*1024), 1024*1024)
+	for sc.Scan() {
+		if line := strings.TrimSpace(sc.Text()); line != "" {
+			lines = append(lines, line)
+		}
+	}
+
+	start := len(lines) - n
+	if start < 0 {
+		start = 0
+	}
+	recent := lines[start:]
+
+	fmt.Printf("%s── Audit log (last %d) ─────────────%s\n", ColorDim, len(recent), ColorReset)
+	for _, line := range recent {
+		var rec auditLogRecord
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			fmt.Printf("  %s%s%s\n", ColorDim, line, ColorReset)
+			continue
+		}
+		ts := rec.Timestamp
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			ts = t.Local().Format("15:04:05")
+		}
+		statusCol := ColorLime
+		statusIcon := "✓"
+		if rec.IsError {
+			statusCol = ColorRed
+			statusIcon = "✗"
+		}
+		result := rec.Result
+		if len(result) > 60 {
+			result = result[:60] + "…"
+		}
+		result = strings.ReplaceAll(result, "\n", " ")
+		fmt.Printf("  %s%s%s %s%-18s%s %s%s%s\n",
+			statusCol, statusIcon, ColorReset,
+			ColorDim, ts, ColorReset,
+			ColorBold, rec.Tool, ColorReset)
+		if result != "" {
+			fmt.Printf("    %s%s%s\n", ColorDim, result, ColorReset)
+		}
+	}
+	if len(recent) == 0 {
+		fmt.Println("  (empty)")
+	}
 	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }

@@ -13,15 +13,24 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Audit log
+// Audit log (JSON Lines format)
 // ---------------------------------------------------------------------------
 
 var auditLogPath string
 
+// auditEntry is one JSON Lines record written to the audit log.
+type auditEntry struct {
+	Timestamp string                 `json:"ts"`
+	Tool      string                 `json:"tool"`
+	Args      map[string]interface{} `json:"args,omitempty"`
+	Result    string                 `json:"result,omitempty"`
+	IsError   bool                   `json:"error,omitempty"`
+}
+
 func initAuditLog() {
 	home, _ := os.UserHomeDir()
-	auditLogPath = filepath.Join(home, ".iterate", "audit.log")
-	_ = os.MkdirAll(filepath.Dir(auditLogPath), 0o755) // best-effort cleanup
+	auditLogPath = filepath.Join(home, ".iterate", "audit.jsonl")
+	_ = os.MkdirAll(filepath.Dir(auditLogPath), 0o755)
 }
 
 func logAudit(toolName string, args map[string]interface{}, result string) {
@@ -33,12 +42,26 @@ func logAudit(toolName string, args map[string]interface{}, result string) {
 		return
 	}
 	defer f.Close()
-	argBytes, _ := json.Marshal(args)
+
 	snippet := result
-	if len(snippet) > 120 {
-		snippet = snippet[:120] + "…"
+	if len(snippet) > 200 {
+		snippet = snippet[:200] + "…"
 	}
-	fmt.Fprintf(f, "[%s] %s %s → %s\n", time.Now().Format("2006-01-02 15:04:05"), toolName, argBytes, snippet)
+	isErr := strings.HasPrefix(strings.ToLower(strings.TrimSpace(result)), "error")
+
+	entry := auditEntry{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Tool:      toolName,
+		Args:      args,
+		Result:    snippet,
+		IsError:   isErr,
+	}
+	line, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	f.Write(line)        //nolint:errcheck
+	f.Write([]byte{'\n'}) //nolint:errcheck
 }
 
 // ---------------------------------------------------------------------------
