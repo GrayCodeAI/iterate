@@ -86,7 +86,6 @@ func findTodos(repoPath string) []string {
 	return results
 }
 
-
 // ---------------------------------------------------------------------------
 // /search-replace — find and replace text across all Go files
 // ---------------------------------------------------------------------------

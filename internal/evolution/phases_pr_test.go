@@ -324,7 +324,7 @@ func TestTrimFailuresJSONL_RemovesOldEntries(t *testing.T) {
 	path := filepath.Join(dir, "failures.jsonl")
 
 	now := time.Now().UTC()
-	old := now.Add(-40 * 24 * time.Hour) // 40 days ago — should be trimmed
+	old := now.Add(-40 * 24 * time.Hour)   // 40 days ago — should be trimmed
 	recent := now.Add(-5 * 24 * time.Hour) // 5 days ago — should be kept
 
 	lines := []string{

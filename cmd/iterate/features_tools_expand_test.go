@@ -169,7 +169,6 @@ func TestApplyTheme_Minimal(t *testing.T) {
 	}
 }
 
-
 func TestLoadAliases_NonExistent(t *testing.T) {
 	// loadAliases should return empty map when file doesn't exist
 	aliases := loadAliases()

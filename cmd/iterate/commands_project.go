@@ -106,4 +106,3 @@ func healthChecksForProject(dir string, pt projectType) []projectCheck {
 		return nil
 	}
 }
-

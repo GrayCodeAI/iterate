@@ -88,7 +88,6 @@ func formatProjectMemoryForPrompt(m projectMemory) string {
 	return "## Project Notes\n\n" + strings.Join(lines, "\n") + "\n"
 }
 
-
 // ---------------------------------------------------------------------------
 // Active learnings reader
 // ---------------------------------------------------------------------------

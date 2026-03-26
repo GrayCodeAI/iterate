@@ -284,11 +284,11 @@ func (e *Engine) runTests(ctx context.Context) (string, error) {
 
 // Per-phase timeouts tuned to each phase's actual workload.
 const (
-	timeoutPlan      = 8 * time.Minute  // read + plan only, no code changes
-	timeoutImplement = 40 * time.Minute // one timeout covers all parallel tasks
-	timeoutPR        = 3 * time.Minute  // git + gh CLI only
-	timeoutReview    = 10 * time.Minute // diff read + agent review
-	timeoutMerge     = 12 * time.Minute // merge + CI poll (short, CI poll has its own 10m timer)
+	timeoutPlan        = 8 * time.Minute  // read + plan only, no code changes
+	timeoutImplement   = 40 * time.Minute // one timeout covers all parallel tasks
+	timeoutPR          = 3 * time.Minute  // git + gh CLI only
+	timeoutReview      = 10 * time.Minute // diff read + agent review
+	timeoutMerge       = 12 * time.Minute // merge + CI poll (short, CI poll has its own 10m timer)
 	timeoutCommunicate = 10 * time.Minute // journal + issue comments + learnings
 )
 

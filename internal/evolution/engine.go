@@ -74,7 +74,7 @@ type Engine struct {
 	toolMap       map[string]iteragent.Tool // cached at construction — avoids re-init per call
 	tools         []iteragent.Tool          // cached tool slice for agent construction
 	skills        *iteragent.SkillSet       // cached skills — loaded once per engine
-	auditMu       sync.Mutex               // guards concurrent writes to audit.jsonl
+	auditMu       sync.Mutex                // guards concurrent writes to audit.jsonl
 }
 
 // generateTraceID creates a random hex trace ID for request correlation.
