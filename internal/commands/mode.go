@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -79,6 +80,54 @@ func registerDisplayNavCommands(r *Registry) {
 }
 
 func cmdHelp(ctx Context) Result {
+	// /help <command> — show description for a specific command.
+	if ctx.HasArg(1) && ctx.Registry != nil {
+		name := ctx.Arg(1)
+		if !strings.HasPrefix(name, "/") {
+			name = "/" + name
+		}
+		cmd, ok := ctx.Registry.Lookup(name)
+		if !ok {
+			fmt.Printf("Unknown command: %s\n", name)
+			return Result{Handled: true}
+		}
+		fmt.Printf("%s%s%s — %s\n", ColorBold, cmd.Name, ColorReset, cmd.Description)
+		if len(cmd.Aliases) > 0 {
+			fmt.Printf("  aliases: %s\n", strings.Join(cmd.Aliases, ", "))
+		}
+		fmt.Println()
+		return Result{Handled: true}
+	}
+
+	// Dynamic help generated from the registry when available.
+	if ctx.Registry != nil {
+		byCategory := ctx.Registry.ByCategory()
+		// Sort categories for stable output.
+		cats := make([]string, 0, len(byCategory))
+		for c := range byCategory {
+			cats = append(cats, c)
+		}
+		sort.Strings(cats)
+
+		fmt.Printf("\n%sAvailable commands%s\n\n", ColorBold, ColorReset)
+		for _, cat := range cats {
+			cmds := byCategory[cat]
+			sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name < cmds[j].Name })
+			fmt.Printf("%s%s%s\n", ColorDim, strings.ToUpper(cat), ColorReset)
+			for _, cmd := range cmds {
+				alias := ""
+				if len(cmd.Aliases) > 0 {
+					alias = fmt.Sprintf("  %s(%s)%s", ColorDim, strings.Join(cmd.Aliases, ", "), ColorReset)
+				}
+				fmt.Printf("  %-22s %s%s\n", cmd.Name, cmd.Description, alias)
+			}
+			fmt.Println()
+		}
+		fmt.Printf("Tip: %s/help <command>%s for details on any command.\n\n", ColorDim, ColorReset)
+		return Result{Handled: true}
+	}
+
+	// Fallback static help when registry is unavailable (e.g., in tests).
 	fmt.Print(`
 Available commands:
   /help                  — show this help

@@ -89,6 +89,9 @@ type Context struct {
 	SafeMode    *bool
 	DeniedTools map[string]bool
 
+	// Registry is the command registry — used by /help to generate dynamic output.
+	Registry *Registry
+
 	// Session state
 	SessionInputTokens  *int
 	SessionOutputTokens *int

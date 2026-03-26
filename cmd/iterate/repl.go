@@ -38,6 +38,9 @@ var (
 // replRepoPath is the repo path used in the current REPL session (for prompt display).
 var replRepoPath string
 
+// replRegistry is the shared command registry (initialized once, reused across calls).
+var replRegistry = commands.DefaultRegistry()
+
 // iterateVersion is the current version string.
 const iterateVersion = "dev"
 
@@ -394,7 +397,7 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 	// Try modular command registry first
 	cmdCtx := buildCommandContext(repoPath, line, parts, p, a, thinking)
 
-	if result := commands.DefaultRegistry().Execute(cmd, cmdCtx); result.Handled {
+	if result := replRegistry.Execute(cmd, cmdCtx); result.Handled {
 		return result.Done
 	}
 
@@ -413,6 +416,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		Agent:               a,
 		Thinking:            thinking,
 		SafeMode:            &cfg.SafeMode,
+		Registry:            replRegistry,
 		AutoCommitEnabled:   &cfg.AutoCommitEnabled,
 		DeniedTools:         nil,
 		SessionInputTokens:  &sess.InputTokens,
