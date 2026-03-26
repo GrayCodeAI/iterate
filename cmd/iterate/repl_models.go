@@ -45,6 +45,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 		return nil, currentThinking
 	}
 	os.Setenv("ITERATE_PROVIDER", providerName)
+	selector.ContextWindow = iteragent.ProviderContextWindow(newP)
 	return newP, currentThinking
 }
 
@@ -74,6 +75,7 @@ func selectOllamaModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provi
 		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
 		return nil, currentThinking
 	}
+	selector.ContextWindow = iteragent.ProviderContextWindow(p)
 	return p, currentThinking
 }
 

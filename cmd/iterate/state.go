@@ -16,6 +16,7 @@ type sessionState struct {
 	OutputTokens  int
 	CacheRead     int
 	CacheWrite    int
+	CostUSD       float64
 	ToolCalls     int
 	Messages      int
 	Start         time.Time
@@ -47,6 +48,7 @@ type replConfig struct {
 	DebugMode         bool
 	NotifyEnabled     bool
 	AutoCommitEnabled bool
+	RequestTimeout    int // seconds; 0 = default 120s
 }
 
 var cfg replConfig

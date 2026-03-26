@@ -60,6 +60,10 @@ func saveSession(name string, messages []iteragent.Message) error {
 	if err != nil {
 		return err
 	}
+	// Write .bak backup of previous version before overwriting.
+	if existing, err := os.ReadFile(path); err == nil {
+		_ = atomicWriteFile(path+".bak", existing, 0o644)
+	}
 	return atomicWriteFile(path, data, 0o644)
 }
 
@@ -71,7 +75,20 @@ func loadSession(name string) ([]iteragent.Message, error) {
 	}
 	var msgs []iteragent.Message
 	if err := json.Unmarshal(data, &msgs); err != nil {
-		return nil, err
+		// Try .bak file if primary is corrupt.
+		if bakData, bakErr := os.ReadFile(path + ".bak"); bakErr == nil {
+			var bakMsgs []iteragent.Message
+			if json.Unmarshal(bakData, &bakMsgs) == nil {
+				return bakMsgs, nil
+			}
+		}
+		return nil, fmt.Errorf("session file corrupt: %w", err)
+	}
+	// Integrity check: each message must have a non-empty role.
+	for i, m := range msgs {
+		if m.Role == "" {
+			return nil, fmt.Errorf("session integrity check failed: message %d has empty role", i)
+		}
 	}
 	return msgs, nil
 }

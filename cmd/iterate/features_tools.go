@@ -24,6 +24,10 @@ import (
 // Tool wrappers wait for it to reach 0 before showing a prompt.
 var spinnerActive atomic.Int32
 
+// streamingTokenCount is incremented for each token received during streaming.
+// The spinner reads this to display tok/s.
+var streamingTokenCount atomic.Int64
+
 // deniedTools is the set of tools blocked in safe mode.
 var deniedTools = map[string]bool{
 	"bash":       true,

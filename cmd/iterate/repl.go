@@ -60,13 +60,19 @@ func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.Thinkin
 	tools := wrapToolsWithPermissions(base)
 	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
 	defaultTemp := float32(0.9)
+	ctxCfg := iteragent.DefaultContextConfig()
+	if cw := iteragent.ProviderContextWindow(p); cw > 0 {
+		// Use 80% of the provider's actual context window as the compaction threshold.
+		ctxCfg.MaxTokens = cw * 8 / 10
+	}
 	ag := iteragent.New(p, tools, logger).
 		WithSystemPrompt(replSystemPrompt(repoPath)).
 		WithSkillSet(skills).
 		WithThinkingLevel(thinking).
 		WithToolExecutionStrategy(iteragent.NewParallelStrategy()).
 		WithHooks(replHooks()).
-		WithTemperature(defaultTemp)
+		WithTemperature(defaultTemp).
+		WithContextConfig(ctxCfg)
 	if rtConfig.Temperature != nil {
 		ag = ag.WithTemperature(*rtConfig.Temperature)
 	}
@@ -140,6 +146,7 @@ func setupSigintHandler() {
 func applyLoadedConfig(loadedCfg iterConfig, thinking iteragent.ThinkingLevel) iteragent.ThinkingLevel {
 	cfg.SafeMode = loadedCfg.SafeMode
 	cfg.NotifyEnabled = loadedCfg.Notify
+	cfg.RequestTimeout = loadedCfg.RequestTimeout
 	if loadedCfg.Theme != "" {
 		if t, ok := themes[loadedCfg.Theme]; ok {
 			applyTheme(t)
@@ -276,6 +283,7 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 				closeProvider(*p)
 				*p = newP
 				os.Setenv("ITERATE_PROVIDER", providerName)
+				selector.ContextWindow = iteragent.ProviderContextWindow(newP)
 				_ = (*a).Close() // best-effort cleanup
 				*a = makeAgent(*p, repoPath, *thinking, logger)
 				fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
@@ -293,13 +301,20 @@ func printSessionSummary(a *iteragent.Agent, repoPath string) {
 		_ = saveSession("autosave", a.Messages) // best-effort cleanup
 	}
 	fmt.Println()
-	fmt.Printf("%s  session:%s %s%s%s %s·%s %s%d messages%s %s·%s %s%d tokens%s\n",
+	costStr := ""
+	if sess.CostUSD > 0 {
+		costStr = fmt.Sprintf(" %s·%s %s%s%s",
+			colorDim, colorReset,
+			colorLime, formatSessionCost(sess.CostUSD), colorReset)
+	}
+	fmt.Printf("%s  session:%s %s%s%s %s·%s %s%d messages%s %s·%s %s%d tokens%s%s\n",
 		colorDim, colorReset,
 		colorCyan, elapsed, colorReset,
 		colorDim, colorReset,
 		colorDim, sess.Messages, colorReset,
 		colorDim, colorReset,
-		colorPurple, sess.InputTokens+sess.OutputTokens, colorReset)
+		colorPurple, sess.InputTokens+sess.OutputTokens, colorReset,
+		costStr)
 	if len(a.Messages) > 0 {
 		fmt.Printf("%s  autosaved · /load autosave to restore%s\n", colorDim, colorReset)
 	}

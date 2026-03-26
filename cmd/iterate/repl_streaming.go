@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,7 @@ func spinner(stop <-chan struct{}, done chan<- struct{}, label string) {
 	}
 	i := 0
 	start := time.Now()
+	startTokens := streamingTokenCount.Load()
 	spinnerActive.Store(1)
 	for {
 		select {
@@ -61,11 +63,19 @@ func spinner(stop <-chan struct{}, done chan<- struct{}, label string) {
 			close(done)
 			return
 		default:
-			elapsed := time.Since(start).Round(time.Millisecond)
-			fmt.Printf("\r%s%s%s  %s%s%s  %s%s%s",
+			elapsed := time.Since(start)
+			elapsedDisplay := elapsed.Round(time.Millisecond)
+			toksDelta := streamingTokenCount.Load() - startTokens
+			var toksStr string
+			if toksDelta > 0 && elapsed.Seconds() > 0.1 {
+				toksPerSec := float64(toksDelta) / elapsed.Seconds()
+				toksStr = fmt.Sprintf("  %s%.0f tok/s%s", colorDim, toksPerSec, colorReset)
+			}
+			fmt.Printf("\r%s%s%s  %s%s%s  %s%s%s%s",
 				colorLime, frames[i%len(frames)], colorReset,
 				colorBold, label, colorReset,
-				colorDim, elapsed, colorReset)
+				colorDim, elapsedDisplay, colorReset,
+				toksStr)
 			i++
 			time.Sleep(80 * time.Millisecond)
 		}
@@ -89,6 +99,17 @@ func formatToolCallResult(result string, elapsed time.Duration) string {
 		colorDim, elapsed, colorReset)
 }
 
+// formatSessionCost formats total session cost for the session summary.
+func formatSessionCost(usd float64) string {
+	if usd < 0.0001 {
+		return "<$0.0001"
+	}
+	if usd < 0.01 {
+		return fmt.Sprintf("$%.4f", usd)
+	}
+	return fmt.Sprintf("$%.2f", usd)
+}
+
 // logTokenDelta prints the per-request token usage delta to the status line.
 func logTokenDelta(beforeTokens int) {
 	delta := sess.Tokens - beforeTokens
@@ -104,8 +125,13 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	// Sync pinned messages into the agent before each request.
 	a.SetPinnedMessages(getPinnedMessages())
+	streamingTokenCount.Store(0)
 
-	reqCtx, cancel := context.WithCancel(ctx)
+	timeoutSecs := cfg.RequestTimeout
+	if timeoutSecs <= 0 {
+		timeoutSecs = 120
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSecs)*time.Second)
 	sess.RequestCancel = cancel
 	defer func() {
 		sess.RequestCancel = nil
@@ -141,8 +167,13 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	maybeNotify()
 	elapsed := time.Since(start).Round(time.Millisecond)
 
-	updateSessionTokens(a, fullContent)
-	printFinalStats(elapsed, ttft, beforeTokens, fullContent)
+	inDelta, outDelta, cacheRdDelta, cacheWrDelta := updateSessionTokens(a, fullContent)
+	model := os.Getenv("ITERATE_MODEL")
+	requestCost := estimateCost(inDelta, outDelta, cacheWrDelta, cacheRdDelta, model)
+	if requestCost.Found {
+		sess.CostUSD += requestCost.Total
+	}
+	printFinalStats(elapsed, ttft, beforeTokens, requestCost.Total, fullContent)
 
 	// Autosave after each turn so a crash doesn't lose the session.
 	if len(a.Messages) > 0 {
@@ -184,6 +215,7 @@ func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Ti
 	switch iteragent.EventType(e.Type) {
 	case iteragent.EventTokenUpdate:
 		fullContent += e.Content
+		streamingTokenCount.Add(1)
 	case iteragent.EventMessageUpdate:
 	case iteragent.EventToolExecutionStart:
 		toolStart = time.Now()
@@ -228,7 +260,8 @@ func printToolResult(result string, elapsed time.Duration, toolName string, repo
 // updateSessionTokens updates session token counters from the last assistant
 // message with usage data. Searches backwards since tool result messages (role
 // user) may appear after the final assistant message.
-func updateSessionTokens(a *iteragent.Agent, fullContent string) {
+// Returns the token delta for the request.
+func updateSessionTokens(a *iteragent.Agent, fullContent string) (inputDelta, outputDelta, cacheReadDelta, cacheWriteDelta int) {
 	for i := len(a.Messages) - 1; i >= 0; i-- {
 		if a.Messages[i].Usage != nil {
 			u := a.Messages[i].Usage
@@ -237,17 +270,18 @@ func updateSessionTokens(a *iteragent.Agent, fullContent string) {
 			sess.CacheRead += u.CacheRead
 			sess.CacheWrite += u.CacheWrite
 			sess.Tokens += u.TotalTokens
-			return
+			return u.InputTokens, u.OutputTokens, u.CacheRead, u.CacheWrite
 		}
 	}
 	// Fallback: approximate from streamed content length.
 	approxTokens := len(fullContent) / 4
 	sess.Tokens += approxTokens
 	sess.OutputTokens += approxTokens
+	return 0, approxTokens, 0, 0
 }
 
 // printFinalStats prints the status line and debug log.
-func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, fullContent string) {
+func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, requestCostUSD float64, fullContent string) {
 	delta := sess.Tokens - beforeTokens
 
 	fmt.Println()
@@ -255,8 +289,9 @@ func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, fullContent 
 	selector.OutputTokens = sess.OutputTokens
 	selector.SafeMode = cfg.SafeMode
 	selector.TTFT = ttft
+	selector.RequestCostUSD = requestCostUSD
 	selector.PrintStatusLine(elapsed, delta)
 	fmt.Println()
 
-	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "ttft_ms", ttft.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens)
+	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "ttft_ms", ttft.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens, "cost_usd", requestCostUSD)
 }

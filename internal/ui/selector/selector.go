@@ -23,12 +23,14 @@ const (
 
 // Package-level state set by the caller.
 var (
-	CurrentMode  int
-	RepoPath     string
-	SafeMode     bool
-	InputTokens  int
-	OutputTokens int
-	TTFT         time.Duration
+	CurrentMode    int
+	RepoPath       string
+	SafeMode       bool
+	InputTokens    int
+	OutputTokens   int
+	TTFT           time.Duration
+	ContextWindow  int     // provider context window in tokens; 0 = use default 200k
+	RequestCostUSD float64 // cost of the last request in USD; 0 = unknown
 )
 
 // Additional colors used in selector UI.
@@ -36,7 +38,6 @@ var (
 	colorGreen  = "\033[38;5;114m"
 	colorPurple = "\033[38;5;141m"
 	colorBlue   = "\033[38;5;75m"
-	_ = colorGreen
 )
 
 // PrintPrompt prints just the input glyph — clean, no decorations.
@@ -108,7 +109,10 @@ func formatTokenCount(total int) string {
 }
 
 func formatContextWindow(total int) string {
-	const windowTokens = 200_000
+	windowTokens := ContextWindow
+	if windowTokens <= 0 {
+		windowTokens = 200_000
+	}
 	pct := 0
 	if total > 0 {
 		pct = total * 100 / windowTokens
@@ -116,14 +120,33 @@ func formatContextWindow(total int) string {
 			pct = 100
 		}
 	}
+	_ = pct
 	ctxColor := colorBlue
-	if pct > 75 {
+	ratio := float64(total) * 100 / float64(windowTokens)
+	if ratio > 75 {
 		ctxColor = ui.ColorYellow
 	}
-	if pct > 90 {
+	if ratio > 90 {
 		ctxColor = ui.ColorRed
 	}
-	return fmt.Sprintf("%s · %sctx %.1f%%%s", ui.ColorDim, ctxColor, float64(total)*100/float64(windowTokens), ui.ColorReset)
+	return fmt.Sprintf("%s · %sctx %.1f%%%s", ui.ColorDim, ctxColor, ratio, ui.ColorReset)
+}
+
+// formatCostUSD formats a USD cost for status line display.
+func formatCostUSD(usd float64) string {
+	if usd <= 0 {
+		return ""
+	}
+	if usd < 0.0001 {
+		return "<$0.0001"
+	}
+	if usd < 0.001 {
+		return fmt.Sprintf("$%.4f", usd)
+	}
+	if usd < 0.01 {
+		return fmt.Sprintf("$%.3f", usd)
+	}
+	return fmt.Sprintf("$%.2f", usd)
 }
 
 func formatGitStatus() string {
@@ -163,6 +186,9 @@ func PrintStatusLine(elapsed time.Duration, tokenDelta int) {
 	}
 	if TTFT > 0 {
 		fmt.Printf("%s · %sttft %s%s", ui.ColorDim, colorBlue, formatElapsed(TTFT), ui.ColorReset)
+	}
+	if RequestCostUSD > 0 {
+		fmt.Printf("%s · %s%s%s", ui.ColorDim, colorGreen, formatCostUSD(RequestCostUSD), ui.ColorReset)
 	}
 	fmt.Print(formatContextWindow(total))
 

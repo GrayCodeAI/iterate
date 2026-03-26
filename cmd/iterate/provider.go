@@ -5,6 +5,7 @@ import (
 	"os"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // resolveProviderConfig merges flag values with persisted config.
@@ -43,11 +44,13 @@ func resolveThinkingLevel(flagThinking string, cfg iterConfig) string {
 }
 
 // initProvider creates an LLM provider from the given name and API key.
+// It also wires the provider's context window into the selector for display.
 func initProvider(providerName, apiKey string, logger *slog.Logger) (iteragent.Provider, error) {
 	p, err := iteragent.NewProvider(providerName, apiKey)
 	if err != nil {
 		return nil, err
 	}
 	logger.Info("using provider", "name", p.Name())
+	selector.ContextWindow = iteragent.ProviderContextWindow(p)
 	return p, nil
 }

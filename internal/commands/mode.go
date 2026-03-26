@@ -76,6 +76,8 @@ func registerDisplayNavCommands(r *Registry) {
 		"/tree", "show directory tree", cmdTree,
 		"/stats", "show session statistics", cmdStats,
 		"/theme", "set color theme", cmdTheme,
+		"/shortcuts", "list all keyboard shortcuts", cmdShortcuts,
+		"/providers", "list configured providers and status", cmdProviders,
 	)
 }
 
@@ -372,5 +374,88 @@ func cmdTheme(ctx Context) Result {
 		ctx.ApplyTheme(name)
 	}
 	PrintSuccess("theme set to %s", name)
+	return Result{Handled: true}
+}
+
+func cmdShortcuts(ctx Context) Result {
+	fmt.Printf("%s── Keyboard Shortcuts ──────────────────────%s\n", ColorDim, ColorReset)
+	shortcuts := [][2]string{
+		{"Enter", "submit prompt"},
+		{"↑ / ↓", "navigate history"},
+		{"← / →", "move cursor left / right"},
+		{"Ctrl+A", "move to beginning of line"},
+		{"Ctrl+E", "move to end of line"},
+		{"Ctrl+W", "delete word backward"},
+		{"Ctrl+U", "delete to beginning of line"},
+		{"Ctrl+K", "delete to end of line"},
+		{"Ctrl+Y", "yank (paste) last killed text"},
+		{"Tab", "autocomplete command or file path"},
+		{"Ctrl+R", "fuzzy search history"},
+		{"Ctrl+C (line)", "clear current input"},
+		{"Ctrl+C (empty)", "cancel in-progress request"},
+		{"Ctrl+D", "exit iterate"},
+		{"Delete", "delete character under cursor"},
+		{"\\\\<Enter>", "continue input on next line"},
+	}
+	for _, s := range shortcuts {
+		fmt.Printf("  %s%-22s%s %s\n", ColorBold, s[0], ColorReset, s[1])
+	}
+	fmt.Printf("%s────────────────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	return Result{Handled: true}
+}
+
+func cmdProviders(ctx Context) Result {
+	fmt.Printf("%s── Configured Providers ────────────────────%s\n", ColorDim, ColorReset)
+
+	type providerInfo struct {
+		name    string
+		envKey  string
+		models  string
+	}
+	providers := []providerInfo{
+		{"anthropic", "ANTHROPIC_API_KEY", "claude-sonnet-4-6, claude-3-5-sonnet, claude-3-haiku"},
+		{"openai", "OPENAI_API_KEY", "gpt-4o, gpt-4o-mini, gpt-4-turbo"},
+		{"gemini", "GEMINI_API_KEY", "gemini-2.0-flash, gemini-1.5-pro, gemini-2.5-pro"},
+		{"groq", "GROQ_API_KEY", "llama-3.3-70b-versatile, llama-3.1-8b-instant"},
+		{"ollama", "OLLAMA_BASE_URL", "llama3, codellama, mistral (local)"},
+		{"nvidia", "NVIDIA_API_KEY", "meta/llama-3.3-70b-instruct"},
+		{"opencode", "OPENCODE_API_KEY", "mimo-v2-pro-free"},
+		{"opencode-cli", "(no key needed)", "mimo-v2-pro-free (via CLI)"},
+		{"deepseek", "ITERATE_API_KEY", "deepseek-chat, deepseek-reasoner"},
+		{"mistral", "ITERATE_API_KEY", "mistral-large, mistral-small"},
+		{"azure", "ITERATE_API_KEY", "gpt-4o, gpt-4o-mini (via ITERATE_BASE_URL)"},
+	}
+
+	currentProvider := os.Getenv("ITERATE_PROVIDER")
+	if currentProvider == "" {
+		currentProvider = "gemini"
+	}
+	currentModel := os.Getenv("ITERATE_MODEL")
+
+	for _, p := range providers {
+		status := "  "
+		marker := "  "
+		if p.name == currentProvider {
+			marker = ColorLime + "▶ " + ColorReset
+			status = ColorBold
+		}
+		keySet := os.Getenv(p.envKey) != ""
+		keyStatus := ""
+		if p.envKey == "(no key needed)" {
+			keyStatus = ColorDim + " (no key)" + ColorReset
+		} else if keySet {
+			keyStatus = ColorLime + " ✓ key set" + ColorReset
+		} else {
+			keyStatus = ColorDim + " (no key)" + ColorReset
+		}
+		fmt.Printf("%s%s%s%-14s%s%s%s\n", marker, status, ColorBold, p.name, ColorReset, keyStatus, "")
+		if p.name == currentProvider && currentModel != "" {
+			fmt.Printf("       model: %s%s%s\n", ColorCyan, currentModel, ColorReset)
+		} else {
+			fmt.Printf("       %s%s%s\n", ColorDim, p.models, ColorReset)
+		}
+	}
+	fmt.Println()
+	fmt.Printf("  Use %s/provider <name>%s to switch providers.\n\n", ColorBold, ColorReset)
 	return Result{Handled: true}
 }

@@ -27,6 +27,8 @@ type iterConfig struct {
 	MaxTokens     int     `json:"max_tokens,omitempty"     toml:"max_tokens"`
 	ThinkingLevel string  `json:"thinking_level,omitempty" toml:"thinking_level"`
 	CacheEnabled  bool    `json:"cache_enabled,omitempty"  toml:"cache_enabled"`
+	// Request timeout in seconds (0 = default 120s).
+	RequestTimeout int `json:"request_timeout,omitempty" toml:"request_timeout"`
 	// Glob-based allow/deny patterns for bash commands.
 	AllowPatterns []string `json:"allow_patterns,omitempty" toml:"allow_patterns"`
 	DenyPatterns  []string `json:"deny_patterns,omitempty"  toml:"deny_patterns"`

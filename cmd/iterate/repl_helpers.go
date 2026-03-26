@@ -140,8 +140,69 @@ func replSystemPrompt(repoPath string) string {
 		base += "\n## Project Context (ITERATE.md)\n" + string(iterateMD)
 	}
 
+	// Inject AGENTS.md if present (OpenAI Codex / Claude convention)
+	if agentsMD, err := os.ReadFile(filepath.Join(repoPath, "AGENTS.md")); err == nil {
+		base += "\n## Agent Instructions (AGENTS.md)\n" + string(agentsMD)
+	}
+
+	// Inject detected project language/framework info
+	if lang := detectProjectStack(repoPath); lang != "" {
+		base += "\n## Project Stack\n" + lang + "\n"
+	}
+
 	if index := buildRepoIndex(repoPath); index != "" {
 		base += "\n## Repo structure\n```\n" + index + "\n```\n"
 	}
 	return base
+}
+
+// detectProjectStack detects the primary language and frameworks used in the repo.
+func detectProjectStack(repoPath string) string {
+	var tags []string
+
+	check := func(path string) bool {
+		_, err := os.Stat(filepath.Join(repoPath, path))
+		return err == nil
+	}
+
+	// Go
+	if check("go.mod") {
+		tags = append(tags, "Go")
+	}
+	// Node / JS
+	if check("package.json") {
+		if check("tsconfig.json") {
+			tags = append(tags, "TypeScript")
+		} else {
+			tags = append(tags, "JavaScript/Node.js")
+		}
+		if check("next.config.js") || check("next.config.ts") || check("next.config.mjs") {
+			tags = append(tags, "Next.js")
+		}
+	}
+	// Python
+	if check("pyproject.toml") || check("requirements.txt") || check("setup.py") {
+		tags = append(tags, "Python")
+	}
+	// Rust
+	if check("Cargo.toml") {
+		tags = append(tags, "Rust")
+	}
+	// Ruby
+	if check("Gemfile") {
+		tags = append(tags, "Ruby")
+	}
+	// Java / Kotlin
+	if check("pom.xml") || check("build.gradle") || check("build.gradle.kts") {
+		tags = append(tags, "JVM (Java/Kotlin)")
+	}
+	// Docker
+	if check("Dockerfile") || check("docker-compose.yml") || check("docker-compose.yaml") {
+		tags = append(tags, "Docker")
+	}
+
+	if len(tags) == 0 {
+		return ""
+	}
+	return strings.Join(tags, ", ")
 }
