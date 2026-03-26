@@ -22,8 +22,11 @@ acquire_lock() {
     if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
       LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
       if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
-        log "ERROR: Another evolution running (PID $OLD_PID, age ${LOCK_AGE}s)"
+        log "ERROR: Another evolution running (PID $OLD_PID, age ${LOCK_AGE}s) — aborting"
         exit 1
+      else
+        log "WARNING: Stale lock found (PID $OLD_PID, age ${LOCK_AGE}s) — killing and continuing"
+        kill "$OLD_PID" 2>/dev/null || true
       fi
     fi
     rm -f "$PID_FILE"
@@ -37,9 +40,9 @@ release_lock() {
 
 trap release_lock EXIT
 
-mkdir -p "${REPOPATH}/.iterate"
-mkdir -p "${REPOPATH}/memory"
-mkdir -p "${REPOPATH}/docs"
+mkdir -p "${REPOPATH}/.iterate" || { echo "ERROR: failed to create .iterate dir"; exit 1; }
+mkdir -p "${REPOPATH}/memory" || { echo "ERROR: failed to create memory dir"; exit 1; }
+mkdir -p "${REPOPATH}/docs" || { echo "ERROR: failed to create docs dir"; exit 1; }
 acquire_lock
 
 log "=== iterate evolution cycle started ==="

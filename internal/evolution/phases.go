@@ -247,7 +247,10 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 
 // loadImplementContext prepares the system prompt for implementation using cached tools and skills.
 func (e *Engine) loadImplementContext() (string, []iteragent.Tool, *iteragent.SkillSet) {
-	identity, _ := os.ReadFile(filepath.Join(e.repoPath, "docs/IDENTITY.md"))
+	identity, err := os.ReadFile(filepath.Join(e.repoPath, "docs/IDENTITY.md"))
+	if err != nil {
+		e.logger.Warn("failed to load IDENTITY.md, agent will run without identity context", "err", err)
+	}
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	return systemPrompt, e.tools, e.skills
 }

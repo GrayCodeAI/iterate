@@ -74,7 +74,7 @@ func (e *Engine) appendJournal(result *RunResult, output, provider string, succe
 	newContent := header + entry + rest
 
 	if err := os.WriteFile(path, []byte(newContent), 0o644); err != nil {
-		e.logger.Warn("failed to write journal", "err", err)
+		e.logger.Error("failed to write journal", "err", err, "path", path)
 	}
 }
 

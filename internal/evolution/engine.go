@@ -108,7 +108,10 @@ func New(repoPath string, logger *slog.Logger) *Engine {
 	}
 	tid := generateTraceID()
 	tools := iteragent.DefaultTools(repoPath)
-	skills, _ := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
+	skills, err := iteragent.LoadSkills([]string{filepath.Join(repoPath, "skills")})
+	if err != nil {
+		slog.Warn("failed to load skills, agent will run without them", "err", err)
+	}
 	e := &Engine{
 		repoPath: repoPath,
 		repo:     repo,
@@ -154,6 +157,8 @@ func (e *Engine) loadPRState() {
 	}
 	var state PRState
 	if err := json.Unmarshal(data, &state); err != nil {
+		e.logger.Warn("pr_state.json is corrupted, clearing it", "err", err)
+		os.Remove(path)
 		return
 	}
 	e.prNumber = state.PRNumber
@@ -368,8 +373,11 @@ func (e *Engine) handlePRReviewAndMerge(ctx context.Context, p iteragent.Provide
 	result.PRURL = e.prURL
 	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(output)), "evolution", "", "")
 	e.appendJournal(result, output, p.Name(), true)
+	e.clearPRState()
 
-	_ = e.switchToMain(ctx)
+	if err := e.switchToMain(ctx); err != nil {
+		e.logger.Warn("failed to switch to main after merge", "err", err)
+	}
 }
 
 // auditLog appends a tool call or error to .iterate/audit.jsonl for debugging.
