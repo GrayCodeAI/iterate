@@ -177,8 +177,8 @@ func (e *Engine) loadRepliedSet() map[string]bool {
 		return map[string]bool{}
 	}
 	var entry struct {
-		Date string            `json:"date"`
-		IDs  map[string]bool   `json:"ids"`
+		Date string          `json:"date"`
+		IDs  map[string]bool `json:"ids"`
 	}
 	if json.Unmarshal(data, &entry) != nil {
 		return map[string]bool{}
@@ -442,4 +442,3 @@ func (e *Engine) postIssueComment(ctx context.Context, number int, body string) 
 	})
 	return err
 }
-

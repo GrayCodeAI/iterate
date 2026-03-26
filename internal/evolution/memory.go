@@ -77,10 +77,10 @@ func (e *Engine) appendFailureJSONL(taskTitle, reason string) error {
 	}
 
 	entry := map[string]interface{}{
-		"type":  "failure",
-		"day":   day,
-		"ts":    time.Now().UTC().Format(time.RFC3339),
-		"task":  taskTitle,
+		"type":   "failure",
+		"day":    day,
+		"ts":     time.Now().UTC().Format(time.RFC3339),
+		"task":   taskTitle,
 		"reason": reason,
 	}
 

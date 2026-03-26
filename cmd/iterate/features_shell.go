@@ -102,4 +102,3 @@ func countLines(repoPath string) map[string]int {
 	})
 	return counts
 }
-
