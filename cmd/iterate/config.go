@@ -120,10 +120,10 @@ func saveConfig(cfg iterConfig) {
 	tomlPath := configPathTOML()
 	jsonPath := configPath()
 
-	_, tomlExists := os.Stat(tomlPath)
-	_, jsonExists := os.Stat(jsonPath)
+	_, tomlErr := os.Stat(tomlPath)
+	_, jsonErr := os.Stat(jsonPath)
 
-	if tomlExists == nil || jsonExists != nil {
+	if tomlErr == nil || jsonErr != nil {
 		// Write TOML.
 		if err := os.MkdirAll(filepath.Dir(tomlPath), 0o755); err != nil {
 			slog.Warn("failed to create TOML config dir", "err", err)
@@ -226,7 +226,10 @@ func checkDirPermission(cfg iterConfig, filePath string) (denied bool) {
 	}
 	// DenyDirs: block if path is under any denied directory.
 	for _, d := range cfg.DenyDirs {
-		dAbs, _ := filepath.Abs(d)
+		dAbs, err := filepath.Abs(d)
+		if err != nil {
+			continue
+		}
 		rel, err := filepath.Rel(dAbs, abs)
 		if err == nil && !strings.HasPrefix(rel, "..") {
 			return true
@@ -235,7 +238,10 @@ func checkDirPermission(cfg iterConfig, filePath string) (denied bool) {
 	// AllowDirs: if set, path must be under at least one allowed dir.
 	if len(cfg.AllowDirs) > 0 {
 		for _, d := range cfg.AllowDirs {
-			dAbs, _ := filepath.Abs(d)
+			dAbs, err := filepath.Abs(d)
+			if err != nil {
+				continue
+			}
 			rel, err := filepath.Rel(dAbs, abs)
 			if err == nil && !strings.HasPrefix(rel, "..") {
 				return false

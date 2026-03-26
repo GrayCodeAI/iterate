@@ -99,9 +99,9 @@ func buildMockPrompt(filePath string) string {
 // ---------------------------------------------------------------------------
 
 func buildReviewPrompt(repoPath string) string {
-	out, _ := exec.Command("git", "-C", repoPath, "diff", "HEAD").Output()
+	out, err := exec.Command("git", "-C", repoPath, "diff", "HEAD").Output()
 	diff := strings.TrimSpace(string(out))
-	if diff == "" {
+	if diff == "" || err != nil {
 		out, _ = exec.Command("git", "-C", repoPath, "diff").Output()
 		diff = strings.TrimSpace(string(out))
 	}
