@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
@@ -132,5 +133,86 @@ func (e *Engine) RunMergePhase(ctx context.Context) error {
 		e.logger.Warn("pull after merge failed", "err", err, "output", out)
 	}
 
+	// Wait for CI and write result to .iterate/ci_status.txt for the next cycle's planner.
+	e.waitForCIAndRecord(ctx)
+
 	return nil
+}
+
+// waitForCIAndRecord polls GitHub Actions for the CI run triggered by the merge.
+// It writes a priority instruction to .iterate/ci_status.txt so the next
+// planning cycle treats a CI failure as its top priority.
+func (e *Engine) waitForCIAndRecord(ctx context.Context) {
+	ciCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	ciPath := filepath.Join(e.repoPath, ".iterate", "ci_status.txt")
+	_ = os.MkdirAll(filepath.Dir(ciPath), 0o755)
+
+	e.logger.Info("waiting for CI to complete after merge...")
+
+	var conclusion string
+	var failedLog string
+
+	for {
+		select {
+		case <-ciCtx.Done():
+			e.logger.Warn("CI wait timed out")
+			_ = os.WriteFile(ciPath, []byte("CI TIMED OUT after merge. Check GitHub Actions manually."), 0o644)
+			return
+		default:
+		}
+
+		out, err := e.runTool(ciCtx, "bash", map[string]string{
+			"cmd": fmt.Sprintf(
+				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json conclusion,status --jq '.[0]|.conclusion+\":\"+.status'",
+				e.repo,
+			),
+		})
+		if err != nil {
+			e.logger.Warn("CI poll failed", "err", err)
+			break
+		}
+
+		parts := strings.SplitN(strings.TrimSpace(out), ":", 2)
+		conclusion = parts[0]
+		status := ""
+		if len(parts) > 1 {
+			status = parts[1]
+		}
+
+		if status == "completed" {
+			break
+		}
+
+		// Not done yet — sleep and retry.
+		select {
+		case <-ciCtx.Done():
+			return
+		case <-time.After(30 * time.Second):
+		}
+	}
+
+	switch conclusion {
+	case "success":
+		e.logger.Info("CI passed after merge")
+		_ = os.Remove(ciPath)
+	case "failure":
+		e.logger.Warn("CI failed after merge — recording for next planner cycle")
+		// Fetch the failed step logs for context.
+		failedLog, _ = e.runTool(ciCtx, "bash", map[string]string{
+			"cmd": fmt.Sprintf(
+				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId' | xargs -I{} gh run view {} --repo %s --log-failed 2>/dev/null | head -60",
+				e.repo, e.repo,
+			),
+		})
+		msg := "PREVIOUS CI FAILED after merge. Fix the broken tests FIRST before any other task.\n"
+		if failedLog != "" {
+			msg += "\nFailed output:\n```\n" + failedLog + "\n```\n"
+		}
+		_ = os.WriteFile(ciPath, []byte(msg), 0o644)
+	default:
+		// cancelled, skipped, neutral — clear the file
+		_ = os.Remove(ciPath)
+	}
 }
