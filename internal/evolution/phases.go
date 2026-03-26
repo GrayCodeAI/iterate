@@ -186,13 +186,25 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	return nil
 }
 
-// runTasksParallel runs all tasks concurrently (up to maxParallelTasks at once).
-// Each task runs in an isolated git worktree; successful commits are
-// cherry-picked back to the current branch in task order.
+// runTasksParallel groups tasks by file overlap into waves, then runs each wave
+// in parallel (up to maxParallelTasks concurrent). Tasks sharing declared files
+// are placed in separate waves and run sequentially to prevent cherry-pick conflicts.
 func (e *Engine) runTasksParallel(ctx context.Context, p iteragent.Provider, tasks []planTask, systemPrompt string, skills *iteragent.SkillSet, protectedWarning string) {
+	waves := groupTasksByFileOverlap(tasks)
+	e.logger.Info("task waves planned", "waves", len(waves), "tasks", len(tasks))
+
+	for waveIdx, wave := range waves {
+		e.logger.Info("running wave", "wave", waveIdx+1, "tasks", len(wave))
+		e.runWave(ctx, p, wave, systemPrompt, skills, protectedWarning)
+	}
+}
+
+// runWave runs all tasks in a single wave concurrently then cherry-picks their commits.
+// Tasks in a wave are guaranteed to have non-overlapping declared files.
+func (e *Engine) runWave(ctx context.Context, p iteragent.Provider, tasks []planTask, systemPrompt string, skills *iteragent.SkillSet, protectedWarning string) {
 	type taskResult struct {
 		task    planTask
-		commits []string // new commit hashes from worktree, in order
+		commits []string
 		success bool
 	}
 

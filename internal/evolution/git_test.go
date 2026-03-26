@@ -469,8 +469,8 @@ func TestWithTimeout_Deadline(t *testing.T) {
 	if !ok {
 		t.Fatal("expected deadline")
 	}
-	if time.Until(deadline) > defaultPhaseTimeout {
-		t.Error("deadline should be within default timeout")
+	if time.Until(deadline) > timeoutImplement {
+		t.Error("deadline should be within implement timeout")
 	}
 }
 

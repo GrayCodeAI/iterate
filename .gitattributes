@@ -1,0 +1,4 @@
+# Append-only JSONL files: use union merge so concurrent cherry-picks
+# never conflict — git keeps all lines from both sides.
+memory/learnings.jsonl  merge=union
+memory/failures.jsonl   merge=union

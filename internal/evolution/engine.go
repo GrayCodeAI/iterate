@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
@@ -73,6 +74,7 @@ type Engine struct {
 	toolMap       map[string]iteragent.Tool // cached at construction — avoids re-init per call
 	tools         []iteragent.Tool          // cached tool slice for agent construction
 	skills        *iteragent.SkillSet       // cached skills — loaded once per engine
+	auditMu       sync.Mutex               // guards concurrent writes to audit.jsonl
 }
 
 // generateTraceID creates a random hex trace ID for request correlation.
@@ -390,6 +392,7 @@ func (e *Engine) handlePRReviewAndMerge(ctx context.Context, p iteragent.Provide
 }
 
 // auditLog appends a tool call or error to .iterate/audit.jsonl for debugging.
+// The mutex makes it safe to call concurrently from parallel task goroutines.
 func (e *Engine) auditLog(eventType, tool, detail string) {
 	auditPath := filepath.Join(e.repoPath, ".iterate", "audit.jsonl")
 	_ = os.MkdirAll(filepath.Dir(auditPath), 0o755)
@@ -400,7 +403,6 @@ func (e *Engine) auditLog(eventType, tool, detail string) {
 		"tool": tool,
 	}
 	if detail != "" {
-		// Truncate long details
 		if len(detail) > 200 {
 			detail = detail[:200] + "..."
 		}
@@ -408,6 +410,9 @@ func (e *Engine) auditLog(eventType, tool, detail string) {
 	}
 
 	data, _ := json.Marshal(entry)
+
+	e.auditMu.Lock()
+	defer e.auditMu.Unlock()
 	f, err := os.OpenFile(auditPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return

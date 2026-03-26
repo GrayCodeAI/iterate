@@ -142,14 +142,14 @@ func TestWithTimeout_CreatesContext(t *testing.T) {
 	if !ok {
 		t.Error("expected deadline to be set")
 	}
-	if time.Until(deadline) > defaultPhaseTimeout {
-		t.Error("deadline should be within default timeout")
+	if time.Until(deadline) > timeoutImplement {
+		t.Error("deadline should be within implement timeout")
 	}
 }
 
 func TestWithTimeout_DefaultTimeout(t *testing.T) {
-	if defaultPhaseTimeout != 30*time.Minute {
-		t.Errorf("expected 30 minutes, got %s", defaultPhaseTimeout)
+	if timeoutImplement != 40*time.Minute {
+		t.Errorf("expected 40 minutes, got %s", timeoutImplement)
 	}
 }
 

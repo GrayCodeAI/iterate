@@ -10,6 +10,7 @@ type planTask struct {
 	Number      int
 	Title       string
 	Description string
+	Files       []string // parsed from "Files: ..." line — used for parallel conflict detection
 }
 
 func parseSessionPlanTasks(plan string) []planTask {
@@ -53,6 +54,15 @@ func parseSessionPlanTasks(plan string) []planTask {
 
 		if current != nil {
 			descLines = append(descLines, line)
+			// Parse "Files: a, b, c" line to populate task.Files.
+			if strings.HasPrefix(strings.TrimSpace(line), "Files:") {
+				raw := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "Files:"))
+				for _, f := range strings.Split(raw, ",") {
+					if f := strings.TrimSpace(f); f != "" {
+						current.Files = append(current.Files, f)
+					}
+				}
+			}
 		}
 	}
 
@@ -62,6 +72,60 @@ func parseSessionPlanTasks(plan string) []planTask {
 	}
 
 	return tasks
+}
+
+// groupTasksByFileOverlap splits tasks into sequential waves.
+// Tasks within a wave have no overlapping declared files and can run in parallel.
+// Tasks that share a file with any task already in the current wave start a new wave.
+func groupTasksByFileOverlap(tasks []planTask) [][]planTask {
+	var waves [][]planTask
+	var currentWave []planTask
+	waveFiles := map[string]bool{}
+
+	for _, task := range tasks {
+		// If task declares no files, always start a new wave (safe default).
+		if len(task.Files) == 0 {
+			if len(currentWave) > 0 {
+				waves = append(waves, currentWave)
+			}
+			waves = append(waves, []planTask{task})
+			currentWave = nil
+			waveFiles = map[string]bool{}
+			continue
+		}
+
+		// Check if any of this task's files are already claimed in the current wave.
+		conflict := false
+		for _, f := range task.Files {
+			if waveFiles[f] {
+				conflict = true
+				break
+			}
+		}
+
+		if conflict {
+			// Start a new wave.
+			if len(currentWave) > 0 {
+				waves = append(waves, currentWave)
+			}
+			currentWave = []planTask{task}
+			waveFiles = map[string]bool{}
+			for _, f := range task.Files {
+				waveFiles[f] = true
+			}
+		} else {
+			// Add to current wave.
+			currentWave = append(currentWave, task)
+			for _, f := range task.Files {
+				waveFiles[f] = true
+			}
+		}
+	}
+
+	if len(currentWave) > 0 {
+		waves = append(waves, currentWave)
+	}
+	return waves
 }
 
 type issueResponse struct {
