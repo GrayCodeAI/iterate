@@ -30,6 +30,7 @@ jobs:
           git config user.email "iterate-evolve[bot]@users.noreply.github.com"
           if [[ -n $(git status -s memory/ACTIVE_LEARNINGS.md) ]]; then
             git add memory/ACTIVE_LEARNINGS.md
-            git commit -m "iterate: synthesize learnings"
+            git commit -m "chore: synthesize learnings"
+            git pull --rebase origin main
             git push
           fi

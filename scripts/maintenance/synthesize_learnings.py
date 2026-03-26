@@ -1,126 +1,150 @@
 #!/usr/bin/env python3
-"""Synthesize learnings from JSONL archive with time-weighted compression."""
+"""Synthesize learnings and failures from JSONL archive with time-weighted compression."""
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 REPO_PATH = "."
 LEARNINGS_FILE = f"{REPO_PATH}/memory/learnings.jsonl"
+FAILURES_FILE = f"{REPO_PATH}/memory/failures.jsonl"
 ACTIVE_FILE = f"{REPO_PATH}/memory/ACTIVE_LEARNINGS.md"
+
+
+def now_utc():
+    return datetime.now(timezone.utc)
 
 
 def weight_by_age(days_old):
     """Time-weighted compression factor (recent=100%, old=summarized)."""
     if days_old <= 1:
-        return 1.0  # Full detail
+        return 1.0
     elif days_old <= 7:
-        return 0.7  # 70% of detail
+        return 0.7
     elif days_old <= 30:
-        return 0.3  # 30% of detail
+        return 0.3
     else:
-        return 0.1  # Minimal detail
+        return 0.1
 
 
-def load_learnings():
-    """Load all learnings from JSONL."""
-    if not os.path.exists(LEARNINGS_FILE):
-        return []
-
-    learnings = []
+def parse_ts(ts_str):
+    """Parse an ISO-8601 timestamp string, handling Z suffix and missing tz."""
+    if not ts_str:
+        return None
+    ts_str = ts_str.replace("Z", "+00:00")
     try:
-        with open(LEARNINGS_FILE, "r") as f:
+        dt = datetime.fromisoformat(ts_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return None
+
+
+def load_jsonl(path):
+    """Load all entries from a JSONL file, silently skipping corrupt lines."""
+    entries = []
+    if not os.path.exists(path):
+        return entries
+    try:
+        with open(path) as f:
             for line in f:
-                if line.strip():
-                    learnings.append(json.loads(line))
-    except Exception as e:
-        print(f"Error loading learnings: {e}")
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+    except OSError as e:
+        print(f"Warning: could not read {path}: {e}")
+    return entries
 
-    return learnings
 
+def synthesize_learnings(learnings, failures):
+    """Synthesize learnings and failures into ACTIVE_LEARNINGS.md content."""
+    now = now_utc()
 
-def synthesize_learnings(learnings):
-    """Synthesize learnings with time-weighted compression."""
-    if not learnings:
-        return (
-            "## Active Learnings\n\nNo learnings yet. Start with `/learn` or `/memo`.\n"
-        )
+    # Bucket learnings by age.
+    recent, medium, old = [], [], []
+    for entry in learnings:
+        dt = parse_ts(entry.get("ts", ""))
+        days_old = (now - dt).days if dt else 999
+        weight = weight_by_age(days_old)
+        if days_old <= 1:
+            recent.append((entry, weight))
+        elif days_old <= 30:
+            medium.append((entry, weight))
+        else:
+            old.append((entry, weight))
 
-    now = datetime.fromisoformat(datetime.utcnow().isoformat())
+    # Recent failures (last 14 days), keep most recent 10.
+    recent_failures = []
+    for entry in failures:
+        dt = parse_ts(entry.get("ts", ""))
+        days_old = (now - dt).days if dt else 999
+        if days_old <= 14:
+            recent_failures.append(entry)
+    recent_failures = recent_failures[-10:]
 
-    # Group by recency
-    recent = []
-    medium = []
-    old = []
+    if not learnings and not failures:
+        return "## Active Learnings\n\nNo learnings yet.\n"
 
-    for learning in learnings:
-        try:
-            created = datetime.fromisoformat(learning.get("ts", ""))
-            days_old = (now - created).days
-
-            weight = weight_by_age(days_old)
-
-            if days_old <= 1:
-                recent.append((learning, weight))
-            elif days_old <= 30:
-                medium.append((learning, weight))
-            else:
-                old.append((learning, weight))
-        except Exception:
-            recent.append((learning, 1.0))
-
-    output = ["## Active Learnings\n"]
-    output.append(f"*Last synthesized: {datetime.utcnow().isoformat()}*\n\n")
+    out = ["## Active Learnings\n\n"]
+    out.append(f"*Last synthesized: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}*\n\n")
 
     if recent:
-        output.append("### Recent (Full Detail)\n\n")
-        for learning, _ in recent[:5]:  # Top 5 recent
-            title = learning.get("title", "Untitled")
-            context = learning.get("context", "")
-            takeaway = learning.get("takeaway", "")
-            detail = context[:200] if context else takeaway[:200] if takeaway else ""
-            output.append(f"- **{title}**: {detail}\n")
-        output.append("\n")
+        out.append("### Recent (Full Detail)\n\n")
+        for entry, _ in recent[:5]:
+            title = entry.get("title", "Untitled")
+            detail = entry.get("context") or entry.get("takeaway") or ""
+            out.append(f"- **{title}**: {detail[:200]}\n")
+        out.append("\n")
 
     if medium:
-        output.append("### Active Lessons (Condensed)\n\n")
-        for learning, weight in medium[:10]:
-            title = learning.get("title", "Lesson")
-            context = learning.get("context", "")
-            takeaway = learning.get("takeaway", "")
-            content = context or takeaway
+        out.append("### Active Lessons (Condensed)\n\n")
+        for entry, weight in medium[:10]:
+            title = entry.get("title", "Lesson")
+            content = entry.get("context") or entry.get("takeaway") or ""
             if weight < 1.0 and len(content) > 100:
                 content = content[:100] + "..."
-            output.append(f"- {title}: {content}\n")
-        output.append("\n")
+            out.append(f"- {title}: {content}\n")
+        out.append("\n")
 
     if old:
-        output.append("### Archived Insights\n\n")
+        out.append("### Archived Insights\n\n")
         themes = {}
-        for learning, _ in old:
-            theme = learning.get("source", "General")
-            if theme not in themes:
-                themes[theme] = []
-            themes[theme].append(learning.get("title", "Lesson"))
-
+        for entry, _ in old:
+            theme = entry.get("source", "General")
+            themes.setdefault(theme, []).append(entry.get("title", "Lesson"))
         for theme, titles in themes.items():
-            output.append(f"- **{theme}**: {', '.join(titles[:3])}\n")
-        output.append("\n")
+            out.append(f"- **{theme}**: {', '.join(titles[:3])}\n")
+        out.append("\n")
 
-    return "".join(output)
+    if recent_failures:
+        out.append("### Recent Failures (avoid repeating)\n\n")
+        for entry in recent_failures:
+            day = entry.get("day", "?")
+            task = entry.get("task", "?")
+            reason = entry.get("reason", "")
+            line = f"- Day {day} — {task}"
+            if reason:
+                line += f": {reason[:120]}"
+            out.append(line + "\n")
+        out.append("\n")
+
+    return "".join(out)
 
 
 def main():
-    """Synthesize and write active_learnings.md."""
-    learnings = load_learnings()
-    synthesis = synthesize_learnings(learnings)
+    learnings = load_jsonl(LEARNINGS_FILE)
+    failures = load_jsonl(FAILURES_FILE)
+    synthesis = synthesize_learnings(learnings, failures)
 
-    os.makedirs(os.path.dirname(ACTIVE_FILE), exist_ok=True)
-
+    os.makedirs(os.path.dirname(os.path.abspath(ACTIVE_FILE)), exist_ok=True)
     with open(ACTIVE_FILE, "w") as f:
         f.write(synthesis)
 
-    print(f"Synthesized {len(learnings)} learnings into {ACTIVE_FILE}")
+    print(f"Synthesized {len(learnings)} learnings + {len(failures)} failures → {ACTIVE_FILE}")
 
 
 if __name__ == "__main__":
