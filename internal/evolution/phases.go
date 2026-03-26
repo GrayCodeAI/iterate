@@ -165,8 +165,13 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 
 	// Commit any remaining tracked-file changes.
 	// Use git add -u (not -A) to avoid staging untracked artifacts from failed tasks.
+	sessionTitle := extractSessionTitle(plan)
+	finalMsg := "iterate: implement session changes"
+	if sessionTitle != "" {
+		finalMsg = "chore: " + sessionTitle
+	}
 	if _, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": "git add -u && git diff --cached --quiet || git commit -m 'iterate: implement session changes'",
+		"cmd": fmt.Sprintf("git add -u && git diff --cached --quiet || git commit -m %q", finalMsg),
 	}); err != nil {
 		e.logger.Warn("final commit failed", "err", err)
 	}

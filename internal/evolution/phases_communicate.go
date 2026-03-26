@@ -22,8 +22,8 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 
 	planBytes, err := os.ReadFile(filepath.Join(e.repoPath, "SESSION_PLAN.md"))
 	if err != nil {
-		e.logger.Warn("SESSION_PLAN.md not found, skipping communicate")
-		return nil
+		e.logger.Warn("SESSION_PLAN.md not found, writing fallback journal entry and skipping issue comments")
+		planBytes = []byte("")
 	}
 
 	day := e.readDayCount()
@@ -96,7 +96,10 @@ Rules:
 
 // persistJournalEntry writes the journal entry, generating a fallback if needed.
 func (e *Engine) persistJournalEntry(journalEntry string, day string) {
-	dayNum, _ := strconv.Atoi(day)
+	dayNum, err := strconv.Atoi(day)
+	if err != nil {
+		dayNum = 0
+	}
 	now := time.Now().UTC().Format("15:04")
 
 	if journalEntry == "" {

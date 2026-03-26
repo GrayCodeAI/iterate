@@ -20,20 +20,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/checkout@v4
-        with:
-          repository: GrayCodeAI/iteragent
-          path: iteragent-pkg
-          fetch-depth: 0
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-
-      - name: Setup iteragent
-        run: |
-          mkdir -p ..
-          cp -r iteragent-pkg ../iteragent
 
       - name: Configure git
         run: |
@@ -43,9 +32,9 @@ jobs:
       - name: Run evolution
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          OPENCODE_BASE_URL: https://opencode.ai/zen/go/v1
+          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/go/v1' }}
           ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: kimi-k2.5
+          ITERATE_MODEL: ${{ secrets.ITERATE_MODEL || 'kimi-k2.5' }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

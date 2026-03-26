@@ -96,7 +96,9 @@ rm -f "$PLAN_FILE"
 
 # ── Phase A: Planning ──
 log "Phase A: Planning..."
-./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
+if ! ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: plan phase exited with error — checking for fallback"
+fi
 
 # Fallback plan if agent didn't create one
 if [[ ! -f "$PLAN_FILE" ]]; then
@@ -134,15 +136,19 @@ fi
 # ── Phase B: Implementation ──
 log "Phase B: Implementation..."
 sleep 5  # Brief pause between phases
-./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
+if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: implement phase exited with error — continuing to communicate"
+fi
 
 # ── Phase C: Communication ──
 log "Phase C: Communication..."
 sleep 5  # Brief pause between phases
-./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE" || true
+if ! ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: communicate phase exited with error"
+fi
 
 # ── Verify journal was written ──
-if grep -q "^## Day $DAY" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
+if grep -qP "^## Day ${DAY}(\s|$|—)" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null || grep -q "^## Day ${DAY} " "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   log "Journal entry written for Day $DAY"
 else
   log "WARNING: No journal entry found for Day $DAY — writing fallback"
@@ -319,11 +325,11 @@ gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolut
   if [[ "$branch" == "$BRANCH" ]]; then
     continue
   fi
-  # Check if branch's PR is merged or closed
-  PR_STATE=$(gh pr list --repo "$GITHUB_REPO" --head "$branch" --json state --jq '.[0].state' 2>/dev/null)
+  # Use gh pr view for reliable single-branch state (avoids race with gh pr list pagination)
+  PR_STATE=$(gh pr view --repo "$GITHUB_REPO" --json state --jq '.state' --head "$branch" 2>/dev/null || echo "")
   if [[ "$PR_STATE" == "MERGED" || "$PR_STATE" == "CLOSED" ]]; then
-    log "Deleting stale branch: $branch"
-    git push origin --delete "$branch" 2>/dev/null || true
+    log "Deleting stale branch: $branch (PR state: $PR_STATE)"
+    git push origin --delete "$branch" 2>/dev/null || log "Failed to delete branch: $branch"
   fi
 done
 
@@ -343,24 +349,23 @@ log "Duration: ${SESSION_DURATION}s"
 if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
   log "Sending Discord notification..."
   
-  # Get journal entry for this day
-  JOURNAL_ENTRY=$(grep -A3 "^## Day $DAY" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
-  
-  DISCORD_MSG="{
-    \"embeds\": [{
-      \"title\": \"🧬 Evolution Day $DAY Complete\",
-      \"color\": 5814783,
-      \"fields\": [
-        {\"name\": \"PR\", \"value\": \"${PR_NUMBER:-none}\", \"inline\": true},
-        {\"name\": \"Duration\", \"value\": \"${SESSION_DURATION}s\", \"inline\": true},
-        {\"name\": \"Commits\", \"value\": \"$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')\", \"inline\": true},
-        {\"name\": \"Journal\", \"value\": \"$(echo "$JOURNAL_ENTRY" | head -3 | tr '\n' ' ' | cut -c1-100)\"}
-      ],
-      \"footer\": {\"text\": \"iterate-evolve[bot]\"},
-      \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
-    }]
-  }"
-  
+  JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
+  COMMIT_COUNT=$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')
+
+  DISCORD_MSG=$(jq -n \
+    --arg title "🧬 Evolution Day $DAY Complete" \
+    --arg pr "${PR_NUMBER:-none}" \
+    --arg dur "${SESSION_DURATION}s" \
+    --arg commits "$COMMIT_COUNT" \
+    --arg journal "$(echo "$JOURNAL_ENTRY" | head -3 | tr '\n' ' ' | cut -c1-100)" \
+    --arg ts "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    '{embeds:[{title:$title,color:5814783,fields:[
+      {name:"PR",value:$pr,inline:true},
+      {name:"Duration",value:$dur,inline:true},
+      {name:"Commits",value:$commits,inline:true},
+      {name:"Journal",value:$journal}
+    ],footer:{text:"iterate-evolve[bot]"},timestamp:$ts}]}')
+
   curl -s -H "Content-Type: application/json" \
     -d "$DISCORD_MSG" \
     "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || log "Discord notification failed"
