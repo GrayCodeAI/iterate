@@ -159,6 +159,11 @@ python3 scripts/build/generate_stats.py . 2>/dev/null || true
 git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
 git diff --cached --quiet || git commit -m "chore: update stats" 2>/dev/null || true
 
+log "Generating dashboard..."
+python3 scripts/build/generate_dashboard.py . 2>/dev/null || true
+git add docs/dashboard.html 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
+
 # ── Phase 3: Pull Request ──
 log "Phase 3: Pull Request..."
 sleep 5
