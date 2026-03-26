@@ -121,6 +121,7 @@ func (e *Engine) RunMergePhase(ctx context.Context) error {
 	e.logger.Info("PR merged", "number", e.prNumber)
 
 	e.clearPRState()
+	e.clearSessionPlan()
 
 	if err := e.switchToMain(ctx); err != nil {
 		e.logger.Warn("failed to switch to main after merge", "err", err)

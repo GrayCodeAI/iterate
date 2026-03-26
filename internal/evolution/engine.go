@@ -172,6 +172,15 @@ func (e *Engine) clearPRState() {
 	os.Remove(path)
 }
 
+// clearSessionPlan removes SESSION_PLAN.md after a successful merge so stale
+// plans from a failed previous cycle cannot confuse the next implementer.
+func (e *Engine) clearSessionPlan() {
+	path := filepath.Join(e.repoPath, "SESSION_PLAN.md")
+	if err := os.Remove(path); err == nil {
+		e.logger.Info("cleared SESSION_PLAN.md after successful merge")
+	}
+}
+
 // WithEventSink sets a channel that receives live agent events during evolution.
 func (e *Engine) WithEventSink(sink chan<- iteragent.Event) *Engine {
 	e.eventSink = sink
