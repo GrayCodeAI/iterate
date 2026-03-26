@@ -193,7 +193,12 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	a.Finish()
 
 	low := strings.ToLower(reviewOutput)
-	if strings.Contains(low, "lgtm") || strings.Contains(low, "looks good") {
+	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good")
+
+	// Always post the review output as a PR comment for visibility.
+	e.postReviewComment(ctx, reviewOutput, passed)
+
+	if passed {
 		e.logger.Info("PR self-review passed")
 		return nil
 	}
@@ -201,6 +206,31 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	// Reviewer found issues but didn't say LGTM — block the merge.
 	e.logger.Warn("PR self-review did not pass — blocking merge")
 	return fmt.Errorf("review blocked merge: reviewer did not say LGTM")
+}
+
+// postReviewComment posts the reviewer's output as a GitHub PR comment.
+func (e *Engine) postReviewComment(ctx context.Context, reviewOutput string, passed bool) {
+	if e.prNumber == 0 {
+		return
+	}
+
+	verdict := "❌ Issues found — merge blocked."
+	if passed {
+		verdict = "✅ LGTM — auto-merging."
+	}
+
+	body := fmt.Sprintf("## Self-Review\n\n%s\n\n---\n**Verdict:** %s\n\n*Reviewed by iterate-evolve[bot]*",
+		reviewOutput, verdict)
+
+	// Use exec.Command to avoid shell injection via body content.
+	cmd := exec.Command("gh", "pr", "comment", fmt.Sprintf("%d", e.prNumber),
+		"--repo", e.repo, "--body", body)
+	cmd.Dir = e.repoPath
+	if out, err := cmd.CombinedOutput(); err != nil {
+		e.logger.Warn("failed to post review comment", "err", err, "output", string(out))
+	} else {
+		e.logger.Info("posted review comment", "pr", e.prNumber)
+	}
 }
 
 func (e *Engine) mergePR(ctx context.Context) error {
