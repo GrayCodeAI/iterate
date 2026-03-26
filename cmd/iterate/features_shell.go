@@ -67,7 +67,15 @@ func commandExists(name string) bool {
 // ---------------------------------------------------------------------------
 
 func runCoverage(repoPath string) (string, error) {
-	cmd := exec.Command("go", "test", "-coverprofile=/tmp/iterate-cover.out", "./...")
+	f, err := os.CreateTemp("", "iterate-cover-*.out")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	coverFile := f.Name()
+	f.Close()
+	defer os.Remove(coverFile)
+
+	cmd := exec.Command("go", "test", "-coverprofile="+coverFile, "./...")
 	cmd.Dir = repoPath
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -75,7 +83,7 @@ func runCoverage(repoPath string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return out.String(), err
 	}
-	summary := exec.Command("go", "tool", "cover", "-func=/tmp/iterate-cover.out")
+	summary := exec.Command("go", "tool", "cover", "-func="+coverFile)
 	summary.Dir = repoPath
 	sumOut, err := summary.Output()
 	if err != nil {

@@ -49,10 +49,15 @@ func (e *Engine) currentBranch(ctx context.Context) (string, error) {
 }
 
 func (e *Engine) deleteBranch(ctx context.Context, branch string) error {
-	_, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": fmt.Sprintf("git branch -D %s 2>/dev/null || git push origin --delete %s 2>/dev/null || true", branch, branch),
-	})
-	return err
+	// Use exec.Command directly to avoid shell injection via branch name.
+	localCmd := exec.Command("git", "branch", "-D", branch)
+	localCmd.Dir = e.repoPath
+	_ = localCmd.Run() // best-effort local delete
+
+	remoteCmd := exec.Command("git", "push", "origin", "--delete", branch)
+	remoteCmd.Dir = e.repoPath
+	_ = remoteCmd.Run() // best-effort remote delete
+	return nil
 }
 
 func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, error) {
