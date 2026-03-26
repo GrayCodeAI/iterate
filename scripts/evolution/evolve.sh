@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# iterate evolution pipeline: plan → implement → communicate
-# Autonomous evolution cycle — commits directly to main.
+# iterate evolution pipeline: plan → implement → pr → review → merge → communicate
+# Autonomous evolution cycle — 6-phase self-evolving pipeline.
 # Runs every 12h via GitHub Actions.
 
 REPOPATH="."
@@ -97,8 +97,8 @@ fi
 # ── Clean stale plan ──
 rm -f "$PLAN_FILE"
 
-# ── Phase A: Planning ──
-log "Phase A: Planning..."
+# ── Phase 1: Planning ──
+log "Phase 1: Planning..."
 if ! ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
   log "WARNING: plan phase exited with error — checking for fallback"
 fi
@@ -136,16 +136,56 @@ EOF
   fi
 fi
 
-# ── Phase B: Implementation ──
-log "Phase B: Implementation..."
+# ── Phase 2: Implementation ──
+log "Phase 2: Implementation..."
 sleep 5  # Brief pause between phases
 if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: implement phase exited with error — continuing to communicate"
+  log "WARNING: implement phase exited with error — continuing"
 fi
 
-# ── Phase C: Communication ──
-log "Phase C: Communication..."
-sleep 5  # Brief pause between phases
+# Update DAY_COUNT before creating PR
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+git add DAY_COUNT 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
+
+# ── Track coverage and generate stats before PR ──
+log "Tracking test coverage..."
+python3 scripts/build/track_coverage.py . 2>/dev/null || true
+git add memory/coverage_history.jsonl 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: update coverage history" 2>/dev/null || true
+
+log "Generating stats..."
+python3 scripts/build/generate_stats.py . 2>/dev/null || true
+git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: update stats" 2>/dev/null || true
+
+# ── Phase 3: Pull Request ──
+log "Phase 3: Pull Request..."
+sleep 5
+if ! ./iterate --phase pr --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: PR phase exited with error — continuing"
+fi
+
+BRANCH="evolution/day-${DAY}"
+PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+# ── Phase 4: Review ──
+log "Phase 4: Review..."
+sleep 5
+if ! ./iterate --phase review --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: review phase exited with error — continuing"
+fi
+
+# ── Phase 5: Merge ──
+log "Phase 5: Merge..."
+sleep 5
+if ! ./iterate --phase merge --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  log "WARNING: merge phase exited with error — continuing"
+fi
+
+# ── Phase 6: Communication ──
+log "Phase 6: Communication..."
+sleep 5
 if ! ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
   log "WARNING: communicate phase exited with error"
 fi
@@ -156,9 +196,7 @@ if grep -qP "^## Day ${DAY}(\s|$|—)" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null
 else
   log "WARNING: No journal entry found for Day $DAY — writing fallback"
   SESSION_TIME_NOW=$(date -u +'%H:%M')
-  # Insert fallback entry after header
   python3 << PYEOF
-import sys
 header = '# iterate Evolution Journal\n'
 day = "$DAY"
 time_now = "$SESSION_TIME_NOW"
@@ -175,160 +213,12 @@ PYEOF
   git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
 
-# ── Track coverage ──
-log "Tracking test coverage..."
-python3 scripts/build/track_coverage.py . 2>/dev/null || true
-git add memory/coverage_history.jsonl 2>/dev/null || true
-
-# ── Generate stats ──
-log "Generating stats..."
-python3 scripts/build/generate_stats.py . 2>/dev/null || true
-git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
-
-# ── Final commit and PR ──
-log "Creating pull request..."
-
-BRANCH="evolution/day-${DAY}"
-
-# Pull latest main
-git pull --rebase origin main 2>/dev/null || true
-
-# Ensure DAY_COUNT is correct after pull
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-git add DAY_COUNT 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
-
-# Check if there are changes to push
-if [[ -z $(git diff origin/main HEAD --stat 2>/dev/null) ]]; then
-  log "No changes to push — skipping PR"
-  git checkout main 2>/dev/null || true
-  log "=== evolution cycle completed ==="
-  exit 0
-fi
-
-# Create feature branch and push
-git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
-git push -u origin "$BRANCH" --force-with-lease 2>/dev/null || {
-  log "Push failed, trying without lease"
-  git push -u origin "$BRANCH" 2>/dev/null || log "Push failed"
-}
-
-# Create PR
-PR_TITLE="iterate: Day $DAY evolution session"
-
-# Get journal excerpt for PR body
-JOURNAL_EXCERPT=$(tail -10 docs/JOURNAL.md 2>/dev/null | head -5 || echo "No journal yet")
-
-# Get commit summary
-COMMIT_SUMMARY=$(git log --oneline origin/main..HEAD 2>/dev/null | head -10 || echo "No commits")
-
-PR_BODY="## Evolution Session — Day $DAY
-
-Automated evolution session by iterate-evolve[bot].
-
-### Commits
-\`\`\`
-$COMMIT_SUMMARY
-\`\`\`
-
-### Journal
-$JOURNAL_EXCERPT
-
-### Verification
-- \`go build ./...\` — passes
-- \`go test ./...\` — passes
-- \`go vet ./...\` — passes
-
-### Session Info
-- **Day:** $DAY
-- **Time:** $(date -u +'%H:%M UTC')
-- **Bot:** iterate-evolve[bot]
-
----
-*Auto-generated by iterate*"
-
-set +e
-PR_OUTPUT=$(gh pr create \
-  --repo "$GITHUB_REPO" \
-  --title "$PR_TITLE" \
-  --body "$PR_BODY" \
-  --base main \
-  --head "$BRANCH" 2>&1)
-PR_EXIT=$?
-set -e
-
-if [[ $PR_EXIT -eq 0 ]]; then
-  log "PR created: $PR_OUTPUT"
-else
-  log "PR creation failed: $PR_OUTPUT"
-  # Fallback: push directly to main
-  log "Falling back to direct push to main..."
-  git checkout main 2>/dev/null || true
-  git pull --rebase origin main 2>/dev/null || true
-  if ! git merge "$BRANCH" --no-edit 2>/dev/null; then
-    log "ERROR: Merge conflict during fallback — aborting merge, changes remain on $BRANCH"
-    git merge --abort 2>/dev/null || true
-    PR_NUMBER=""
-  else
-    git push origin main 2>/dev/null || log "Direct push also failed"
-    git push origin --delete "$BRANCH" 2>/dev/null || true
-    PR_NUMBER=""
-  fi
-fi
-
-# Get PR number
-PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null)
-
-if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "null" ]]; then
-  log "Created PR #$PR_NUMBER"
-
-  # ── Self-review ──
-  log "Running self-review on PR #$PR_NUMBER..."
-  PR_DIFF=$(gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPO" 2>/dev/null | head -500)
-
-  if [[ -n "$PR_DIFF" ]]; then
-    # Post review comment
-    REVIEW_COMMENT="## Self-Review — Day $DAY
-
-### Diff Summary
-\`\`\`
-$(echo "$PR_DIFF" | head -50)
-...
-\`\`\`
-
-### Verification
-- [x] \`go build ./...\` passes
-- [x] \`go test ./...\` passes
-- [x] \`go vet ./...\` passes
-
-### Verdict
-**LGTM** — All checks passed. Auto-merging.
-
----
-*Reviewed by iterate-evolve[bot]*"
-
-    gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPO" --body "$REVIEW_COMMENT" 2>/dev/null || log "Review comment failed"
-
-    # Approve the PR
-    gh pr review "$PR_NUMBER" --repo "$GITHUB_REPO" --approve --body "LGTM — All checks passed." 2>/dev/null || log "PR approval failed (may need different permissions)"
-  fi
-
-  # ── Auto-merge ──
-  log "Enabling auto-merge for PR #$PR_NUMBER"
-  gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPO" --auto --squash 2>/dev/null || log "Auto-merge setup failed (may need branch protection)"
-fi
-
-# Switch back to main
-git checkout main 2>/dev/null || true
-
 # ── Cleanup stale branches ──
 log "Cleaning up old evolution branches..."
 gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolution/day-" | while read -r branch; do
-  # Skip the branch we just created
   if [[ "$branch" == "$BRANCH" ]]; then
     continue
   fi
-  # Use gh pr view for reliable single-branch state (avoids race with gh pr list pagination)
   PR_STATE=$(gh pr view --repo "$GITHUB_REPO" --json state --jq '.state' --head "$branch" 2>/dev/null || echo "")
   if [[ "$PR_STATE" == "MERGED" || "$PR_STATE" == "CLOSED" ]]; then
     log "Deleting stale branch: $branch (PR state: $PR_STATE)"
@@ -351,12 +241,12 @@ log "Duration: ${SESSION_DURATION}s"
 # ── Discord notification ──
 if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
   log "Sending Discord notification..."
-  
+
   JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
   COMMIT_COUNT=$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')
 
   DISCORD_MSG=$(jq -n \
-    --arg title "🧬 Evolution Day $DAY Complete" \
+    --arg title "Evolution Day $DAY Complete" \
     --arg pr "${PR_NUMBER:-none}" \
     --arg dur "${SESSION_DURATION}s" \
     --arg commits "$COMMIT_COUNT" \
@@ -372,6 +262,6 @@ if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
   curl -s -H "Content-Type: application/json" \
     -d "$DISCORD_MSG" \
     "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || log "Discord notification failed"
-  
+
   log "Discord notification sent"
 fi

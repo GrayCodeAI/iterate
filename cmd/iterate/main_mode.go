@@ -148,6 +148,30 @@ func runEvolutionPhase(ctx context.Context, f mainFlags, p iteragent.Provider, e
 		}
 		logger.Info("implement phase complete")
 		return nil
+	case "pr":
+		logger.Info("running PR phase")
+		if err := engine.RunPRPhase(ctx); err != nil {
+			logger.Error("PR phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("PR phase complete")
+		return nil
+	case "review":
+		logger.Info("running review phase")
+		if err := engine.RunReviewPhase(ctx, p); err != nil {
+			logger.Error("review phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("review phase complete")
+		return nil
+	case "merge":
+		logger.Info("running merge phase")
+		if err := engine.RunMergePhase(ctx); err != nil {
+			logger.Error("merge phase failed", "err", err)
+			os.Exit(1)
+		}
+		logger.Info("merge phase complete")
+		return nil
 	case "communicate":
 		logger.Info("running communicate phase")
 		if err := engine.RunCommunicatePhase(ctx, p); err != nil {
