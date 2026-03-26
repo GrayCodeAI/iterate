@@ -85,6 +85,11 @@ func buildPlanPrompt(repoPath, journal, day, issues string) string {
 	sb.WriteString("## Codebase Analysis\n\n")
 	sb.WriteString(analysisStr)
 	appendPlanContext(&sb, learnings, journal, issues)
+
+	// Inject recent failures so the planner avoids repeating bad approaches.
+	if failures := recentFailures(repoPath, 10); failures != "" {
+		sb.WriteString("\n" + failures)
+	}
 	return sb.String()
 }
 
@@ -316,10 +321,11 @@ func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task pla
 	// First attempt failed. Retry with the actual error context captured before revert.
 	e.logger.Info("retrying task after failure", "number", task.Number)
 	retryCtx := "Previous attempt failed.\n\n" + errCtx + "\n\nFix the errors and try again."
-	if ok, _ := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, retryCtx); ok {
+	if ok, failReason := e.runTaskAttempt(ctx, p, task, systemPrompt, tools, skills, protectedWarning, retryCtx); ok {
 		e.logger.Info("task succeeded on retry", "number", task.Number)
 	} else {
 		e.logger.Warn("task failed after retry, skipping", "number", task.Number)
+		_ = e.appendFailureJSONL(task.Title, firstLine(failReason))
 	}
 }
 
