@@ -21,8 +21,37 @@ import (
 // ---------------------------------------------------------------------------
 
 // spinnerActive is set to 1 while the spinner goroutine is printing.
-// Tool wrappers wait for it to reach 0 before showing a prompt.
 var spinnerActive atomic.Int32
+
+// spinnerQuiet is closed by the spinner goroutine when it finishes clearing
+// the terminal line. Safe-mode prompts wait on this instead of busy-looping.
+var spinnerQuiet = make(chan struct{})
+
+func init() {
+	// Start closed so the first prompt doesn't block if no spinner ever ran.
+	close(spinnerQuiet)
+}
+
+// notifySpinnerQuiet replaces spinnerQuiet with a new open channel, then
+// closes the old one so any waiters unblock. Called by the spinner when done.
+func notifySpinnerQuiet() {
+	old := spinnerQuiet
+	spinnerQuiet = make(chan struct{})
+	select {
+	case <-old:
+	default:
+		close(old)
+	}
+}
+
+// waitForSpinner blocks until the spinner has stopped and cleared the line,
+// or until 500 ms have elapsed (so a stuck spinner never deadlocks a prompt).
+func waitForSpinner() {
+	select {
+	case <-spinnerQuiet:
+	case <-time.After(500 * time.Millisecond):
+	}
+}
 
 // streamingTokenCount is incremented for each token received during streaming.
 // The spinner reads this to display tok/s.
@@ -245,9 +274,7 @@ func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]s
 		}
 	}
 
-	for spinnerActive.Load() == 1 {
-		time.Sleep(5 * time.Millisecond)
-	}
+	waitForSpinner()
 	fmt.Printf("\n%s⚠ Safe mode: allow %s?%s ", colorYellow, tool.Name, colorReset)
 	answer, ok := selector.PromptLine("(y/N/always):")
 	if !ok {

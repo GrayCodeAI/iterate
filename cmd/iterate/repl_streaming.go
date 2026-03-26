@@ -60,6 +60,7 @@ func spinner(stop <-chan struct{}, done chan<- struct{}, label string) {
 		case <-stop:
 			spinnerActive.Store(0)
 			fmt.Print("\r\033[K")
+			notifySpinnerQuiet()
 			close(done)
 			return
 		default:
@@ -247,7 +248,12 @@ func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Ti
 	case iteragent.EventContextCompacted:
 		fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
 	case iteragent.EventError:
-		fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, e.Content, colorReset)
+		msg := e.Content
+		hint := authErrorHint(msg)
+		fmt.Printf("\r\033[K%sError: %s%s\n", colorRed, msg, colorReset)
+		if hint != "" {
+			fmt.Printf("%sFix: %s%s\n", colorYellow, hint, colorReset)
+		}
 	}
 	return fullContent, toolStart
 }
@@ -297,4 +303,42 @@ func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, requestCostU
 	fmt.Println()
 
 	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "ttft_ms", ttft.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens, "cost_usd", requestCostUSD)
+}
+
+// authErrorHint returns a human-readable fix suggestion for known API error
+// patterns, or an empty string when the error doesn't look auth-related.
+func authErrorHint(errMsg string) string {
+	lower := strings.ToLower(errMsg)
+	switch {
+	case strings.Contains(lower, "401") || strings.Contains(lower, "unauthorized") ||
+		strings.Contains(lower, "invalid_api_key") || strings.Contains(lower, "authentication_error") ||
+		strings.Contains(lower, "invalid api key"):
+		provider := os.Getenv("ITERATE_PROVIDER")
+		switch strings.ToLower(provider) {
+		case "anthropic", "":
+			return "Set ANTHROPIC_API_KEY in your shell: export ANTHROPIC_API_KEY=sk-ant-..."
+		case "openai":
+			return "Set OPENAI_API_KEY in your shell: export OPENAI_API_KEY=sk-..."
+		case "gemini":
+			return "Set GEMINI_API_KEY in your shell: export GEMINI_API_KEY=AIza..."
+		case "groq":
+			return "Set GROQ_API_KEY in your shell: export GROQ_API_KEY=gsk_..."
+		case "ollama":
+			return "Ollama should not require an API key — check that Ollama is running (ollama serve)"
+		case "azure":
+			return "Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT in your shell"
+		default:
+			return "Check that your API key environment variable is set correctly (see /providers)"
+		}
+	case strings.Contains(lower, "403") || strings.Contains(lower, "forbidden") ||
+		strings.Contains(lower, "permission_denied"):
+		return "Your API key may lack permissions for this model — check your billing/plan"
+	case strings.Contains(lower, "429") || strings.Contains(lower, "rate_limit") ||
+		strings.Contains(lower, "too many requests"):
+		return "Rate limit hit — wait a moment and try again, or use /model to switch to a different model"
+	case strings.Contains(lower, "no api key") || strings.Contains(lower, "api key not set") ||
+		strings.Contains(lower, "missing api key"):
+		return "Run /providers to see which environment variable needs to be set"
+	}
+	return ""
 }

@@ -235,16 +235,52 @@ func cmdNotify(ctx Context) Result {
 
 func cmdEnv(ctx Context) Result {
 	if !ctx.HasArg(1) {
-		filter := []string{"ITERATE", "OLLAMA", "ANTHROPIC", "OPENAI", "GEMINI", "GROQ", "GITHUB", "GO"}
+		// Prefixes: any env var whose name starts with one of these is shown.
+		prefixes := []string{
+			"ITERATE_", "OLLAMA_", "ANTHROPIC_", "OPENAI_", "GEMINI_",
+			"GROQ_", "GITHUB_", "AZURE_", "VERTEX_", "OPENCODE_",
+		}
+		// Exact names also shown (without the _ prefix requirement).
+		exact := []string{"GOPATH", "GOROOT", "HOME", "SHELL"}
+
 		fmt.Printf("%s── Environment ─────────────────────%s\n", ColorDim, ColorReset)
-		for _, f := range filter {
-			val := os.Getenv(f)
-			if val != "" {
-				if len(val) > 60 {
-					val = val[:60] + "…"
-				}
-				fmt.Printf("  %s=%s\n", f, val)
+		for _, e := range os.Environ() {
+			kv := strings.SplitN(e, "=", 2)
+			if len(kv) != 2 {
+				continue
 			}
+			k, v := kv[0], kv[1]
+			matched := false
+			for _, p := range prefixes {
+				if strings.HasPrefix(k, p) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				for _, ex := range exact {
+					if k == ex {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				continue
+			}
+			display := v
+			// Mask keys — show first 8 chars + …
+			lk := strings.ToLower(k)
+			if strings.Contains(lk, "key") || strings.Contains(lk, "token") || strings.Contains(lk, "secret") {
+				if len(v) > 8 {
+					display = v[:8] + "…"
+				} else if len(v) > 0 {
+					display = "***"
+				}
+			} else if len(display) > 80 {
+				display = display[:80] + "…"
+			}
+			fmt.Printf("  %s%s%s=%s\n", ColorBold, k, ColorReset, display)
 		}
 		fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 		return Result{Handled: true}
