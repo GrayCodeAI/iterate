@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -144,7 +145,7 @@ func findHotspots(repoPath string) []string {
 		limit = len(entries)
 	}
 	for _, e := range entries[:limit] {
-		results = append(results, e.name+" (changed "+string(rune('0'+e.count))+"x)")
+		results = append(results, e.name+" (changed "+strconv.Itoa(e.count)+"x)")
 	}
 	return results
 }

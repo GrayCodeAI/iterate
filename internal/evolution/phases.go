@@ -198,7 +198,7 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	if extraContext != "" {
 		userMsg += "\n\n" + extraContext
 	}
-	userMsg += "\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes."
+	userMsg += "\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes using a conventional commit message (e.g. feat: ..., fix: ..., chore: ..., refactor: ..., test: ..., docs: ...)."
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var taskOutput string
@@ -219,7 +219,9 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 		return false, fmt.Sprintf("Agent error: %s", taskErr)
 	}
 
-	if violations, _ := e.verifyProtected(ctx); len(violations) > 0 {
+	if violations, err := e.verifyProtected(ctx); err != nil {
+		e.logger.Warn("verifyProtected check failed", "err", err)
+	} else if len(violations) > 0 {
 		e.logger.Warn("protected files modified, reverting", "number", task.Number, "files", violations)
 		_ = e.revert(ctx)
 		return false, fmt.Sprintf("Protected files were modified (not allowed): %v", violations)

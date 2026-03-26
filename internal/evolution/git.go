@@ -94,7 +94,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 
 func (e *Engine) pushBranch(ctx context.Context) error {
 	_, err := e.runTool(ctx, "bash", map[string]string{
-		"cmd": fmt.Sprintf("git push -u origin %s", e.branchName),
+		"cmd": fmt.Sprintf("git push -u origin %q", e.branchName),
 	})
 	return err
 }
@@ -205,16 +205,6 @@ func (e *Engine) mergePR(ctx context.Context) error {
 		"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
 	})
 	if err != nil {
-		if strings.Contains(strings.ToLower(out), "no mergeable") || strings.Contains(strings.ToLower(out), "conflict") {
-			e.logger.Warn("PR has merge conflicts, attempting merge with --admin flag (bypasses branch protection)", "pr", e.prNumber)
-			mergeOut, mergeErr := e.runTool(ctx, "bash", map[string]string{
-				"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --admin --delete-branch 2>&1 || echo 'MERGE_FAILED'", e.prNumber, e.repo),
-			})
-			if mergeErr != nil || strings.Contains(mergeOut, "MERGE_FAILED") {
-				e.logger.Warn("PR merge failed, will retry next session", "output", mergeOut)
-				return fmt.Errorf("merge conflict: %s", mergeOut)
-			}
-		}
 		return fmt.Errorf("PR merge failed: %w, output: %s", err, out)
 	}
 

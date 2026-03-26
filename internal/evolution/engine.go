@@ -192,6 +192,7 @@ func (e *Engine) handlePostRunTests(ctx context.Context, day int, output string,
 
 	e.logger.Info("tests passed, creating feature branch")
 	if err := e.handleCommitAndPR(ctx, day, output, p, result); err != nil {
+		e.logger.Warn("commit/PR flow failed, continuing", "err", err)
 		return nil
 	}
 
@@ -365,7 +366,7 @@ func (e *Engine) handlePRReviewAndMerge(ctx context.Context, p iteragent.Provide
 	result.Status = "merged"
 	result.PRNumber = e.prNumber
 	result.PRURL = e.prURL
-	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(output)), "evolution", buildUserMessage(e.repoPath, "", ""), "")
+	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(output)), "evolution", "", "")
 	e.appendJournal(result, output, p.Name(), true)
 
 	_ = e.switchToMain(ctx)

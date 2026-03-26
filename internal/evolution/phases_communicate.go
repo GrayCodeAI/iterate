@@ -61,7 +61,7 @@ func (e *Engine) readDayCount() string {
 
 // writeJournalEntry always produces a journal entry — via agent or fallback.
 func (e *Engine) writeJournalEntry(ctx context.Context, p iteragent.Provider, day string) {
-	journalCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	journalCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	recentCommits, _ := e.runTool(journalCtx, "bash", map[string]string{"cmd": "git log --oneline -8"})
