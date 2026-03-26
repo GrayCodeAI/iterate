@@ -513,3 +513,46 @@ func TestHandleRawInput_CtrlY(t *testing.T) {
 		t.Errorf("cursor should be at 6 after yank, got %d", cursorPos)
 	}
 }
+
+func TestMoveWordBackward(t *testing.T) {
+	cases := []struct {
+		buf       string
+		startPos  int
+		wantPos   int
+	}{
+		{"hello world", 11, 6},  // end → start of "world"
+		{"hello world", 6, 0},   // start of "world" → start of "hello"
+		{"hello world", 5, 0},   // space before "world" → start of "hello"
+		{"hello world", 0, 0},   // already at start → no movement
+		{"  hello", 7, 2},       // end of "hello" → start of "hello"
+	}
+	for _, tc := range cases {
+		buf := []byte(tc.buf)
+		pos := tc.startPos
+		moveWordBackward(&buf, &pos)
+		if pos != tc.wantPos {
+			t.Errorf("moveWordBackward(%q, %d) = %d, want %d", tc.buf, tc.startPos, pos, tc.wantPos)
+		}
+	}
+}
+
+func TestMoveWordForward(t *testing.T) {
+	cases := []struct {
+		buf       string
+		startPos  int
+		wantPos   int
+	}{
+		{"hello world", 0, 5},   // start → end of "hello"
+		{"hello world", 5, 11},  // space → end of "world"
+		{"hello world", 11, 11}, // already at end → no movement
+		{"hello  world", 5, 12}, // double space → end of "world"
+	}
+	for _, tc := range cases {
+		buf := []byte(tc.buf)
+		pos := tc.startPos
+		moveWordForward(&buf, &pos)
+		if pos != tc.wantPos {
+			t.Errorf("moveWordForward(%q, %d) = %d, want %d", tc.buf, tc.startPos, pos, tc.wantPos)
+		}
+	}
+}

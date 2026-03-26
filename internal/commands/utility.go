@@ -43,6 +43,7 @@ func registerUtilityContextCommands(r *Registry) {
 		Category:    "utility",
 		Handler:     cmdCompact,
 	})
+
 }
 
 func registerUtilityConversationCommands(r *Registry) {
