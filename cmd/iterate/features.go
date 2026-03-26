@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -87,24 +86,6 @@ func findTodos(repoPath string) []string {
 	return results
 }
 
-// ---------------------------------------------------------------------------
-// /issues — list GitHub issues via gh cli
-// ---------------------------------------------------------------------------
-
-func listGitHubIssues(repoPath string, limit int) (string, error) {
-	cmd := exec.Command("gh", "issue", "list",
-		"--limit", fmt.Sprintf("%d", limit),
-		"--json", "number,title,state,labels",
-		"--template", `{{range .}}#{{.number}} {{.title}} [{{.state}}]{{"\n"}}{{end}}`)
-	cmd.Dir = repoPath
-	var out strings.Builder
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("gh issue list: %s", strings.TrimSpace(out.String()))
-	}
-	return strings.TrimSpace(out.String()), nil
-}
 
 // ---------------------------------------------------------------------------
 // /search-replace — find and replace text across all Go files

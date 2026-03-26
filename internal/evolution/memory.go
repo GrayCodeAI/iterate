@@ -46,10 +46,15 @@ func (e *Engine) appendLearningJSONL(title, source, context, takeaway string) er
 	if err != nil {
 		return fmt.Errorf("open learnings.jsonl: %w", err)
 	}
-	defer f.Close()
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		f.Close()
+		return err
+	}
+	f.Close()
 
-	_, err = f.Write(append(line, '\n'))
-	return err
+	// Trim entries older than 90 days (learnings have longer value than failures).
+	trimFailuresJSONL(path, 90*24*time.Hour)
+	return nil
 }
 
 // appendFailureJSONL records a failed task to memory/failures.jsonl so the
@@ -81,13 +86,51 @@ func (e *Engine) appendFailureJSONL(taskTitle, reason string) error {
 	if err != nil {
 		return fmt.Errorf("open failures.jsonl: %w", err)
 	}
-	defer f.Close()
-	_, err = f.Write(append(line, '\n'))
-	return err
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		f.Close()
+		return err
+	}
+	f.Close()
+
+	// Trim entries older than 30 days to prevent unbounded growth.
+	trimFailuresJSONL(path, 30*24*time.Hour)
+	return nil
+}
+
+// trimFailuresJSONL rewrites failures.jsonl keeping only entries newer than maxAge.
+func trimFailuresJSONL(path string, maxAge time.Duration) {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return
+	}
+
+	cutoff := time.Now().UTC().Add(-maxAge)
+	var kept []string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var entry struct {
+			TS string `json:"ts"`
+		}
+		if json.Unmarshal([]byte(line), &entry) != nil {
+			kept = append(kept, line) // keep unparseable lines
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, entry.TS)
+		if err != nil || ts.After(cutoff) {
+			kept = append(kept, line)
+		}
+	}
+
+	if len(kept) == 0 {
+		return
+	}
+	_ = os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o644)
 }
 
 // recentFailures reads memory/failures.jsonl and returns the last N entries
-// as a formatted string for inclusion in the planner prompt.
+// from the past 30 days as a formatted string for inclusion in the planner prompt.
 func recentFailures(repoPath string, limit int) string {
 	data, err := os.ReadFile(filepath.Join(repoPath, "memory", "failures.jsonl"))
 	if err != nil || len(data) == 0 {
@@ -98,17 +141,24 @@ func recentFailures(repoPath string, limit int) string {
 		Day    int    `json:"day"`
 		Task   string `json:"task"`
 		Reason string `json:"reason"`
+		TS     string `json:"ts"`
 	}
 
+	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour)
 	var entries []failEntry
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		if line == "" {
 			continue
 		}
 		var e failEntry
-		if json.Unmarshal([]byte(line), &e) == nil {
-			entries = append(entries, e)
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
 		}
+		// Skip entries older than 30 days.
+		if ts, err := time.Parse(time.RFC3339, e.TS); err == nil && ts.Before(cutoff) {
+			continue
+		}
+		entries = append(entries, e)
 	}
 
 	// Keep only the last `limit` entries.

@@ -169,17 +169,6 @@ func TestApplyTheme_Minimal(t *testing.T) {
 	}
 }
 
-func TestMCPStruct(t *testing.T) {
-	srv := mcpServer{
-		Name:    "test",
-		URL:     "http://localhost:3000",
-		Command: "",
-		Args:    nil,
-	}
-	if srv.Name != "test" {
-		t.Errorf("expected name 'test', got %q", srv.Name)
-	}
-}
 
 func TestLoadAliases_NonExistent(t *testing.T) {
 	// loadAliases should return empty map when file doesn't exist

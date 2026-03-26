@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // ---------------------------------------------------------------------------
@@ -110,56 +107,3 @@ func healthChecksForProject(dir string, pt projectType) []projectCheck {
 	}
 }
 
-func runProjectHealthChecks(repoPath string, pt projectType) []healthResult {
-	checks := healthChecksForProject(repoPath, pt)
-	var results []healthResult
-
-	for _, c := range checks {
-		cmd := exec.Command(c.args[0], c.args[1:]...)
-		cmd.Dir = repoPath
-		out, err := cmd.CombinedOutput()
-		detail := strings.TrimSpace(string(out))
-		if len(detail) > 100 {
-			detail = detail[:100] + "…"
-		}
-		results = append(results, healthResult{check: c.name, ok: err == nil, detail: detail})
-	}
-
-	// git clean check
-	statusOut, _ := exec.Command("git", "-C", repoPath, "status", "--short").Output()
-	dirty := strings.TrimSpace(string(statusOut)) != ""
-	gitDetail := "working tree clean"
-	if dirty {
-		gitDetail = "uncommitted changes"
-	}
-	results = append(results, healthResult{check: "git clean", ok: !dirty, detail: gitDetail})
-
-	return results
-}
-
-// buildFixPromptForProject builds a fix prompt using project-type-aware build output.
-func buildFixPromptForProject(repoPath string, pt projectType) string {
-	var buildCmd []string
-	switch pt {
-	case projectTypeGo:
-		buildCmd = []string{"go", "build", "./..."}
-	case projectTypeRust:
-		buildCmd = []string{"cargo", "build"}
-	case projectTypeNode:
-		buildCmd = []string{"npm", "run", "build"}
-	default:
-		buildCmd = []string{"make"}
-	}
-
-	cmd := exec.Command(buildCmd[0], buildCmd[1:]...)
-	cmd.Dir = repoPath
-	out, _ := cmd.CombinedOutput()
-	errText := strings.TrimSpace(string(out))
-	if errText == "" {
-		return ""
-	}
-	return fmt.Sprintf(
-		"Fix the following build error. Read relevant files first, then apply the minimal fix. "+
-			"Re-run the build to verify.\n\nBuild command: %s\n\nError:\n```\n%s\n```",
-		strings.Join(buildCmd, " "), errText)
-}

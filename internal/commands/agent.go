@@ -276,17 +276,28 @@ func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
 }
 
 func printSwarmResults(results []string, n int) {
-	fmt.Printf("\n%s✓ Swarm complete%s\n", ColorLime, ColorReset)
-	fmt.Printf("  Completed: %d/%d agents\n", len(results), n)
-
 	errCount := 0
+	successCount := 0
 	for _, r := range results {
 		if strings.Contains(r, "error:") {
 			errCount++
-			fmt.Printf("  %s\n", r)
+		} else {
+			successCount++
 		}
 	}
-	if errCount > 0 {
-		fmt.Printf("  %s%d errors%s\n", ColorRed, errCount, ColorReset)
+
+	fmt.Printf("\n%s── Swarm Results ──────────────────%s\n", ColorDim, ColorReset)
+	for _, r := range results {
+		if strings.Contains(r, "error:") {
+			fmt.Printf("  %s✗%s %s\n", ColorRed, ColorReset, r)
+		} else {
+			fmt.Printf("  %s✓%s %s\n", ColorLime, ColorReset, r)
+		}
 	}
+	fmt.Printf("%s──────────────────────────────────%s\n", ColorDim, ColorReset)
+	fmt.Printf("  %s%d/%d succeeded%s", ColorLime, successCount, n, ColorReset)
+	if errCount > 0 {
+		fmt.Printf("  %s%d failed%s", ColorRed, errCount, ColorReset)
+	}
+	fmt.Println()
 }

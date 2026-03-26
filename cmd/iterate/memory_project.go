@@ -88,23 +88,6 @@ func formatProjectMemoryForPrompt(m projectMemory) string {
 	return "## Project Notes\n\n" + strings.Join(lines, "\n") + "\n"
 }
 
-// printProjectMemory displays the project memory entries to stdout.
-func printProjectMemory(repoPath string) {
-	m := loadProjectMemory(repoPath)
-	if len(m.Entries) == 0 {
-		fmt.Println("No project notes. Use /remember <note> to add one.")
-		return
-	}
-	fmt.Printf("%s── Project Notes (.iterate/memory.json) ─%s\n", colorDim, colorReset)
-	for i, e := range m.Entries {
-		ts := ""
-		if t, err := time.Parse(time.RFC3339, e.CreatedAt); err == nil {
-			ts = fmt.Sprintf("  %s%s%s", colorDim, t.Format("01-02"), colorReset)
-		}
-		fmt.Printf("  %s%2d%s  %s%s\n", colorDim, i+1, colorReset, e.Note, ts)
-	}
-	fmt.Printf("%s──────────────────────────────────────────%s\n\n", colorDim, colorReset)
-}
 
 // ---------------------------------------------------------------------------
 // Active learnings reader

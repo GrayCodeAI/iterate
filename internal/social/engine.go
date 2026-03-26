@@ -146,15 +146,68 @@ Output your decisions as JSON only — no prose.`, string(personality), string(s
 }
 
 func (e *Engine) executeSocialDecisions(ctx context.Context, decisions []socialDecision) {
+	replied := e.loadRepliedSet()
 	for _, d := range decisions {
 		if d.Reply == "" {
+			continue
+		}
+		if replied[d.DiscussionID] {
+			e.logger.Info("skipping already-replied discussion", "id", d.DiscussionID)
 			continue
 		}
 		if err := e.postDiscussionReply(ctx, d.DiscussionID, d.Reply); err != nil {
 			e.logger.Warn("failed to post reply", "discussion", d.DiscussionID, "err", err)
 		} else {
 			e.logger.Info("posted reply", "discussion", d.DiscussionID)
+			replied[d.DiscussionID] = true
 		}
+	}
+	e.saveRepliedSet(replied)
+}
+
+// repliedPath returns the path to the per-discussion reply guard file.
+func (e *Engine) repliedPath() string {
+	return filepath.Join(e.repoPath, ".iterate", "replied_discussions.json")
+}
+
+// loadRepliedSet loads the set of discussion IDs we have already replied to today.
+func (e *Engine) loadRepliedSet() map[string]bool {
+	data, err := os.ReadFile(e.repliedPath())
+	if err != nil {
+		return map[string]bool{}
+	}
+	var entry struct {
+		Date string            `json:"date"`
+		IDs  map[string]bool   `json:"ids"`
+	}
+	if json.Unmarshal(data, &entry) != nil {
+		return map[string]bool{}
+	}
+	// Reset daily.
+	today := time.Now().UTC().Format("2006-01-02")
+	if entry.Date != today {
+		return map[string]bool{}
+	}
+	return entry.IDs
+}
+
+// saveRepliedSet persists the reply guard to disk.
+func (e *Engine) saveRepliedSet(ids map[string]bool) {
+	if err := os.MkdirAll(filepath.Dir(e.repliedPath()), 0o755); err != nil {
+		e.logger.Warn("failed to create .iterate dir for reply guard", "err", err)
+		return
+	}
+	today := time.Now().UTC().Format("2006-01-02")
+	entry := struct {
+		Date string          `json:"date"`
+		IDs  map[string]bool `json:"ids"`
+	}{Date: today, IDs: ids}
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(e.repliedPath(), data, 0o644); err != nil {
+		e.logger.Warn("failed to write reply guard", "err", err)
 	}
 }
 
@@ -288,7 +341,6 @@ func (e *Engine) appendLearningsJSONL(decisions []socialDecision, dayCount strin
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	day := 0
 	fmt.Sscanf(strings.TrimSpace(dayCount), "%d", &day)
@@ -313,7 +365,43 @@ func (e *Engine) appendLearningsJSONL(decisions []socialDecision, dayCount strin
 		f.Write(line)
 		f.Write([]byte("\n"))
 	}
+	f.Close()
+
+	// Trim entries older than 90 days.
+	trimSocialJSONL(path)
 	return nil
+}
+
+// trimSocialJSONL rewrites social_learnings.jsonl keeping only entries from the last 90 days.
+func trimSocialJSONL(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return
+	}
+
+	cutoff := time.Now().UTC().Add(-90 * 24 * time.Hour)
+	var kept []string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var entry struct {
+			TS string `json:"ts"`
+		}
+		if json.Unmarshal([]byte(line), &entry) != nil {
+			kept = append(kept, line)
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, entry.TS)
+		if err != nil || ts.After(cutoff) {
+			kept = append(kept, line)
+		}
+	}
+
+	if len(kept) == 0 {
+		return
+	}
+	_ = os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o644)
 }
 
 // --- GitHub REST API calls ---

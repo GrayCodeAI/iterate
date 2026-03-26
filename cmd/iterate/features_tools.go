@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -284,17 +283,6 @@ func loadAliases() aliasMap {
 	return m
 }
 
-func saveAliases(m aliasMap) {
-	data, _ := json.MarshalIndent(m, "", "  ")
-	if err := os.MkdirAll(filepath.Dir(aliasesPath()), 0o755); err != nil {
-		slog.Warn("failed to create aliases dir", "err", err)
-		return
-	}
-	if err := os.WriteFile(aliasesPath(), data, 0o644); err != nil {
-		slog.Warn("failed to write aliases file", "err", err)
-	}
-}
-
 // resolveAlias expands an alias if one exists, otherwise returns line unchanged.
 func resolveAlias(line string) string {
 	aliases := loadAliases()
@@ -309,45 +297,6 @@ func resolveAlias(line string) string {
 		return expanded
 	}
 	return line
-}
-
-// ---------------------------------------------------------------------------
-// /mcp — MCP server config management
-// ---------------------------------------------------------------------------
-
-type mcpServer struct {
-	Name    string   `json:"name"`
-	URL     string   `json:"url,omitempty"`
-	Command string   `json:"command,omitempty"`
-	Args    []string `json:"args,omitempty"`
-}
-
-func mcpConfigPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".iterate", "mcp.json")
-}
-
-func loadMCPServers() []mcpServer {
-	data, err := os.ReadFile(mcpConfigPath())
-	if err != nil {
-		return nil
-	}
-	var servers []mcpServer
-	if err := json.Unmarshal(data, &servers); err != nil {
-		slog.Warn("failed to parse mcp servers", "err", err)
-	}
-	return servers
-}
-
-func saveMCPServers(servers []mcpServer) {
-	data, _ := json.MarshalIndent(servers, "", "  ")
-	if err := os.MkdirAll(filepath.Dir(mcpConfigPath()), 0o755); err != nil {
-		slog.Warn("failed to create mcp config dir", "err", err)
-		return
-	}
-	if err := os.WriteFile(mcpConfigPath(), data, 0o644); err != nil {
-		slog.Warn("failed to write mcp config file", "err", err)
-	}
 }
 
 // ---------------------------------------------------------------------------

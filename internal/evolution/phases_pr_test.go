@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---------------------------------------------------------------------------
@@ -312,4 +313,61 @@ func TestClearSessionPlan_NoErrorIfMissing(t *testing.T) {
 	e := New(dir, slog.Default())
 	// Should not panic or error when file doesn't exist.
 	e.clearSessionPlan()
+}
+
+// ---------------------------------------------------------------------------
+// trimFailuresJSONL
+// ---------------------------------------------------------------------------
+
+func TestTrimFailuresJSONL_RemovesOldEntries(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "failures.jsonl")
+
+	now := time.Now().UTC()
+	old := now.Add(-40 * 24 * time.Hour) // 40 days ago — should be trimmed
+	recent := now.Add(-5 * 24 * time.Hour) // 5 days ago — should be kept
+
+	lines := []string{
+		`{"type":"failure","day":1,"task":"Old task","reason":"old","ts":"` + old.Format(time.RFC3339) + `"}`,
+		`{"type":"failure","day":2,"task":"Recent task","reason":"new","ts":"` + recent.Format(time.RFC3339) + `"}`,
+	}
+	_ = os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+
+	trimFailuresJSONL(path, 30*24*time.Hour)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read trimmed file: %v", err)
+	}
+	if strings.Contains(string(data), "Old task") {
+		t.Error("expected old entry to be trimmed, but it is still present")
+	}
+	if !strings.Contains(string(data), "Recent task") {
+		t.Error("expected recent entry to be kept, but it is missing")
+	}
+}
+
+func TestTrimFailuresJSONL_KeepsAllIfAllRecent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "failures.jsonl")
+
+	recent := time.Now().UTC().Add(-1 * 24 * time.Hour)
+	lines := []string{
+		`{"type":"failure","day":1,"task":"A","reason":"x","ts":"` + recent.Format(time.RFC3339) + `"}`,
+		`{"type":"failure","day":2,"task":"B","reason":"y","ts":"` + recent.Format(time.RFC3339) + `"}`,
+	}
+	_ = os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+
+	trimFailuresJSONL(path, 30*24*time.Hour)
+
+	data, _ := os.ReadFile(path)
+	got := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(got) != 2 {
+		t.Errorf("expected 2 lines, got %d", len(got))
+	}
+}
+
+func TestTrimFailuresJSONL_NoopOnMissingFile(t *testing.T) {
+	// Should not panic or error.
+	trimFailuresJSONL(filepath.Join(t.TempDir(), "nonexistent.jsonl"), 30*24*time.Hour)
 }

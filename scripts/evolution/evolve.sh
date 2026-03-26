@@ -53,6 +53,19 @@ if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   exit 1
 fi
 
+# ── Validate GitHub token scope ──
+if command -v gh &>/dev/null; then
+  GH_AUTH_STATUS=$(gh auth status 2>&1 || true)
+  if echo "$GH_AUTH_STATUS" | grep -q "not logged in\|no credentials"; then
+    log "ERROR: gh CLI not authenticated — run 'gh auth login' or set GITHUB_TOKEN"
+    exit 1
+  fi
+  # Warn (don't abort) if pull_requests scope is missing — it's needed for PR creation.
+  if ! echo "$GH_AUTH_STATUS" | grep -q "pull_requests\|admin:repo_hook\|repo"; then
+    log "WARNING: GitHub token may lack pull_requests scope — PR creation may fail"
+  fi
+fi
+
 # ── Calculate day from BIRTH_DATE ──
 BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-25")
 SESSION_TIME=$(date -u +'%H:%M')
@@ -239,37 +252,10 @@ gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolut
   fi
 done
 
-<<<<<<< Updated upstream
 # ── Cost estimation ──
 SESSION_DURATION=$SECONDS
 log "Session duration: ${SESSION_DURATION}s"
 log "Estimated cost: ~\$0.00 (depends on API usage)"
-=======
-# ── Generate stats ──
-log "Generating stats..."
-python3 scripts/build/generate_stats.py . 2>/dev/null || true
-git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
-
-# ── Final commit and push ──
-log "Pushing changes..."
-
-# Re-calculate day after pull (pull may overwrite DAY_COUNT)
-DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-
-if [[ -n $(git status -s) ]]; then
-  git add -A
-  git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
-fi
-git pull --rebase origin main 2>/dev/null || true
-
-# Always ensure DAY_COUNT is correct after pull
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-git add DAY_COUNT 2>/dev/null || true
-git commit --amend --no-edit 2>/dev/null || git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
-
-git push origin main 2>/dev/null || log "Push failed"
->>>>>>> Stashed changes
 
 # ── Summary ──
 log "=== evolution cycle completed ==="

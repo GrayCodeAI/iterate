@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 REPO_PATH = "."
 LEARNINGS_FILE = f"{REPO_PATH}/memory/learnings.jsonl"
+SOCIAL_FILE = f"{REPO_PATH}/memory/social_learnings.jsonl"
 FAILURES_FILE = f"{REPO_PATH}/memory/failures.jsonl"
 ACTIVE_FILE = f"{REPO_PATH}/memory/ACTIVE_LEARNINGS.md"
 
@@ -60,8 +61,10 @@ def load_jsonl(path):
     return entries
 
 
-def synthesize_learnings(learnings, failures):
-    """Synthesize learnings and failures into ACTIVE_LEARNINGS.md content."""
+def synthesize_learnings(learnings, failures, social=None):
+    """Synthesize learnings, social insights, and failures into ACTIVE_LEARNINGS.md content."""
+    if social is None:
+        social = []
     now = now_utc()
 
     # Bucket learnings by age.
@@ -86,7 +89,16 @@ def synthesize_learnings(learnings, failures):
             recent_failures.append(entry)
     recent_failures = recent_failures[-10:]
 
-    if not learnings and not failures:
+    # Recent social insights (last 14 days), keep most recent 10.
+    recent_social = []
+    for entry in social:
+        dt = parse_ts(entry.get("ts", ""))
+        days_old = (now - dt).days if dt else 999
+        if days_old <= 14:
+            recent_social.append(entry)
+    recent_social = recent_social[-10:]
+
+    if not learnings and not failures and not social:
         return "## Active Learnings\n\nNo learnings yet.\n"
 
     out = ["## Active Learnings\n\n"]
@@ -120,6 +132,15 @@ def synthesize_learnings(learnings, failures):
             out.append(f"- **{theme}**: {', '.join(titles[:3])}\n")
         out.append("\n")
 
+    if recent_social:
+        out.append("### Community Insights (last 14 days)\n\n")
+        for entry in recent_social:
+            insight = entry.get("insight") or entry.get("learning") or ""
+            who = entry.get("who", "")
+            prefix = f"[{who}] " if who else ""
+            out.append(f"- {prefix}{insight[:200]}\n")
+        out.append("\n")
+
     if recent_failures:
         out.append("### Recent Failures (avoid repeating)\n\n")
         for entry in recent_failures:
@@ -137,14 +158,15 @@ def synthesize_learnings(learnings, failures):
 
 def main():
     learnings = load_jsonl(LEARNINGS_FILE)
+    social = load_jsonl(SOCIAL_FILE)
     failures = load_jsonl(FAILURES_FILE)
-    synthesis = synthesize_learnings(learnings, failures)
+    synthesis = synthesize_learnings(learnings, failures, social)
 
     os.makedirs(os.path.dirname(os.path.abspath(ACTIVE_FILE)), exist_ok=True)
     with open(ACTIVE_FILE, "w") as f:
         f.write(synthesis)
 
-    print(f"Synthesized {len(learnings)} learnings + {len(failures)} failures → {ACTIVE_FILE}")
+    print(f"Synthesized {len(learnings)} learnings + {len(social)} social + {len(failures)} failures → {ACTIVE_FILE}")
 
 
 if __name__ == "__main__":
