@@ -149,6 +149,14 @@ func registerSessionUtilityA(r *Registry) {
 
 func registerSessionUtilityB(r *Registry) {
 	r.Register(Command{
+		Name:        "/history-search",
+		Aliases:     []string{"/hs"},
+		Description: "search session messages for a keyword",
+		Category:    "session",
+		Handler:     cmdHistorySearch,
+	})
+
+	r.Register(Command{
 		Name:        "/changes",
 		Aliases:     []string{},
 		Description: "show files changed this session",
@@ -580,5 +588,73 @@ func cmdIterateInit(ctx Context) Result {
 	} else {
 		PrintSuccess("ITERATE.md generated — edit it to add project-specific context")
 	}
+	return Result{Handled: true}
+}
+
+// cmdHistorySearch searches the current session history for a keyword (case-insensitive).
+// Usage: /history-search <term>
+func cmdHistorySearch(ctx Context) Result {
+	query := strings.TrimSpace(ctx.Args())
+	if query == "" {
+		fmt.Println("Usage: /search <term>")
+		return Result{Handled: true}
+	}
+
+	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
+		fmt.Println("No messages in current session.")
+		return Result{Handled: true}
+	}
+
+	lower := strings.ToLower(query)
+	type match struct {
+		idx     int
+		role    string
+		excerpt string
+	}
+	var matches []match
+
+	for i, msg := range ctx.Agent.Messages {
+		content := msg.Content
+		contentLower := strings.ToLower(content)
+		if !strings.Contains(contentLower, lower) {
+			continue
+		}
+		// Find first occurrence and build a short excerpt around it.
+		pos := strings.Index(contentLower, lower)
+		start := pos - 60
+		if start < 0 {
+			start = 0
+		}
+		end := pos + len(query) + 60
+		if end > len(content) {
+			end = len(content)
+		}
+		excerpt := strings.ReplaceAll(content[start:end], "\n", " ")
+		if start > 0 {
+			excerpt = "…" + excerpt
+		}
+		if end < len(content) {
+			excerpt += "…"
+		}
+		matches = append(matches, match{idx: i + 1, role: msg.Role, excerpt: excerpt})
+	}
+
+	if len(matches) == 0 {
+		fmt.Printf("No matches for %q in %d messages.\n\n", query, len(ctx.Agent.Messages))
+		return Result{Handled: true}
+	}
+
+	fmt.Printf("%s── Search: %q — %d match(es) ──%s\n", ColorDim, query, len(matches), ColorReset)
+	for _, m := range matches {
+		roleColor := ColorDim
+		switch m.role {
+		case "user":
+			roleColor = ColorCyan
+		case "assistant":
+			roleColor = ColorLime
+		}
+		fmt.Printf("  %s#%d %-10s%s %s\n", roleColor, m.idx, m.role, ColorReset, m.excerpt)
+	}
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }

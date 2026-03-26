@@ -23,6 +23,7 @@ type mainFlags struct {
 	saveSession string
 	loadSession string
 	compactFlag bool
+	noTools     bool
 }
 
 func parseFlags() mainFlags {
@@ -44,6 +45,7 @@ func parseFlags() mainFlags {
 	flag.StringVar(&f.saveSession, "save-session", "", "Save agent messages to JSON file after run")
 	flag.StringVar(&f.loadSession, "load-session", "", "Load agent messages from JSON file before run")
 	flag.BoolVar(&f.compactFlag, "compact", false, "Compact loaded session before running")
+	flag.BoolVar(&f.noTools, "no-tools", false, "Disable all tools — pure chat mode (no file reads/writes/bash)")
 	flag.Parse()
 	return f
 }

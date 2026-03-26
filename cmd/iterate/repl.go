@@ -188,6 +188,12 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 
 	selector.RepoPath = repoPath
 	selector.SafeMode = cfg.SafeMode
+
+	// Auto-discover MCP servers from .mcp.json in the repo root.
+	if n := discoverMCPServers(repoPath); n > 0 {
+		fmt.Fprintf(os.Stderr, "  .mcp.json: added %d MCP server(s)\n", n)
+	}
+
 	return thinking
 }
 
@@ -448,6 +454,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		SessionCacheWrite:   &sess.CacheWrite,
 		InputHistory:        selector.InputHistoryRef,
 		StopWatch:           stopWatch,
+		StartWatch:          startWatch,
 		Pool:                agentPool,
 		Config: commands.ConfigCallbacks{
 			LoadConfig: func() interface{} {
@@ -459,6 +466,8 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 					saveConfig(*c)
 				}
 			},
+			LoadMCPServers: loadMCPServers,
+			SaveMCPServers: saveMCPServers,
 		},
 		Session: commands.SessionCallbacks{
 			SaveSession:   saveSession,
@@ -473,6 +482,20 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			RunShell:       runShell,
 			PromptLine:     selector.PromptLine,
 			Undo:           performUndo,
+			// MakeAgent rebuilds the agent's tool set in-place to reflect a mode change.
+			// It uses WithTools which mutates the agent directly so the REPL loop
+			// automatically uses the new tool set on the next request.
+			MakeAgent: func() *iteragent.Agent {
+				base := iteragent.DefaultTools(repoPath)
+				switch currentMode {
+				case modeAsk:
+					base = readOnlyTools(base)
+				case modeArchitect:
+					base = nil
+				}
+				newTools := wrapToolsWithPermissions(base)
+				return a.WithTools(newTools)
+			},
 		},
 		State: commands.StateAccessors{
 			IsDenied:             isDenied,

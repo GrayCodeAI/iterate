@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -29,8 +30,15 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 
 	f.thinking = resolveThinkingLevel(f.thinking, cfg)
 
+	if f.noTools {
+		currentMode = modeArchitect // reuse "no tools" mode
+	}
+
 	isREPL := f.chat || (!f.evolve && !f.socialOnly && f.phase == "")
 	if isREPL {
+		if f.noTools {
+			fmt.Fprintf(os.Stderr, "  --no-tools: running in pure chat mode (no tool access)\n")
+		}
 		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(f.thinking), logger)
 		return
 	}

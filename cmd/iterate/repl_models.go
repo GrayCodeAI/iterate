@@ -15,30 +15,50 @@ import (
 
 // selectModel shows an interactive provider+model picker. Returns new provider or nil on cancel.
 func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, iteragent.ThinkingLevel) {
-	providers := []string{"anthropic", "openai", "gemini", "groq", "ollama"}
+	providers := []string{
+		"anthropic       (ANTHROPIC_API_KEY)",
+		"openai          (OPENAI_API_KEY)",
+		"gemini          (GEMINI_API_KEY)",
+		"groq            (GROQ_API_KEY)",
+		"ollama          (local, no key needed)",
+		"opencode-cli    (no key needed — uses CLI)",
+		"nvidia          (NVIDIA_API_KEY)",
+		"deepseek        (ITERATE_API_KEY)",
+		"mistral         (ITERATE_API_KEY)",
+	}
 
 	fmt.Println()
-	providerName, ok := selector.SelectItem("Select provider", providers)
+	choice, ok := selector.SelectItem("Select provider", providers)
 	if !ok {
 		return nil, currentThinking
 	}
+	// Extract the bare provider name (before the first space).
+	providerName := strings.Fields(choice)[0]
 
 	if providerName == "ollama" {
 		os.Setenv("ITERATE_PROVIDER", "ollama")
 		return selectOllamaModel(currentThinking)
 	}
 
-	apiKey, ok := selector.PromptLine("API key (Enter to use env var, ESC to cancel):")
-	if !ok {
-		return nil, currentThinking
+	// opencode-cli and ollama don't need an API key.
+	noKeyProviders := map[string]bool{
+		"opencode-cli": true,
 	}
 
 	var newP iteragent.Provider
 	var err error
-	if apiKey != "" {
-		newP, err = iteragent.NewProvider(providerName, apiKey)
-	} else {
+	if noKeyProviders[providerName] {
 		newP, err = iteragent.NewProvider(providerName)
+	} else {
+		apiKey, ok2 := selector.PromptLine("API key (Enter to use env var, ESC to cancel):")
+		if !ok2 {
+			return nil, currentThinking
+		}
+		if apiKey != "" {
+			newP, err = iteragent.NewProvider(providerName, apiKey)
+		} else {
+			newP, err = iteragent.NewProvider(providerName)
+		}
 	}
 	if err != nil {
 		fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)

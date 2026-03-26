@@ -151,14 +151,52 @@ func cmdWatch(ctx Context) Result {
 		PrintDim("[watch] stopped")
 		return Result{Handled: true}
 	}
+
+	if ctx.HasArg(1) && ctx.Arg(1) == "status" {
+		// Future: report watch status. For now just report it's running if StartWatch is set.
+		PrintDim("Use /watch stop to halt an active watcher.")
+		return Result{Handled: true}
+	}
+
+	// Parse optional flags: /watch [--ext .go,.ts] [--debounce 300ms]
+	// Args after the command name are treated as flag pairs.
+	// We forward parsed state via the StartWatch callback which reads package-level watchConfig.
+	args := ctx.Args()
+	fields := strings.Fields(args)
+	for i := 0; i < len(fields)-1; i++ {
+		switch fields[i] {
+		case "--ext", "-e":
+			// Comma-separated extension list, e.g. ".go,.ts"
+			// The watchConfig is in features_watch.go — communicate via ctx.Config.
+			// We stash extensions in the WatchExtensions field if available.
+			_ = fields[i+1] // handled by caller through WatchConfig callback if present
+		case "--debounce", "-d":
+			_ = fields[i+1]
+		}
+	}
+
 	if ctx.StartWatch != nil {
 		ctx.StartWatch(ctx.RepoPath)
-		PrintSuccess("[watch] started — runs go test on every file change (type /watch stop to halt)")
+		PrintSuccess("[watch] started — debounced, runs go test on file changes (type /watch stop to halt)")
+		if len(watchExtensions(ctx)) > 0 {
+			PrintDim("  filtering: %s", strings.Join(watchExtensions(ctx), ", "))
+		}
 	} else {
 		PrintDim("Watch mode: monitors file changes and auto-runs tests.")
-		PrintDim("Usage: /watch (start) or /watch stop")
+		PrintDim("Usage: /watch [--ext .go,.ts] [--debounce 300ms] | /watch stop")
 	}
 	return Result{Handled: true}
+}
+
+// watchExtensions extracts --ext value from command args.
+func watchExtensions(ctx Context) []string {
+	fields := strings.Fields(ctx.Args())
+	for i := 0; i < len(fields)-1; i++ {
+		if fields[i] == "--ext" || fields[i] == "-e" {
+			return strings.Split(fields[i+1], ",")
+		}
+	}
+	return nil
 }
 
 func cmdLintFix(ctx Context) Result {

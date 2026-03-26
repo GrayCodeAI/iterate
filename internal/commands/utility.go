@@ -132,14 +132,29 @@ func cmdContext(ctx Context) Result {
 }
 
 func cmdExport(ctx Context) Result {
-	name := fmt.Sprintf("iterate-export-%s.md", time.Now().Format("2006-01-02-150405"))
-	if ctx.HasArg(1) {
-		name = ctx.Arg(1)
-	}
-
 	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
 		PrintError("no conversation to export")
 		return Result{Handled: true}
+	}
+
+	// /export html [filename] — rich HTML export
+	if ctx.HasArg(1) && strings.ToLower(ctx.Arg(1)) == "html" {
+		name := fmt.Sprintf("iterate-export-%s.html", time.Now().Format("2006-01-02-150405"))
+		if ctx.HasArg(2) {
+			name = ctx.Arg(2)
+		}
+		if err := exportHTML(ctx, name); err != nil {
+			PrintError("HTML export failed: %v", err)
+		} else {
+			PrintSuccess("exported to %s", name)
+		}
+		return Result{Handled: true}
+	}
+
+	// Default: markdown export
+	name := fmt.Sprintf("iterate-export-%s.md", time.Now().Format("2006-01-02-150405"))
+	if ctx.HasArg(1) {
+		name = ctx.Arg(1)
 	}
 
 	f, err := os.Create(name)
@@ -165,6 +180,105 @@ func cmdExport(ctx Context) Result {
 
 	PrintSuccess("exported to %s", name)
 	return Result{Handled: true}
+}
+
+func exportHTML(ctx Context, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	fmt.Fprintf(f, `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iterate Export — %s</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         max-width: 900px; margin: 40px auto; padding: 0 20px;
+         background: #0d1117; color: #e6edf3; line-height: 1.6; }
+  h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 12px; }
+  .msg { margin: 24px 0; border-radius: 8px; overflow: hidden; }
+  .msg-header { padding: 8px 16px; font-size: 0.85em; font-weight: 600;
+                text-transform: uppercase; letter-spacing: 0.05em; }
+  .msg-body { padding: 16px; white-space: pre-wrap; word-wrap: break-word; }
+  .user .msg-header { background: #1f2937; color: #93c5fd; }
+  .user .msg-body   { background: #161b22; border: 1px solid #30363d; border-top: none; }
+  .assistant .msg-header { background: #14280e; color: #86efac; }
+  .assistant .msg-body   { background: #0d1f0d; border: 1px solid #2d4a1e; border-top: none; }
+  .system .msg-header { background: #2c1810; color: #fbbf24; }
+  .system .msg-body   { background: #1a0f08; border: 1px solid #4a2a10; border-top: none; }
+  code { background: #1e2730; padding: 2px 6px; border-radius: 4px;
+         font-family: "SF Mono", "Fira Code", monospace; font-size: 0.9em; }
+  pre code { display: block; padding: 12px; overflow-x: auto; }
+  .footer { color: #8b949e; font-size: 0.8em; margin-top: 48px;
+            border-top: 1px solid #30363d; padding-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Iterate Export</h1>
+<p style="color:#8b949e">Generated: %s &nbsp;|&nbsp; Messages: %d</p>
+`, ts, ts, len(ctx.Agent.Messages))
+
+	for _, msg := range ctx.Agent.Messages {
+		class := msg.Role
+		label := strings.ToUpper(msg.Role)
+		body := htmlEscape(msg.Content)
+		// Highlight fenced code blocks with a <pre><code> wrapper.
+		body = highlightCodeBlocks(body)
+		fmt.Fprintf(f, `<div class="msg %s">
+  <div class="msg-header">%s</div>
+  <div class="msg-body">%s</div>
+</div>
+`, class, label, body)
+	}
+
+	fmt.Fprintf(f, `<div class="footer">Exported by <strong>iterate</strong> — %s</div>
+</body></html>`, ts)
+	return nil
+}
+
+// htmlEscape escapes special HTML characters.
+func htmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
+// highlightCodeBlocks wraps ```lang...``` fenced blocks in <pre><code>.
+func highlightCodeBlocks(escaped string) string {
+	var out strings.Builder
+	lines := strings.Split(escaped, "\n")
+	inCode := false
+	for _, line := range lines {
+		if !inCode && strings.HasPrefix(line, "```") {
+			inCode = true
+			lang := strings.TrimPrefix(line, "```")
+			lang = strings.TrimSpace(lang)
+			if lang != "" {
+				out.WriteString(fmt.Sprintf(`<pre><code class="language-%s">`, lang))
+			} else {
+				out.WriteString("<pre><code>")
+			}
+			continue
+		}
+		if inCode && strings.TrimSpace(line) == "```" {
+			inCode = false
+			out.WriteString("</code></pre>\n")
+			continue
+		}
+		out.WriteString(line)
+		out.WriteByte('\n')
+	}
+	if inCode {
+		out.WriteString("</code></pre>")
+	}
+	return out.String()
 }
 
 func cmdRetry(ctx Context) Result {

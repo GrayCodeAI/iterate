@@ -10,6 +10,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/commands"
 	"github.com/GrayCodeAI/iterate/internal/ui/highlight"
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
@@ -126,6 +127,11 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	defer commitUndoFrame()
 
 	recordMessage()
+
+	// Prepend any pending image attachment (from /image command) to the prompt.
+	if img := commands.GetPendingImageAttachment(); img != "" {
+		prompt = img + "\n\n" + prompt
+	}
 
 	// Sync pinned messages into the agent before each request.
 	a.SetPinnedMessages(getPinnedMessages())

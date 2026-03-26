@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,6 +53,14 @@ func registerFileContentCommands(r *Registry) {
 		Description: "inject file into context",
 		Category:    "files",
 		Handler:     cmdAdd,
+	})
+
+	r.Register(Command{
+		Name:        "/image",
+		Aliases:     []string{},
+		Description: "attach image to next message (vision models)",
+		Category:    "files",
+		Handler:     cmdImage,
 	})
 
 	r.Register(Command{
@@ -427,4 +436,70 @@ func cmdSearch(ctx Context) Result {
 	}
 	fmt.Println()
 	return Result{Handled: true}
+}
+
+// ---------------------------------------------------------------------------
+// /image — pending image attachment for vision-capable providers
+// ---------------------------------------------------------------------------
+
+// pendingImageAttachment holds an image to be prepended to the next message.
+// Access is safe because commands run sequentially in the REPL loop.
+var pendingImageAttachment string // non-empty = base64 data URI
+
+// imageMimeType returns the MIME type for common image extensions.
+func imageMimeType(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	default:
+		return "image/png"
+	}
+}
+
+// cmdImage reads an image file, base64-encodes it, and stores it as a pending
+// attachment. The next user message sent via streamAndPrint will prepend the
+// image data URI so vision-capable providers can see it.
+func cmdImage(ctx Context) Result {
+	if !ctx.HasArg(1) {
+		if pendingImageAttachment != "" {
+			fmt.Printf("%s[image] pending attachment set (%d chars)%s\n\n",
+				ColorDim, len(pendingImageAttachment), ColorReset)
+		} else {
+			fmt.Println("Usage: /image <path>")
+		}
+		return Result{Handled: true}
+	}
+
+	imgPath := ctx.Arg(1)
+	if !filepath.IsAbs(imgPath) {
+		imgPath = filepath.Join(ctx.RepoPath, imgPath)
+	}
+
+	data, err := os.ReadFile(imgPath)
+	if err != nil {
+		PrintError("cannot read image: %v", err)
+		return Result{Handled: true}
+	}
+
+	ext := filepath.Ext(imgPath)
+	mime := imageMimeType(ext)
+	b64 := base64.StdEncoding.EncodeToString(data)
+	dataURI := fmt.Sprintf("data:%s;base64,%s", mime, b64)
+
+	pendingImageAttachment = dataURI
+	PrintSuccess("image loaded: %s (%s, %d bytes) — will attach to next message",
+		filepath.Base(imgPath), mime, len(data))
+	return Result{Handled: true}
+}
+
+// GetPendingImageAttachment returns and clears any pending image attachment.
+// Called by streamAndPrint before sending each request.
+func GetPendingImageAttachment() string {
+	img := pendingImageAttachment
+	pendingImageAttachment = ""
+	return img
 }
