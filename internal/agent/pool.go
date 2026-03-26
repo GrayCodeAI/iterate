@@ -177,7 +177,10 @@ func (p *Pool) Close() {
 	p.rateLimiter.Stop()
 	p.mu.Lock()
 	for _, agent := range p.agents {
-		_ = agent.Close() // best-effort cleanup
+		func() {
+			defer func() { recover() }() // prevent one agent panic from skipping cleanup of others
+			_ = agent.Close()
+		}()
 	}
 	p.agents = nil
 	p.mu.Unlock()

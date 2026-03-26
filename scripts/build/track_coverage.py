@@ -99,7 +99,9 @@ def main():
     print(json.dumps(entry))
 
     # Append to history
+    import os
     history_file = f"{repo_path}/memory/coverage_history.jsonl"
+    os.makedirs(os.path.dirname(history_file), exist_ok=True)
     with open(history_file, "a") as f:
         f.write(json.dumps(entry) + "\n")
 

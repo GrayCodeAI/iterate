@@ -7,6 +7,7 @@ Generates:
 """
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -135,6 +136,7 @@ def main():
     # Generate stats
     stats = generate_stats(repo_path)
     stats_file = f"{repo_path}/docs/stats.json"
+    os.makedirs(os.path.dirname(stats_file), exist_ok=True)
     with open(stats_file, "w") as f:
         json.dump(stats, f, indent=2)
     print(f"Stats written to {stats_file}")
@@ -143,6 +145,7 @@ def main():
     # Generate weekly summary
     summary = generate_weekly_summary(repo_path)
     summary_file = f"{repo_path}/memory/weekly_summary.md"
+    os.makedirs(os.path.dirname(summary_file), exist_ok=True)
     with open(summary_file, "w") as f:
         f.write(summary)
     print(f"\nSummary written to {summary_file}")

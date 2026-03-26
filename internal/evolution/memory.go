@@ -24,7 +24,11 @@ func (e *Engine) appendLearningJSONL(title, source, context, takeaway string) er
 	}
 
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
-	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
+	dayStr := strings.TrimSpace(string(dayBytes))
+	day, err := strconv.Atoi(dayStr)
+	if err != nil && dayStr != "" {
+		e.logger.Warn("DAY_COUNT is not a valid integer, defaulting to 0", "value", dayStr)
+	}
 
 	entry := map[string]interface{}{
 		"type":     "lesson",
@@ -66,7 +70,11 @@ func (e *Engine) appendFailureJSONL(taskTitle, reason string) error {
 	}
 
 	dayBytes, _ := os.ReadFile(filepath.Join(e.repoPath, "DAY_COUNT"))
-	day, _ := strconv.Atoi(strings.TrimSpace(string(dayBytes)))
+	dayStr := strings.TrimSpace(string(dayBytes))
+	day, err := strconv.Atoi(dayStr)
+	if err != nil && dayStr != "" {
+		e.logger.Warn("DAY_COUNT is not a valid integer, defaulting to 0", "value", dayStr)
+	}
 
 	entry := map[string]interface{}{
 		"type":  "failure",
@@ -126,7 +134,12 @@ func trimFailuresJSONL(path string, maxAge time.Duration) {
 	if len(kept) == 0 {
 		return
 	}
-	_ = os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o644)
+	// Write atomically: temp file then rename, so a crash mid-write can't corrupt the file.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(kept, "\n")+"\n"), 0o644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
 }
 
 // recentFailures reads memory/failures.jsonl and returns the last N entries

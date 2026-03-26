@@ -180,6 +180,8 @@ func (e *Engine) clearSessionPlan() {
 	path := filepath.Join(e.repoPath, "SESSION_PLAN.md")
 	if err := os.Remove(path); err == nil {
 		e.logger.Info("cleared SESSION_PLAN.md after successful merge")
+	} else if !os.IsNotExist(err) {
+		e.logger.Warn("failed to clear SESSION_PLAN.md", "err", err)
 	}
 }
 
@@ -240,7 +242,10 @@ func (e *Engine) Run(ctx context.Context, p iteragent.Provider, issues string) (
 		return result, runErr
 	}
 
-	hasChanges, _ := e.hasChanges(ctx)
+	hasChanges, changesErr := e.hasChanges(ctx)
+	if changesErr != nil {
+		e.logger.Warn("could not determine if changes exist, assuming no changes", "err", changesErr)
+	}
 	if !hasChanges {
 		e.logger.Info("no changes detected, skipping PR flow")
 		result.Status = "no_changes"
@@ -409,7 +414,10 @@ func (e *Engine) auditLog(eventType, tool, detail string) {
 		entry["detail"] = detail
 	}
 
-	data, _ := json.Marshal(entry)
+	data, err := json.Marshal(entry)
+	if err != nil {
+		return
+	}
 
 	e.auditMu.Lock()
 	defer e.auditMu.Unlock()

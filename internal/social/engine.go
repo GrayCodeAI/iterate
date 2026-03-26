@@ -401,7 +401,12 @@ func trimSocialJSONL(path string) {
 	if len(kept) == 0 {
 		return
 	}
-	_ = os.WriteFile(path, []byte(strings.Join(kept, "\n")+"\n"), 0o644)
+	// Write atomically: temp file then rename to avoid partial writes on crash.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(kept, "\n")+"\n"), 0o644); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, path)
 }
 
 // --- GitHub REST API calls ---

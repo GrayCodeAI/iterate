@@ -337,7 +337,9 @@ func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task pla
 		e.logger.Info("task succeeded on retry", "number", task.Number)
 	} else {
 		e.logger.Warn("task failed after retry, skipping", "number", task.Number)
-		_ = e.appendFailureJSONL(task.Title, firstLine(failReason))
+		if err := e.appendFailureJSONL(task.Title, firstLine(failReason)); err != nil {
+			e.logger.Warn("failed to record task failure", "task", task.Title, "err", err)
+		}
 	}
 }
 
@@ -386,7 +388,9 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 		return false, errCtx
 	}
 
-	_ = e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, "")
+	if err := e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, ""); err != nil {
+		e.logger.Warn("failed to record task learning", "task", task.Title, "err", err)
+	}
 	return true, ""
 }
 

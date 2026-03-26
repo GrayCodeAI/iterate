@@ -32,10 +32,14 @@ func parseSessionPlanTasks(plan string) []planTask {
 			var num int
 			var title string
 			if idx := strings.IndexByte(rest, ':'); idx >= 0 {
-				fmt.Sscanf(rest[:idx], "%d", &num)
+				if n, _ := fmt.Sscanf(rest[:idx], "%d", &num); n == 0 {
+					num = len(tasks) + 1
+				}
 				title = strings.TrimSpace(rest[idx+1:])
 			} else {
-				fmt.Sscanf(rest, "%d", &num)
+				if n, _ := fmt.Sscanf(rest, "%d", &num); n == 0 {
+					num = len(tasks) + 1
+				}
 				title = rest
 			}
 			current = &planTask{Number: num, Title: title}
@@ -150,7 +154,7 @@ func parseIssueResponses(plan string) []issueResponse {
 			rest := strings.TrimPrefix(line, "- #")
 			var num int
 			fmt.Sscanf(rest, "%d", &num)
-			if num == 0 {
+			if num <= 0 || num > 999999 {
 				continue
 			}
 			status := "comment"

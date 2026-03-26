@@ -128,7 +128,10 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 
 	journalPath := filepath.Join(e.repoPath, "docs/JOURNAL.md")
 	_ = os.MkdirAll(filepath.Dir(journalPath), 0o755)
-	journal, _ := os.ReadFile(journalPath)
+	journal, err := os.ReadFile(journalPath)
+	if err != nil && !os.IsNotExist(err) {
+		e.logger.Warn("failed to read JOURNAL.md, will overwrite", "err", err)
+	}
 
 	header := "# iterate Evolution Journal\n"
 	if !strings.HasPrefix(string(journal), header) {
@@ -136,7 +139,9 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 	}
 	rest := strings.TrimPrefix(strings.TrimPrefix(string(journal), header), "\n")
 	newContent := header + "\n" + extracted + "\n\n" + rest
-	_ = os.WriteFile(journalPath, []byte(newContent), 0o644)
+	if err := os.WriteFile(journalPath, []byte(newContent), 0o644); err != nil {
+		e.logger.Warn("failed to write JOURNAL.md", "err", err)
+	}
 }
 
 // issueAlreadyCommented checks if the bot already commented on an issue today.
@@ -154,17 +159,24 @@ func (e *Engine) issueAlreadyCommented(ctx context.Context, issueNum int, day st
 
 // postIssueComments posts GitHub comments for addressed issues.
 func (e *Engine) postIssueComments(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, plan string) {
+	day := e.readDayCount()
 	responses := parseIssueResponses(plan)
 	for _, resp := range responses {
+		if e.issueAlreadyCommented(ctx, resp.IssueNum, day) {
+			e.logger.Info("skipping already-commented issue", "issue", resp.IssueNum, "day", day)
+			continue
+		}
 		body := fmt.Sprintf("Status: %s\nReason: %s", resp.Status, resp.Reason)
 		userMsg := fmt.Sprintf(`Post a GitHub issue comment on issue #%d. Be brief. Sign off with your day count.
 
 Body: %s
 
 Use: gh issue comment %d --repo %s --body "..."`, resp.IssueNum, body, resp.IssueNum, e.repo)
+		issueCtx, issueCancel := context.WithTimeout(ctx, 90*time.Second)
 		a := e.newAgent(p, tools, systemPrompt, skills)
-		e.forwardEvents(a.Prompt(ctx, userMsg))
+		e.forwardEvents(a.Prompt(issueCtx, userMsg))
 		a.Finish()
+		issueCancel()
 	}
 }
 
