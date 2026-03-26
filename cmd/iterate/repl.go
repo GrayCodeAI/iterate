@@ -472,6 +472,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			StreamAndPrint: streamAndPrint,
 			RunShell:       runShell,
 			PromptLine:     selector.PromptLine,
+			Undo:           performUndo,
 		},
 		State: commands.StateAccessors{
 			IsDenied:             isDenied,
