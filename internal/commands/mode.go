@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/GrayCodeAI/iterate/internal/ui/highlight"
 )
 
 // RegisterModeCommands adds agent mode and display commands.
@@ -78,6 +80,7 @@ func registerDisplayNavCommands(r *Registry) {
 		"/theme", "set color theme", cmdTheme,
 		"/shortcuts", "list all keyboard shortcuts", cmdShortcuts,
 		"/providers", "list configured providers and status", cmdProviders,
+		"/render", "toggle markdown vs raw response rendering", cmdRender,
 	)
 }
 
@@ -457,5 +460,29 @@ func cmdProviders(ctx Context) Result {
 	}
 	fmt.Println()
 	fmt.Printf("  Use %s/provider <name>%s to switch providers.\n\n", ColorBold, ColorReset)
+	return Result{Handled: true}
+}
+
+func cmdRender(ctx Context) Result {
+	// Toggle or explicitly set: /format [markdown|raw|on|off]
+	if ctx.HasArg(1) {
+		arg := strings.ToLower(ctx.Arg(1))
+		switch arg {
+		case "markdown", "md", "on", "true":
+			highlight.MarkdownEnabled = true
+		case "raw", "plain", "off", "false":
+			highlight.MarkdownEnabled = false
+		default:
+			fmt.Printf("Usage: /format [markdown|raw]\n")
+			return Result{Handled: true}
+		}
+	} else {
+		highlight.MarkdownEnabled = !highlight.MarkdownEnabled
+	}
+	if highlight.MarkdownEnabled {
+		PrintSuccess("format: markdown (syntax highlighting on)")
+	} else {
+		PrintSuccess("format: raw (plain text output)")
+	}
 	return Result{Handled: true}
 }

@@ -17,8 +17,17 @@ var (
 // contextWindow is the assumed token context window size used for % calculations.
 const ContextWindow = 200_000
 
+// MarkdownEnabled controls whether RenderResponse applies markdown formatting.
+// When false, responses are printed as plain text.
+var MarkdownEnabled = true
+
 // RenderResponse prints a markdown response with syntax highlighting.
+// If MarkdownEnabled is false, the text is printed raw.
 func RenderResponse(text string) {
+	if !MarkdownEnabled {
+		fmt.Print(text)
+		return
+	}
 	lines := strings.Split(text, "\n")
 	inCode := false
 	lang := ""
