@@ -28,6 +28,7 @@ var (
 	SafeMode     bool
 	InputTokens  int
 	OutputTokens int
+	TTFT         time.Duration
 )
 
 // Additional colors used in selector UI.
@@ -35,6 +36,7 @@ var (
 	colorGreen  = "\033[38;5;114m"
 	colorPurple = "\033[38;5;141m"
 	colorBlue   = "\033[38;5;75m"
+	_ = colorGreen
 )
 
 // PrintPrompt prints just the input glyph — clean, no decorations.
@@ -94,8 +96,7 @@ func formatElapsed(d time.Duration) string {
 	return fmt.Sprintf("%dm%ds", m, s)
 }
 
-// PrintStatusLine prints the one-line status shown after each agent response.
-// elapsed · model · tokens · ctx% (only >10%) · git dirty
+// formatTokenCount formats total session token count for display.
 func formatTokenCount(total int) string {
 	if total >= 1000 {
 		return fmt.Sprintf("%s · %s%.1fk tok%s", ui.ColorDim, colorPurple, float64(total)/1000, ui.ColorReset)
@@ -140,7 +141,9 @@ func formatGitStatus() string {
 }
 
 // PrintStatusLine prints the one-line status shown after each agent response.
-func PrintStatusLine(elapsed time.Duration) {
+// tokenDelta is the number of tokens used in this request (shown as +N); pass
+// 0 to omit the delta.
+func PrintStatusLine(elapsed time.Duration, tokenDelta int) {
 	model := os.Getenv("ITERATE_MODEL")
 	if model == "" {
 		model = os.Getenv("ITERATE_PROVIDER")
@@ -155,7 +158,12 @@ func PrintStatusLine(elapsed time.Duration) {
 		fmt.Printf("%s · %s%s", ui.ColorDim, model, ui.ColorReset)
 	}
 
-	fmt.Print(formatTokenCount(total))
+	if tokenDelta > 0 {
+		fmt.Printf("%s · %s+%d tok%s", ui.ColorDim, colorPurple, tokenDelta, ui.ColorReset)
+	}
+	if TTFT > 0 {
+		fmt.Printf("%s · %sttft %s%s", ui.ColorDim, colorBlue, formatElapsed(TTFT), ui.ColorReset)
+	}
 	fmt.Print(formatContextWindow(total))
 
 	if gs := formatGitStatus(); gs != "" {

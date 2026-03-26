@@ -61,6 +61,15 @@ func handleRawInput(b []byte, n int, buf *[]byte, histSnapshot *[]string, histId
 		return handleLineSubmit(buf, histSnapshot, histIdx, savedBuf)
 
 	case b[0] == 3:
+		// Two-stage Ctrl+C: first press clears the line, second press exits.
+		if len(*buf) > 0 {
+			// Clear the current line and reprint the prompt.
+			for range *buf {
+				fmt.Print("\b \b")
+			}
+			*buf = (*buf)[:0]
+			return false, "", false
+		}
 		fmt.Print("\r\n")
 		return true, "", false
 
@@ -88,10 +97,56 @@ func handleRawInput(b []byte, n int, buf *[]byte, histSnapshot *[]string, histId
 		return false, "", false
 
 	case b[0] == 127 || b[0] == 8:
+		// Backspace: delete one character.
 		if len(*buf) > 0 {
 			*buf = (*buf)[:len(*buf)-1]
 			fmt.Print("\b \b")
 		}
+		return false, "", false
+
+	case b[0] == 23:
+		// Ctrl+W: kill word backward (delete back to last whitespace boundary).
+		if len(*buf) > 0 {
+			end := len(*buf)
+			// Skip trailing spaces.
+			i := end - 1
+			for i >= 0 && (*buf)[i] == ' ' {
+				i--
+			}
+			// Delete back to the next space.
+			for i >= 0 && (*buf)[i] != ' ' {
+				i--
+			}
+			deleted := end - (i + 1)
+			for range deleted {
+				fmt.Print("\b \b")
+			}
+			*buf = (*buf)[:i+1]
+		}
+		return false, "", false
+
+	case b[0] == 21:
+		// Ctrl+U: kill to beginning of line.
+		for range *buf {
+			fmt.Print("\b \b")
+		}
+		*buf = (*buf)[:0]
+		return false, "", false
+
+	case b[0] == 11:
+		// Ctrl+K: kill to end of line (at end of buf — nothing visible to erase in terminal).
+		// Since we display sequentially, Ctrl+K is a no-op here unless we track cursor.
+		// For now, clear from cursor to end by reprinting spaces; simple: just clear all.
+		// Future: add cursor position tracking. For now, noop.
+		return false, "", false
+
+	case b[0] == 1:
+		// Ctrl+A: move to beginning of line (visual only — reprint prompt).
+		// Without cursor tracking we can't move cursor. No-op for now.
+		return false, "", false
+
+	case b[0] == 5:
+		// Ctrl+E: move to end of line. No-op without cursor tracking.
 		return false, "", false
 
 	default:

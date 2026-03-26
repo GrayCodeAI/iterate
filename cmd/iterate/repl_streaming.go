@@ -102,6 +102,9 @@ func logTokenDelta(beforeTokens int) {
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repoPath string) {
 	recordMessage()
 
+	// Sync pinned messages into the agent before each request.
+	a.SetPinnedMessages(getPinnedMessages())
+
 	reqCtx, cancel := context.WithCancel(ctx)
 	sess.RequestCancel = cancel
 	defer func() {
@@ -118,9 +121,13 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 
 	var fullContent string
 	var toolStart time.Time
+	var ttft time.Duration
 	beforeTokens := sess.Tokens
 
 	for e := range events {
+		if ttft == 0 && iteragent.EventType(e.Type) == iteragent.EventTokenUpdate && e.Content != "" {
+			ttft = time.Since(start).Round(time.Millisecond)
+		}
 		fullContent, toolStart = processStreamEvent(e, fullContent, toolStart, stopOnce, newSpinner, repoPath)
 	}
 	a.Finish()
@@ -135,7 +142,12 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	elapsed := time.Since(start).Round(time.Millisecond)
 
 	updateSessionTokens(a, fullContent)
-	printFinalStats(elapsed, beforeTokens, fullContent)
+	printFinalStats(elapsed, ttft, beforeTokens, fullContent)
+
+	// Autosave after each turn so a crash doesn't lose the session.
+	if len(a.Messages) > 0 {
+		_ = saveSession("autosave", a.Messages)
+	}
 }
 
 // newSpinnerController creates a spinner control pair (stopOnce, newSpinner).
@@ -147,6 +159,7 @@ func newSpinnerController() (func(), func(string)) {
 		stopOnce     func()
 		spinnerLabel string
 	)
+	stopOnce = func() {} // no-op until a spinner is started
 	newSpinner := func(label string) {
 		spinnerLabel = label
 		stopSpinner = make(chan struct{})
@@ -161,7 +174,9 @@ func newSpinnerController() (func(), func(string)) {
 		go spinner(stopSpinner, spinnerDone, spinnerLabel)
 	}
 	_ = spinnerLabel
-	return stopOnce, newSpinner
+	// Return a wrapper that always calls the *current* stopOnce, not the
+	// initial no-op captured at return time.
+	return func() { stopOnce() }, newSpinner
 }
 
 // processStreamEvent handles a single agent stream event and returns updated state.
@@ -184,7 +199,15 @@ func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Ti
 		fmt.Printf("%s%s %s%s", col, icon, label, colorReset)
 	case iteragent.EventToolExecutionEnd:
 		elapsed := time.Since(toolStart).Round(time.Millisecond)
-		printToolResult(e.Result, elapsed, e.ToolName, repoPath)
+		if e.IsError {
+			fmt.Printf("%s  ✗ %s%s  %s%s%s\n",
+				colorDim, colorReset,
+				colorRed, e.Result, colorReset,
+				colorDim)
+			fmt.Print(colorReset)
+		} else {
+			printToolResult(e.Result, elapsed, e.ToolName, repoPath)
+		}
 		newSpinner("thinking")
 	case iteragent.EventContextCompacted:
 		fmt.Printf("\r\033[K%s[context compacted]%s\n", colorDim, colorReset)
@@ -202,34 +225,38 @@ func printToolResult(result string, elapsed time.Duration, toolName string, repo
 	}
 }
 
-// updateSessionTokens updates session token counters from the last agent message.
+// updateSessionTokens updates session token counters from the last assistant
+// message with usage data. Searches backwards since tool result messages (role
+// user) may appear after the final assistant message.
 func updateSessionTokens(a *iteragent.Agent, fullContent string) {
-	if len(a.Messages) > 0 {
-		last := a.Messages[len(a.Messages)-1]
-		if last.Usage != nil {
-			sess.InputTokens += last.Usage.InputTokens
-			sess.OutputTokens += last.Usage.OutputTokens
-			sess.CacheRead += last.Usage.CacheRead
-			sess.CacheWrite += last.Usage.CacheWrite
-			sess.Tokens += last.Usage.TotalTokens
+	for i := len(a.Messages) - 1; i >= 0; i-- {
+		if a.Messages[i].Usage != nil {
+			u := a.Messages[i].Usage
+			sess.InputTokens += u.InputTokens
+			sess.OutputTokens += u.OutputTokens
+			sess.CacheRead += u.CacheRead
+			sess.CacheWrite += u.CacheWrite
+			sess.Tokens += u.TotalTokens
+			return
 		}
-	} else {
-		approxTokens := len(fullContent) / 4
-		sess.Tokens += approxTokens
-		sess.OutputTokens += approxTokens
 	}
+	// Fallback: approximate from streamed content length.
+	approxTokens := len(fullContent) / 4
+	sess.Tokens += approxTokens
+	sess.OutputTokens += approxTokens
 }
 
-// printFinalStats prints token delta, status line, and debug log.
-func printFinalStats(elapsed time.Duration, beforeTokens int, fullContent string) {
-	fmt.Println()
-	logTokenDelta(beforeTokens)
+// printFinalStats prints the status line and debug log.
+func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, fullContent string) {
+	delta := sess.Tokens - beforeTokens
+
 	fmt.Println()
 	selector.InputTokens = sess.InputTokens
 	selector.OutputTokens = sess.OutputTokens
 	selector.SafeMode = cfg.SafeMode
-	selector.PrintStatusLine(elapsed)
+	selector.TTFT = ttft
+	selector.PrintStatusLine(elapsed, delta)
 	fmt.Println()
 
-	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens)
+	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "ttft_ms", ttft.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens)
 }

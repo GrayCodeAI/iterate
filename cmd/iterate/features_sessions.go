@@ -60,7 +60,7 @@ func saveSession(name string, messages []iteragent.Message) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return atomicWriteFile(path, data, 0o644)
 }
 
 func loadSession(name string) ([]iteragent.Message, error) {
@@ -117,7 +117,7 @@ func loadBookmarks() []Bookmark {
 
 func saveBookmarks(bms []Bookmark) {
 	data, _ := json.MarshalIndent(bms, "", "  ")
-	if err := os.WriteFile(bookmarksPath(), data, 0o644); err != nil {
+	if err := atomicWriteFile(bookmarksPath(), data, 0o644); err != nil {
 		slog.Warn("failed to write bookmarks file", "err", err)
 	}
 }

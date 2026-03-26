@@ -9,15 +9,19 @@ import (
 
 // resolveProviderConfig merges flag values with persisted config.
 // Flags take precedence: only defaults ("gemini", empty) are overridden.
-func resolveProviderConfig(flagProvider, flagModel string, cfg iterConfig) (provider, model string) {
+func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterConfig) (provider, model, apiKey string) {
 	provider = flagProvider
 	model = flagModel
+	apiKey = flagAPIKey
 
 	if provider == "gemini" && cfg.Provider != "" && cfg.Provider != "gemini" {
 		provider = cfg.Provider
 	}
 	if model == "" && cfg.Model != "" {
 		model = cfg.Model
+	}
+	if apiKey == "" && cfg.APIKey != "" {
+		apiKey = cfg.APIKey
 	}
 	if cfg.OllamaBaseURL != "" && os.Getenv("OLLAMA_BASE_URL") == "" {
 		os.Setenv("OLLAMA_BASE_URL", cfg.OllamaBaseURL)
@@ -26,7 +30,7 @@ func resolveProviderConfig(flagProvider, flagModel string, cfg iterConfig) (prov
 		os.Setenv("ITERATE_MODEL", model)
 	}
 
-	return provider, model
+	return provider, model, apiKey
 }
 
 // resolveThinkingLevel returns the effective thinking level, falling back to

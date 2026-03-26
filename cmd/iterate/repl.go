@@ -41,6 +41,14 @@ var replRegistry = commands.DefaultRegistry()
 // iterateVersion is the current version string.
 const iterateVersion = "dev"
 
+// closeProvider shuts down a provider if it implements io.Closer.
+func closeProvider(p iteragent.Provider) {
+	type closer interface{ Close() error }
+	if c, ok := p.(closer); ok {
+		_ = c.Close()
+	}
+}
+
 func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) *iteragent.Agent {
 	base := iteragent.DefaultTools(repoPath)
 	switch currentMode {
@@ -181,7 +189,10 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	thinking = initREPL(repoPath, thinking)
 
 	a := makeAgent(p, repoPath, thinking, logger)
-	defer func() { _ = a.Close() }() // best-effort cleanup
+	defer func() {
+		_ = a.Close()
+		closeProvider(p)
+	}()
 
 	printHeader(p, thinking, repoPath)
 
@@ -262,6 +273,7 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 				slog.Error("provider switch failed", "provider", providerName, "error", err)
 				fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
 			} else {
+				closeProvider(*p)
 				*p = newP
 				os.Setenv("ITERATE_PROVIDER", providerName)
 				_ = (*a).Close() // best-effort cleanup
@@ -422,6 +434,17 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		InputHistory:        selector.InputHistoryRef,
 		StopWatch:           stopWatch,
 		Pool:                agentPool,
+		Config: commands.ConfigCallbacks{
+			LoadConfig: func() interface{} {
+				c := loadConfig()
+				return &c
+			},
+			SaveConfig: func(v interface{}) {
+				if c, ok := v.(*iterConfig); ok {
+					saveConfig(*c)
+				}
+			},
+		},
 		Session: commands.SessionCallbacks{
 			SaveSession:   saveSession,
 			LoadSession:   loadSession,

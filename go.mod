@@ -11,6 +11,8 @@ require (
 	golang.org/x/tools v0.43.0
 )
 
+replace github.com/GrayCodeAI/iteragent => ../iteragent
+
 require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	golang.org/x/mod v0.34.0 // indirect

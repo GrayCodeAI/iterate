@@ -16,6 +16,7 @@ import (
 type iterConfig struct {
 	Provider      string   `json:"provider"       toml:"provider"`
 	Model         string   `json:"model"          toml:"model"`
+	APIKey        string   `json:"api_key,omitempty"        toml:"api_key"`
 	OllamaBaseURL string   `json:"ollama_base_url,omitempty" toml:"ollama_base_url"`
 	SafeMode      bool     `json:"safe_mode,omitempty"      toml:"safe_mode"`
 	DeniedTools   []string `json:"denied_tools,omitempty"   toml:"denied_tools"`
@@ -33,6 +34,19 @@ type iterConfig struct {
 	AllowDirs []string `json:"allow_dirs,omitempty" toml:"allow_dirs"`
 	DenyDirs  []string `json:"deny_dirs,omitempty"  toml:"deny_dirs"`
 }
+
+func (c *iterConfig) GetAPIKey() string         { return c.APIKey }
+func (c *iterConfig) SetAPIKey(v string)        { c.APIKey = v }
+func (c *iterConfig) SetProvider(v string)      { c.Provider = v }
+func (c *iterConfig) SetModel(v string)         { c.Model = v }
+func (c *iterConfig) SetNotify(v bool)          { c.Notify = v }
+func (c *iterConfig) SetSafeMode(v bool)        { c.SafeMode = v }
+func (c *iterConfig) SetTheme(v string)         { c.Theme = v }
+func (c *iterConfig) SetThinkingLevel(v string) { c.ThinkingLevel = v }
+func (c *iterConfig) SetTemperature(v float64)  { c.Temperature = v }
+func (c *iterConfig) SetMaxTokens(v int)        { c.MaxTokens = v }
+func (c *iterConfig) SetCacheEnabled(v bool)    { c.CacheEnabled = v }
+func (c *iterConfig) SetOllamaBaseURL(v string) { c.OllamaBaseURL = v }
 
 func configPath() string {
 	home, _ := os.UserHomeDir()
@@ -130,7 +144,7 @@ func saveConfig(cfg iterConfig) {
 		}
 		var buf bytes.Buffer
 		if err := toml.NewEncoder(&buf).Encode(cfg); err == nil {
-			if err := os.WriteFile(tomlPath, buf.Bytes(), 0o644); err != nil {
+			if err := atomicWriteFile(tomlPath, buf.Bytes(), 0o644); err != nil {
 				slog.Warn("failed to write TOML config", "err", err)
 			}
 			return
@@ -141,7 +155,7 @@ func saveConfig(cfg iterConfig) {
 		slog.Warn("failed to create JSON config dir", "err", err)
 	}
 	data, _ := json.MarshalIndent(cfg, "", "  ")
-	if err := os.WriteFile(jsonPath, data, 0o644); err != nil {
+	if err := atomicWriteFile(jsonPath, data, 0o644); err != nil {
 		slog.Warn("failed to write JSON config", "err", err)
 	}
 }
