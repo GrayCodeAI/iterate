@@ -16,9 +16,10 @@ import (
 
 func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logger) {
 	cfg := loadConfig()
-	providerName, modelName := resolveProviderConfig(f.provider, f.model, cfg)
+	providerName, modelName, apiKey := resolveProviderConfig(f.provider, f.model, f.apiKey, cfg)
 	f.provider = providerName
 	f.model = modelName
+	f.apiKey = apiKey
 
 	p, err := initProvider(f.provider, f.apiKey, logger)
 	if err != nil {

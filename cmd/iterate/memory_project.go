@@ -51,7 +51,7 @@ func saveProjectMemory(repoPath string, m projectMemory) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return atomicWriteFile(path, data, 0o644)
 }
 
 func addProjectMemoryNote(repoPath, note string) error {
