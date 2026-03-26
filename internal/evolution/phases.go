@@ -6,9 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
+
+// maxParallelTasks controls how many task agents run concurrently.
+// Each task gets its own git worktree so file edits never conflict.
+const maxParallelTasks = 3
 
 // RunPlanPhase runs the planning phase. Creates SESSION_PLAN.md via agent or fallback.
 func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues string) error {
@@ -154,17 +159,14 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 		tasks = []planTask{{Number: 1, Title: "Self-improvement", Description: plan}}
 	}
 
-	systemPrompt, tools, skills := e.loadImplementContext()
+	systemPrompt, _, skills := e.loadImplementContext()
 
 	protectedWarning := "\n\nPROTECTED FILES — DO NOT EDIT:\n- internal/evolution/*.go\n- .github/workflows/*.yml\n- cmd/iterate/main.go\n- scripts/evolution/evolve.sh\n\nIf a task requires editing these, skip it.\n"
 
-	for _, task := range tasks {
-		e.logger.Info("implementing task", "number", task.Number, "title", task.Title)
-		e.executeTask(ctx, p, task, systemPrompt, tools, skills, protectedWarning)
-	}
+	e.logger.Info("running tasks in parallel", "count", len(tasks), "max_parallel", maxParallelTasks)
+	e.runTasksParallel(ctx, p, tasks, systemPrompt, skills, protectedWarning)
 
-	// Commit any remaining tracked-file changes.
-	// Use git add -u (not -A) to avoid staging untracked artifacts from failed tasks.
+	// Catch-all commit for any tracked changes the agents forgot to commit.
 	sessionTitle := extractSessionTitle(plan)
 	finalMsg := "iterate: implement session changes"
 	if sessionTitle != "" {
@@ -177,6 +179,131 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	}
 
 	return nil
+}
+
+// runTasksParallel runs all tasks concurrently (up to maxParallelTasks at once).
+// Each task runs in an isolated git worktree; successful commits are
+// cherry-picked back to the current branch in task order.
+func (e *Engine) runTasksParallel(ctx context.Context, p iteragent.Provider, tasks []planTask, systemPrompt string, skills *iteragent.SkillSet, protectedWarning string) {
+	type taskResult struct {
+		task    planTask
+		commits []string // new commit hashes from worktree, in order
+		success bool
+	}
+
+	results := make([]taskResult, len(tasks))
+	sem := make(chan struct{}, maxParallelTasks)
+	var wg sync.WaitGroup
+
+	for i, task := range tasks {
+		wg.Add(1)
+		go func(i int, task planTask) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			e.logger.Info("starting task in worktree", "number", task.Number, "title", task.Title)
+			commits, ok := e.runTaskInWorktree(ctx, p, task, systemPrompt, skills, protectedWarning)
+			results[i] = taskResult{task: task, commits: commits, success: ok}
+			if ok {
+				e.logger.Info("task succeeded", "number", task.Number, "commits", len(commits))
+			} else {
+				e.logger.Warn("task failed, skipping", "number", task.Number)
+			}
+		}(i, task)
+	}
+
+	wg.Wait()
+
+	// Cherry-pick each task's commits in task order so history is clean.
+	for _, r := range results {
+		if !r.success || len(r.commits) == 0 {
+			continue
+		}
+		e.logger.Info("cherry-picking task commits", "number", r.task.Number, "commits", len(r.commits))
+		for _, hash := range r.commits {
+			if _, err := e.runTool(ctx, "bash", map[string]string{
+				"cmd": fmt.Sprintf("git cherry-pick %s", hash),
+			}); err != nil {
+				e.logger.Warn("cherry-pick failed, aborting task commits", "number", r.task.Number, "hash", hash, "err", err)
+				_, _ = e.runTool(ctx, "bash", map[string]string{"cmd": "git cherry-pick --abort 2>/dev/null || true"})
+				break
+			}
+		}
+	}
+}
+
+// runTaskInWorktree creates an isolated git worktree, runs the task inside it,
+// and returns the list of new commit hashes produced (in chronological order).
+func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, skills *iteragent.SkillSet, protectedWarning string) ([]string, bool) {
+	worktreeDir := filepath.Join(e.repoPath, ".iterate", "worktrees", fmt.Sprintf("task-%d-%s", task.Number, e.traceID[:6]))
+	branchName := fmt.Sprintf("wt/task-%d-%s", task.Number, e.traceID[:6])
+
+	// Clean up any leftover worktree from a previous run.
+	_, _ = e.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf("git worktree remove --force %q 2>/dev/null; git branch -D %q 2>/dev/null; true", worktreeDir, branchName),
+	})
+
+	// Record base commit before task so we can collect new commits afterward.
+	baseHash, err := e.runTool(ctx, "bash", map[string]string{"cmd": "git rev-parse HEAD"})
+	if err != nil {
+		e.logger.Warn("failed to get base commit hash", "err", err)
+		return nil, false
+	}
+	baseHash = strings.TrimSpace(baseHash)
+
+	// Create the worktree branched at current HEAD.
+	if out, err := e.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf("git worktree add -b %q %q HEAD", branchName, worktreeDir),
+	}); err != nil {
+		e.logger.Warn("failed to create worktree", "task", task.Number, "err", err, "output", out)
+		return nil, false
+	}
+
+	// Always remove the worktree when done.
+	defer func() {
+		_, _ = e.runTool(context.Background(), "bash", map[string]string{
+			"cmd": fmt.Sprintf("git worktree remove --force %q 2>/dev/null; git branch -D %q 2>/dev/null; true", worktreeDir, branchName),
+		})
+	}()
+
+	// Build a sub-engine scoped to the worktree directory.
+	wtTools := iteragent.DefaultTools(worktreeDir)
+	wtSkills, err := iteragent.LoadSkills([]string{filepath.Join(worktreeDir, "skills")})
+	if err != nil || wtSkills == nil {
+		wtSkills = skills
+	}
+	subEngine := &Engine{
+		repoPath:      worktreeDir,
+		repo:          e.repo,
+		logger:        e.logger.With("task", task.Number, "worktree", "yes"),
+		traceID:       e.traceID,
+		toolMap:       iteragent.ToolMap(wtTools),
+		tools:         wtTools,
+		skills:        wtSkills,
+		thinkingLevel: e.thinkingLevel,
+		eventSink:     e.eventSink,
+	}
+
+	// Run the task (with retry) inside the worktree.
+	subEngine.executeTask(ctx, p, task, systemPrompt, wtTools, wtSkills, protectedWarning)
+
+	// Collect all commits added by the task (between base and new HEAD of worktree branch).
+	out, err := subEngine.runTool(ctx, "bash", map[string]string{
+		"cmd": fmt.Sprintf("git log %s..HEAD --format=%%H --reverse", baseHash),
+	})
+	if err != nil || strings.TrimSpace(out) == "" {
+		e.logger.Warn("no new commits from task", "number", task.Number)
+		return nil, false
+	}
+
+	var commits []string
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if h := strings.TrimSpace(line); h != "" {
+			commits = append(commits, h)
+		}
+	}
+	return commits, true
 }
 
 // executeTask runs a single task. On failure, reverts and retries once with error context.
