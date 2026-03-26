@@ -93,7 +93,7 @@ func summariseMutationResults(raw string) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("=== Mutation testing results ===\n"))
+	sb.WriteString("=== Mutation testing results ===\n")
 	sb.WriteString(fmt.Sprintf("Total: %d | Killed: %d | Survived: %d\n", total, killed, survived))
 
 	if total > 0 {

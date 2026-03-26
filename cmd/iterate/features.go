@@ -107,13 +107,6 @@ func listGitHubIssues(repoPath string, limit int) (string, error) {
 }
 
 // ---------------------------------------------------------------------------
-// lastResponse stores the most recent agent response for /copy and /retry
-// ---------------------------------------------------------------------------
-
-var lastResponse string
-var lastPrompt string
-
-// ---------------------------------------------------------------------------
 // /search-replace — find and replace text across all Go files
 // ---------------------------------------------------------------------------
 

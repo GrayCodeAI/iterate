@@ -35,9 +35,6 @@ var (
 	colorPurple = "\033[38;5;141m"
 )
 
-// replRepoPath is the repo path used in the current REPL session (for prompt display).
-var replRepoPath string
-
 // replRegistry is the shared command registry (initialized once, reused across calls).
 var replRegistry = commands.DefaultRegistry()
 
@@ -174,7 +171,6 @@ func initREPL(repoPath string, thinking iteragent.ThinkingLevel) iteragent.Think
 	loadedCfg := loadConfig()
 	thinking = applyLoadedConfig(loadedCfg, thinking)
 
-	replRepoPath = repoPath
 	selector.RepoPath = repoPath
 	selector.SafeMode = cfg.SafeMode
 	return thinking

@@ -100,7 +100,6 @@ func logTokenDelta(beforeTokens int) {
 
 // streamAndPrint runs the agent and prints the streamed response.
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repoPath string) {
-	lastPrompt = prompt
 	recordMessage()
 
 	reqCtx, cancel := context.WithCancel(ctx)
@@ -128,7 +127,6 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 	stopOnce()
 
 	if fullContent != "" {
-		lastResponse = fullContent
 		fmt.Print("\r\033[K")
 		highlight.RenderResponse(fullContent)
 		fmt.Println()

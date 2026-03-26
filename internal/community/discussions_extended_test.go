@@ -1,6 +1,7 @@
 package community
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -106,7 +107,7 @@ func TestIssueTypeConstants(t *testing.T) {
 
 func TestFetchIssues_NoTokenReturnsNil(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
-	result, err := FetchIssues(nil, "owner", "repo", []IssueType{IssueTypeInput}, 10)
+	result, err := FetchIssues(context.TODO(), "owner", "repo", []IssueType{IssueTypeInput}, 10)
 	if err != nil {
 		t.Errorf("expected nil error, got %v", err)
 	}
@@ -121,7 +122,7 @@ func TestFetchIssues_NoTokenReturnsNil(t *testing.T) {
 
 func TestPostReply_NoTokenError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
-	err := PostReply(nil, "owner", "repo", 1, "hello")
+	err := PostReply(context.TODO(), "owner", "repo", 1, "hello")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -136,7 +137,7 @@ func TestPostReply_NoTokenError(t *testing.T) {
 
 func TestCreateDiscussion_NoTokenError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
-	err := CreateDiscussion(nil, "owner", "repo", "General", "Title", "Body")
+	err := CreateDiscussion(context.TODO(), "owner", "repo", "General", "Title", "Body")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -151,7 +152,7 @@ func TestCreateDiscussion_NoTokenError(t *testing.T) {
 
 func TestNewGitHubClient_NoToken(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
-	client := NewGitHubClient(nil)
+	client := NewGitHubClient(context.TODO())
 	if client != nil {
 		t.Error("expected nil client when GITHUB_TOKEN is not set")
 	}

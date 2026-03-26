@@ -88,8 +88,10 @@ func parseDiscussionNodes(nodes []discussionNode) []Discussion {
 }
 
 func (e *Engine) postDiscussionReply(ctx context.Context, discussionID, body string) error {
-	mutation := fmt.Sprintf(`{"query":"mutation{addDiscussionComment(input:{discussionId:\"%s\",body:\"%s\"}){comment{id}}}"}`,
-		discussionID, strings.ReplaceAll(body, `"`, `\"`))
+	idJSON, _ := json.Marshal(discussionID)
+	bodyJSON, _ := json.Marshal(body)
+	mutation := fmt.Sprintf(`{"query":"mutation{addDiscussionComment(input:{discussionId:%s,body:%s}){comment{id}}}"}`,
+		string(idJSON), string(bodyJSON))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(mutation))
 	if err != nil {
@@ -116,10 +118,12 @@ func (e *Engine) createDiscussion(ctx context.Context, title, body string) error
 		return err
 	}
 
-	mutation := fmt.Sprintf(`{"query":"mutation{createDiscussion(input:{repositoryId:\"%s\",categoryId:\"%s\",title:\"%s\",body:\"%s\"}){discussion{id}}}"}`,
-		repoID, categoryID,
-		strings.ReplaceAll(title, `"`, `\"`),
-		strings.ReplaceAll(body, `"`, `\"`))
+	repoIDJSON, _ := json.Marshal(repoID)
+	catIDJSON, _ := json.Marshal(categoryID)
+	titleJSON, _ := json.Marshal(title)
+	bodyJSON, _ := json.Marshal(body)
+	mutation := fmt.Sprintf(`{"query":"mutation{createDiscussion(input:{repositoryId:%s,categoryId:%s,title:%s,body:%s}){discussion{id}}}"}`,
+		string(repoIDJSON), string(catIDJSON), string(titleJSON), string(bodyJSON))
 
 	return e.doGraphQLPost(ctx, mutation)
 }
@@ -190,5 +194,9 @@ func (e *Engine) doGraphQLPost(ctx context.Context, gqlBody string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("GraphQL error %d: %s", resp.StatusCode, string(b))
+	}
 	return nil
 }

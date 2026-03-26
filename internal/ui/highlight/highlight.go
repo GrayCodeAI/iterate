@@ -9,10 +9,9 @@ import (
 )
 
 var (
-	colorGreen  = "\033[38;5;114m"
-	colorAmber  = "\033[38;5;221m"
-	colorBlue   = "\033[38;5;75m"
-	colorPurple = "\033[38;5;141m"
+	colorGreen = "\033[38;5;114m"
+	colorAmber = "\033[38;5;221m"
+	colorBlue  = "\033[38;5;75m"
 )
 
 // contextWindow is the assumed token context window size used for % calculations.

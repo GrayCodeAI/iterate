@@ -94,20 +94,27 @@ if [[ -f "${REPOPATH}/.iterate/ISSUES_TODAY.md" ]] && grep -q "Issue #" "${REPOP
   HAS_ISSUES=true
 fi
 
-# ── Clean stale plan ──
-rm -f "$PLAN_FILE"
+PR_STATE_FILE="${REPOPATH}/.iterate/pr_state.json"
 
-# ── Phase 1: Planning ──
-log "Phase 1: Planning..."
-if ! ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: plan phase exited with error — checking for fallback"
-fi
+# ── Resume detection: skip completed phases on re-run ──
+# If pr_state.json exists, a PR was already created — skip phases 1-3.
+if [[ -f "$PR_STATE_FILE" ]]; then
+  log "Detected existing pr_state.json — resuming from Phase 4 (Review)"
+else
+  # ── Clean stale plan ──
+  rm -f "$PLAN_FILE"
 
-# Fallback plan if agent didn't create one
-if [[ ! -f "$PLAN_FILE" ]]; then
-  log "Agent did not create SESSION_PLAN.md — writing fallback"
-  if [[ "$HAS_ISSUES" == "true" ]]; then
-    cat > "$PLAN_FILE" <<'EOF'
+  # ── Phase 1: Planning ──
+  log "Phase 1: Planning..."
+  if ! ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+    log "WARNING: plan phase exited with error — checking for fallback"
+  fi
+
+  # Fallback plan if agent didn't create one
+  if [[ ! -f "$PLAN_FILE" ]]; then
+    log "Agent did not create SESSION_PLAN.md — writing fallback"
+    if [[ "$HAS_ISSUES" == "true" ]]; then
+      cat > "$PLAN_FILE" <<'EOF'
 ## Session Plan
 
 Session Title: Address community issues
@@ -120,8 +127,8 @@ Issue: multiple
 ### Issue Responses
 - TBD
 EOF
-  else
-    cat > "$PLAN_FILE" <<'EOF'
+    else
+      cat > "$PLAN_FILE" <<'EOF'
 ## Session Plan
 
 Session Title: General self-improvement
@@ -133,42 +140,43 @@ Issue: none
 
 ### Issue Responses
 EOF
+    fi
   fi
-fi
 
-# ── Phase 2: Implementation ──
-log "Phase 2: Implementation..."
-sleep 5  # Brief pause between phases
-if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: implement phase exited with error — continuing"
-fi
+  # ── Phase 2: Implementation ──
+  log "Phase 2: Implementation..."
+  sleep 5  # Brief pause between phases
+  if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+    log "WARNING: implement phase exited with error — continuing"
+  fi
 
-# Update DAY_COUNT before creating PR
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-git add DAY_COUNT 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
+  # Update DAY_COUNT before creating PR
+  echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+  git add DAY_COUNT 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
 
-# ── Track coverage and generate stats before PR ──
-log "Tracking test coverage..."
-python3 scripts/build/track_coverage.py . 2>/dev/null || true
-git add memory/coverage_history.jsonl 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: update coverage history" 2>/dev/null || true
+  # ── Track coverage and generate stats before PR ──
+  log "Tracking test coverage..."
+  python3 scripts/build/track_coverage.py . 2>/dev/null || true
+  git add memory/coverage_history.jsonl 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update coverage history" 2>/dev/null || true
 
-log "Generating stats..."
-python3 scripts/build/generate_stats.py . 2>/dev/null || true
-git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: update stats" 2>/dev/null || true
+  log "Generating stats..."
+  python3 scripts/build/generate_stats.py . 2>/dev/null || true
+  git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update stats" 2>/dev/null || true
 
-log "Generating dashboard..."
-python3 scripts/build/generate_dashboard.py . 2>/dev/null || true
-git add docs/dashboard.html 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
+  log "Generating dashboard..."
+  python3 scripts/build/generate_dashboard.py . 2>/dev/null || true
+  git add docs/dashboard.html 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
 
-# ── Phase 3: Pull Request ──
-log "Phase 3: Pull Request..."
-sleep 5
-if ! ./iterate --phase pr --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: PR phase exited with error — continuing"
+  # ── Phase 3: Pull Request ──
+  log "Phase 3: Pull Request..."
+  sleep 5
+  if ! ./iterate --phase pr --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+    log "WARNING: PR phase exited with error — continuing"
+  fi
 fi
 
 BRANCH="evolution/day-${DAY}"
@@ -231,10 +239,37 @@ gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolut
   fi
 done
 
+<<<<<<< Updated upstream
 # ── Cost estimation ──
 SESSION_DURATION=$SECONDS
 log "Session duration: ${SESSION_DURATION}s"
 log "Estimated cost: ~\$0.00 (depends on API usage)"
+=======
+# ── Generate stats ──
+log "Generating stats..."
+python3 scripts/build/generate_stats.py . 2>/dev/null || true
+git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
+
+# ── Final commit and push ──
+log "Pushing changes..."
+
+# Re-calculate day after pull (pull may overwrite DAY_COUNT)
+DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+
+if [[ -n $(git status -s) ]]; then
+  git add -A
+  git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
+fi
+git pull --rebase origin main 2>/dev/null || true
+
+# Always ensure DAY_COUNT is correct after pull
+echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+git add DAY_COUNT 2>/dev/null || true
+git commit --amend --no-edit 2>/dev/null || git commit -m "iterate: Day $DAY evolution session" 2>/dev/null || true
+
+git push origin main 2>/dev/null || log "Push failed"
+>>>>>>> Stashed changes
 
 # ── Summary ──
 log "=== evolution cycle completed ==="

@@ -350,9 +350,3 @@ func (e *Engine) postIssueComment(ctx context.Context, number int, body string) 
 	return err
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

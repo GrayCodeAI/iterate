@@ -1,6 +1,7 @@
 package social
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 func TestRun_NoToken(t *testing.T) {
 	e := New(t.TempDir(), "o", "r", slog.Default())
 	e.token = "" // ensure no token
-	err := e.Run(nil, nil)
+	err := e.Run(context.TODO(), nil)
 	if err != nil {
 		t.Errorf("expected nil error when token is empty, got %v", err)
 	}
