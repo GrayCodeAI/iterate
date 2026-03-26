@@ -192,13 +192,15 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	}
 	a.Finish()
 
-	if strings.Contains(strings.ToLower(reviewOutput), "lgtm") || strings.Contains(strings.ToLower(reviewOutput), "looks good") {
+	low := strings.ToLower(reviewOutput)
+	if strings.Contains(low, "lgtm") || strings.Contains(low, "looks good") {
 		e.logger.Info("PR self-review passed")
 		return nil
 	}
 
-	e.logger.Warn("PR self-review found issues, agent will fix them")
-	return nil
+	// Reviewer found issues but didn't say LGTM — block the merge.
+	e.logger.Warn("PR self-review did not pass — blocking merge")
+	return fmt.Errorf("review blocked merge: reviewer did not say LGTM")
 }
 
 func (e *Engine) mergePR(ctx context.Context) error {

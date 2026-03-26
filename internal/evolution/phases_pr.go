@@ -100,7 +100,7 @@ func (e *Engine) RunReviewPhase(ctx context.Context, p iteragent.Provider) error
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 
 	if err := e.reviewPR(ctx, p, e.tools, systemPrompt, e.skills); err != nil {
-		e.logger.Warn("PR review encountered issues", "err", err)
+		return fmt.Errorf("review phase: %w", err)
 	}
 	return nil
 }
