@@ -261,3 +261,116 @@ func TestCmdSearchSessions_NoMatch(t *testing.T) {
 		t.Error("expected handled")
 	}
 }
+
+// ── /trim ─────────────────────────────────────────────────────────────────────
+
+func TestCmdTrim_NoAgent(t *testing.T) {
+	ctx := Context{Parts: []string{"/trim", "3"}}
+	result := cmdTrim(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+}
+
+func TestCmdTrim_EmptyContext(t *testing.T) {
+	ag := &iteragent.Agent{}
+	ctx := Context{
+		Parts: []string{"/trim", "3"},
+		Agent: ag,
+	}
+	result := cmdTrim(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+}
+
+func TestCmdTrim_KeepsLastTurns(t *testing.T) {
+	ag := &iteragent.Agent{}
+	// 8 messages = 4 turns
+	for i := 0; i < 4; i++ {
+		ag.Messages = append(ag.Messages,
+			iteragent.Message{Role: "user", Content: "q"},
+			iteragent.Message{Role: "assistant", Content: "a"},
+		)
+	}
+	ctx := Context{
+		Parts: []string{"/trim", "2"},
+		Agent: ag,
+	}
+	result := cmdTrim(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+	if len(ag.Messages) > 4 {
+		t.Errorf("expected ≤4 messages after trim(2 turns), got %d", len(ag.Messages))
+	}
+}
+
+func TestCmdTrim_AlreadySmall(t *testing.T) {
+	ag := &iteragent.Agent{}
+	ag.Messages = []iteragent.Message{
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	ctx := Context{
+		Parts: []string{"/trim", "10"},
+		Agent: ag,
+	}
+	result := cmdTrim(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+	// Messages should be unchanged.
+	if len(ag.Messages) != 2 {
+		t.Errorf("expected 2 messages, got %d", len(ag.Messages))
+	}
+}
+
+// ── /multi nil-context fix ────────────────────────────────────────────────────
+
+func TestCmdMulti_NoReadMultiLine(t *testing.T) {
+	ctx := Context{
+		Parts: []string{"/multi"},
+		Agent: &iteragent.Agent{},
+		REPL:  REPLCallbacks{},
+	}
+	result := cmdMulti(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+}
+
+func TestCmdMulti_CancelledInput(t *testing.T) {
+	ctx := Context{
+		Parts: []string{"/multi"},
+		Agent: &iteragent.Agent{},
+		REPL: REPLCallbacks{
+			ReadMultiLine: func() (string, bool) { return "", false },
+		},
+	}
+	result := cmdMulti(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+}
+
+func TestCmdMulti_SendsPrompt(t *testing.T) {
+	var got string
+	ctx := Context{
+		Parts: []string{"/multi"},
+		Agent: &iteragent.Agent{},
+		REPL: REPLCallbacks{
+			ReadMultiLine: func() (string, bool) { return "line one\nline two", true },
+			StreamAndPrint: func(_ context.Context, _ *iteragent.Agent, prompt, _ string) {
+				got = prompt
+			},
+		},
+	}
+	result := cmdMulti(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+	if got != "line one\nline two" {
+		t.Errorf("expected prompt forwarded, got %q", got)
+	}
+}
