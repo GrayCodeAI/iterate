@@ -146,6 +146,14 @@ func registerSessionUtilityA(r *Registry) {
 		Category:    "session",
 		Handler:     cmdPair,
 	})
+
+	r.Register(Command{
+		Name:        "/trim",
+		Aliases:     []string{},
+		Description: "keep last N message pairs in context: /trim [n]",
+		Category:    "session",
+		Handler:     cmdTrim,
+	})
 }
 
 func registerSessionUtilityB(r *Registry) {
@@ -427,8 +435,53 @@ func cmdMulti(ctx Context) Result {
 		return Result{Handled: true}
 	}
 	if ctx.REPL.StreamAndPrint != nil {
-		ctx.REPL.StreamAndPrint(nil, ctx.Agent, text, ctx.RepoPath)
+		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, text, ctx.RepoPath)
 	}
+	return Result{Handled: true}
+}
+
+// cmdTrim keeps the last N user+assistant message pairs, dropping older turns.
+// Unlike /compact-hard (which works in raw message count), /trim works in
+// conversation turns: each turn is one user message + one assistant reply.
+func cmdTrim(ctx Context) Result {
+	if ctx.Agent == nil {
+		PrintError("agent not available")
+		return Result{Handled: true}
+	}
+
+	turns := 5 // default: keep last 5 turns
+	if ctx.HasArg(1) {
+		if v, err := strconv.Atoi(ctx.Arg(1)); err == nil && v > 0 {
+			turns = v
+		} else {
+			fmt.Println("Usage: /trim [n]  — keep last n conversation turns (default 5)")
+			return Result{Handled: true}
+		}
+	}
+
+	msgs := ctx.Agent.Messages
+	if len(msgs) == 0 {
+		fmt.Println("No messages in context.")
+		return Result{Handled: true}
+	}
+
+	// Count conversation turns from the end (each user+assistant pair = 1 turn).
+	keep := turns * 2 // approximate: 2 messages per turn
+	if keep >= len(msgs) {
+		fmt.Printf("Context already has ≤%d turns (%d messages).\n", turns, len(msgs))
+		return Result{Handled: true}
+	}
+
+	// Align to a user-message boundary so we always start on a user turn.
+	startIdx := len(msgs) - keep
+	for startIdx > 0 && msgs[startIdx].Role != "user" {
+		startIdx++
+	}
+
+	before := len(msgs)
+	ctx.Agent.Messages = msgs[startIdx:]
+	fmt.Printf("%s✓ trimmed: %d → %d messages (%d turns kept)%s\n\n",
+		ColorLime, before, len(ctx.Agent.Messages), turns, ColorReset)
 	return Result{Handled: true}
 }
 

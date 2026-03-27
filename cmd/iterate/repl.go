@@ -131,19 +131,40 @@ func replHooks() iteragent.AgentHooks {
 	}
 }
 
+// ctrlCExitCh is closed when the user presses Ctrl+C while idle (no active request).
+// The REPL loop listens on this channel to exit cleanly.
+var ctrlCExitCh = make(chan struct{}, 1)
+
 // initREPL loads config, applies theme, sets up signal handling and runtime state.
 func setupSigintHandler() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT)
 	go func() {
+		var lastIdle time.Time
 		for range sigCh {
 			if sess.RequestCancel != nil {
+				// Active request — cancel it.
 				sess.RequestCancel()
-				// Snapshot colors under read lock — applyTheme writes these from the main goroutine.
 				colorMu.RLock()
 				y, r := colorYellow, colorReset
 				colorMu.RUnlock()
 				fmt.Printf("\r\033[K%s[cancelled]%s\n", y, r)
+				lastIdle = time.Time{} // reset idle timer after cancel
+			} else {
+				// Idle — double-Ctrl+C to exit.
+				now := time.Now()
+				if !lastIdle.IsZero() && now.Sub(lastIdle) < 2*time.Second {
+					select {
+					case ctrlCExitCh <- struct{}{}:
+					default:
+					}
+				} else {
+					lastIdle = now
+					colorMu.RLock()
+					d, r := colorDim, colorReset
+					colorMu.RUnlock()
+					fmt.Printf("\r\033[K%s(press Ctrl+C again to exit)%s\n", d, r)
+				}
 			}
 		}
 	}()
@@ -221,8 +242,20 @@ func runREPL(ctx context.Context, p iteragent.Provider, repoPath string, thinkin
 	}
 
 	for {
+		// Check for double-Ctrl+C exit signal before blocking on ReadInput.
+		select {
+		case <-ctrlCExitCh:
+			return
+		default:
+		}
+
 		line, ok := selector.ReadInput()
 		if !ok {
+			// Check if this was a double-Ctrl+C exit.
+			select {
+			case <-ctrlCExitCh:
+			default:
+			}
 			break
 		}
 		if line == "" {
@@ -495,6 +528,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			StreamAndPrint: streamAndPrint,
 			RunShell:       runShell,
 			PromptLine:     selector.PromptLine,
+			ReadMultiLine:  readMultiLine,
 			Undo:           performUndo,
 			BuildRepoMap: func(rp string, refresh bool) string {
 				if refresh {
@@ -594,6 +628,26 @@ func buildAtFileIndex(repoPath string) map[string]string {
 	atFileCache.index = idx
 	atFileCache.builtAt = time.Now()
 	return idx
+}
+
+// readMultiLine reads multi-line input from the user one line at a time.
+// A blank line submits; Ctrl+C cancels. Returns (text, true) or ("", false).
+func readMultiLine() (string, bool) {
+	fmt.Printf("%s  Multi-line mode — press Enter on a blank line to submit, Ctrl+C to cancel%s\n\n",
+		colorDim, colorReset)
+
+	var lines []string
+	for {
+		line, ok := selector.PromptLine("  ···")
+		if !ok {
+			return "", false
+		}
+		if line == "" && len(lines) > 0 {
+			break
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n"), true
 }
 
 // suggestAtFiles scans the prompt for words that match repo filenames without
