@@ -44,6 +44,14 @@ func registerUtilityContextCommands(r *Registry) {
 		Handler:     cmdCompact,
 	})
 
+	r.Register(Command{
+		Name:        "/map",
+		Aliases:     []string{"/repomap"},
+		Description: "show structural repo map (files + top-level symbols)",
+		Category:    "utility",
+		Handler:     cmdMap,
+	})
+
 }
 
 func registerUtilityConversationCommands(r *Registry) {
@@ -517,5 +525,29 @@ func cmdCompact(ctx Context) Result {
 	ctx.Agent.Messages = kept
 	after := len(kept)
 	PrintSuccess("compacted: %d → %d messages", before, after)
+	return Result{Handled: true}
+}
+
+func cmdMap(ctx Context) Result {
+	if ctx.REPL.BuildRepoMap == nil {
+		PrintError("repo map not available in this context")
+		return Result{Handled: true}
+	}
+
+	refresh := ctx.HasArg(1) && strings.ToLower(ctx.Arg(1)) == "refresh"
+
+	fmt.Printf("%sBuilding repo map…%s\n", ColorDim, ColorReset)
+	content := ctx.REPL.BuildRepoMap(ctx.RepoPath, refresh)
+
+	fmt.Print("\r\033[K")
+	fmt.Printf("%s%s%s\n", ColorDim, content, ColorReset)
+
+	// Offer to inject the map into the next message.
+	if ctx.Agent != nil && ctx.HasArg(1) && strings.ToLower(ctx.Arg(1)) == "inject" {
+		mapMsg := fmt.Sprintf("[Repo map]\n\n%s", content)
+		ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.NewUserMessage(mapMsg))
+		PrintSuccess("repo map injected into conversation context")
+	}
+
 	return Result{Handled: true}
 }
