@@ -158,6 +158,14 @@ func registerSessionUtilityB(r *Registry) {
 	})
 
 	r.Register(Command{
+		Name:        "/search-sessions",
+		Aliases:     []string{"/ss"},
+		Description: "search across all saved sessions for a query",
+		Category:    "session",
+		Handler:     cmdSearchSessions,
+	})
+
+	r.Register(Command{
 		Name:        "/changes",
 		Aliases:     []string{},
 		Description: "show files changed this session",
@@ -740,5 +748,98 @@ func cmdReplay(ctx Context) Result {
 	}
 
 	fmt.Printf("\n%s[replay complete]%s\n\n", ColorLime, ColorReset)
+	return Result{Handled: true}
+}
+
+// cmdSearchSessions searches all saved sessions for a query (case-insensitive).
+// Usage: /search-sessions <query>
+func cmdSearchSessions(ctx Context) Result {
+	query := strings.TrimSpace(ctx.Args())
+	if query == "" {
+		fmt.Println("Usage: /search-sessions <query>")
+		return Result{Handled: true}
+	}
+
+	if ctx.Session.ListSessions == nil || ctx.Session.LoadSession == nil {
+		PrintError("session search not available")
+		return Result{Handled: true}
+	}
+
+	sessions := ctx.Session.ListSessions()
+	if len(sessions) == 0 {
+		fmt.Println("No saved sessions.")
+		return Result{Handled: true}
+	}
+
+	lower := strings.ToLower(query)
+	const maxResultsPerSession = 3
+	const maxSessions = 5
+
+	type sessionMatch struct {
+		sessionName string
+		matches     []string
+	}
+
+	var allMatches []sessionMatch
+	for _, sName := range sessions {
+		if len(allMatches) >= maxSessions {
+			break
+		}
+
+		msgs, err := ctx.Session.LoadSession(sName)
+		if err != nil {
+			continue
+		}
+
+		var sessionResults []string
+		for i, msg := range msgs {
+			if len(sessionResults) >= maxResultsPerSession {
+				break
+			}
+			contentLower := strings.ToLower(msg.Content)
+			if !strings.Contains(contentLower, lower) {
+				continue
+			}
+			// Build excerpt around first match
+			pos := strings.Index(contentLower, lower)
+			start := pos - 50
+			if start < 0 {
+				start = 0
+			}
+			end := pos + len(query) + 50
+			if end > len(msg.Content) {
+				end = len(msg.Content)
+			}
+			excerpt := strings.ReplaceAll(msg.Content[start:end], "\n", " ")
+			if start > 0 {
+				excerpt = "…" + excerpt
+			}
+			if end < len(msg.Content) {
+				excerpt += "…"
+			}
+			sessionResults = append(sessionResults,
+				fmt.Sprintf("  [msg #%d %s]   %s", i+1, msg.Role, excerpt))
+		}
+
+		if len(sessionResults) > 0 {
+			allMatches = append(allMatches, sessionMatch{
+				sessionName: sName,
+				matches:     sessionResults,
+			})
+		}
+	}
+
+	if len(allMatches) == 0 {
+		fmt.Printf("No matches found for %q\n\n", query)
+		return Result{Handled: true}
+	}
+
+	for _, sm := range allMatches {
+		fmt.Printf("%s── Session: %q ─────────────────────%s\n", ColorDim, sm.sessionName, ColorReset)
+		for _, line := range sm.matches {
+			fmt.Println(line)
+		}
+		fmt.Println()
+	}
 	return Result{Handled: true}
 }

@@ -28,7 +28,9 @@ var watchConfig = struct {
 	// exclude is a list of path substrings to ignore.
 	exclude []string
 }{
-	debounce: 300 * time.Millisecond,
+	// 2-second debounce: collect all file change events in the window and send
+	// ONE batched prompt listing every changed file instead of per-file prompts.
+	debounce: 2 * time.Second,
 	exclude:  []string{".git", "node_modules", ".iterate"},
 }
 
@@ -57,11 +59,16 @@ func startWatch(repoPath string) {
 }
 
 // runWatcher polls for file modifications using mtimes (no fsnotify dependency).
+// File change events are batched: all files that change within the debounce window
+// are collected and trigger a single test run, rather than one run per file.
 func runWatcher(ctx context.Context, repoPath string) {
 	snapshots := snapshotMTimes(repoPath)
 
 	var debounceTimer *time.Timer
 	var debounceMu sync.Mutex
+	// pendingChanged accumulates file paths seen during the current debounce window.
+	var pendingChanged []string
+	pendingSet := make(map[string]struct{})
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -79,16 +86,29 @@ func runWatcher(ctx context.Context, repoPath string) {
 				continue
 			}
 
-			// Debounce: reset timer on each burst of changes.
+			// Accumulate changed files across the debounce window (deduplicated).
 			debounceMu.Lock()
+			for _, p := range changed {
+				if _, seen := pendingSet[p]; !seen {
+					pendingSet[p] = struct{}{}
+					pendingChanged = append(pendingChanged, p)
+				}
+			}
+
+			// Reset the timer: fire after debounce elapses with no new changes.
 			if debounceTimer != nil {
 				debounceTimer.Stop()
 			}
-			changedCopy := changed
+			// Capture the batch for the closure.
+			batchSnapshot := append([]string(nil), pendingChanged...)
+			pendingChanged = pendingChanged[:0]
+			for k := range pendingSet {
+				delete(pendingSet, k)
+			}
 			debounceTimer = time.AfterFunc(watchConfig.debounce, func() {
 				fmt.Printf("\n%s[watch] %d file(s) changed — running tests…%s\n",
-					colorYellow, len(changedCopy), colorReset)
-				for _, p := range changedCopy {
+					colorYellow, len(batchSnapshot), colorReset)
+				for _, p := range batchSnapshot {
 					rel, _ := filepath.Rel(repoPath, p)
 					fmt.Printf("  %s%s%s\n", colorDim, rel, colorReset)
 				}
