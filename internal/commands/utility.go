@@ -125,18 +125,86 @@ func registerUtilityActionCommands(r *Registry) {
 }
 
 func cmdContext(ctx Context) Result {
-	fmt.Printf("%s── Context ─────────────────────────%s\n", ColorDim, ColorReset)
-	if ctx.Agent != nil {
-		fmt.Printf("  Messages: %d\n", len(ctx.Agent.Messages))
-	}
+	const barWidth = 24
+
+	inTok := 0
+	outTok := 0
+	cacheRd := 0
+	cacheWr := 0
 	if ctx.SessionInputTokens != nil {
-		fmt.Printf("  Session input:  ~%d tokens\n", *ctx.SessionInputTokens)
+		inTok = *ctx.SessionInputTokens
 	}
 	if ctx.SessionOutputTokens != nil {
-		fmt.Printf("  Session output: ~%d tokens\n", *ctx.SessionOutputTokens)
+		outTok = *ctx.SessionOutputTokens
 	}
-	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	if ctx.SessionCacheRead != nil {
+		cacheRd = *ctx.SessionCacheRead
+	}
+	if ctx.SessionCacheWrite != nil {
+		cacheWr = *ctx.SessionCacheWrite
+	}
+
+	windowSize := 200000 // default assumption
+	if ctx.ContextWindow != nil && *ctx.ContextWindow > 0 {
+		windowSize = *ctx.ContextWindow
+	}
+
+	used := inTok + outTok
+	pct := 0.0
+	if windowSize > 0 {
+		pct = float64(used) / float64(windowSize)
+		if pct > 1.0 {
+			pct = 1.0
+		}
+	}
+
+	filled := int(pct * float64(barWidth))
+	if filled > barWidth {
+		filled = barWidth
+	}
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+
+	barColor := ColorLime
+	if pct >= 0.85 {
+		barColor = ColorRed
+	} else if pct >= 0.6 {
+		barColor = ColorYellow
+	}
+
+	msgs := 0
+	if ctx.Agent != nil {
+		msgs = len(ctx.Agent.Messages)
+	}
+
+	fmt.Printf("%s── Context Window ────────────────────────────%s\n", ColorDim, ColorReset)
+	fmt.Printf("  %s[%s%s%s]%s  %s%.0f%%%s  (%s / %s tokens)\n",
+		ColorDim, barColor, bar, ColorDim, ColorReset,
+		ColorBold, pct*100, ColorReset,
+		formatTokenCount(used), formatTokenCount(windowSize))
+	fmt.Println()
+	fmt.Printf("  %-18s %s%s%s\n", "Input tokens:", ColorCyan, formatTokenCount(inTok), ColorReset)
+	fmt.Printf("  %-18s %s%s%s\n", "Output tokens:", ColorCyan, formatTokenCount(outTok), ColorReset)
+	if cacheRd > 0 || cacheWr > 0 {
+		fmt.Printf("  %-18s %s%s read%s  /  %s%s write%s\n",
+			"Cache:",
+			ColorDim, formatTokenCount(cacheRd), ColorReset,
+			ColorDim, formatTokenCount(cacheWr), ColorReset)
+	}
+	fmt.Printf("  %-18s %d\n", "Messages:", msgs)
+	fmt.Printf("%s──────────────────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
+}
+
+// formatTokenCount formats a token count as "42k" or "1.2M" for readability.
+func formatTokenCount(n int) string {
+	switch {
+	case n >= 1_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
+	case n >= 1_000:
+		return fmt.Sprintf("%.1fk", float64(n)/1_000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
 }
 
 func cmdExport(ctx Context) Result {
@@ -369,22 +437,53 @@ func savePins(repoPath string, pins []iteragent.Message) {
 }
 
 func cmdPin(ctx Context) Result {
+	// /pin <text> — pin arbitrary text as a persistent user message.
+	if ctx.HasArg(1) {
+		text := ctx.Args()
+		pins := loadPins(ctx.RepoPath)
+		pins = append(pins, iteragent.Message{Role: "user", Content: text})
+		savePins(ctx.RepoPath, pins)
+		PrintSuccess("pinned: %q — will survive /compact", truncate(text, 60))
+		return Result{Handled: true}
+	}
+	// /pin with no args — pin the last message in the conversation.
 	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
-		PrintError("no messages to pin")
+		PrintError("no messages to pin; use /pin <text> to pin arbitrary text")
 		return Result{Handled: true}
 	}
 	last := ctx.Agent.Messages[len(ctx.Agent.Messages)-1]
 	pins := loadPins(ctx.RepoPath)
 	pins = append(pins, last)
 	savePins(ctx.RepoPath, pins)
-	PrintSuccess("message pinned — will survive /compact")
+	PrintSuccess("last message pinned — will survive /compact")
 	return Result{Handled: true}
 }
 
 func cmdUnpin(ctx Context) Result {
+	// /unpin <n> — remove nth pin (1-indexed); no arg clears all.
+	pins := loadPins(ctx.RepoPath)
+	if ctx.HasArg(1) {
+		var n int
+		fmt.Sscanf(ctx.Arg(1), "%d", &n)
+		if n < 1 || n > len(pins) {
+			PrintError("pin index out of range (1–%d)", len(pins))
+			return Result{Handled: true}
+		}
+		pins = append(pins[:n-1], pins[n:]...)
+		savePins(ctx.RepoPath, pins)
+		PrintSuccess("pin #%d removed (%d remaining)", n, len(pins))
+		return Result{Handled: true}
+	}
 	savePins(ctx.RepoPath, nil)
 	PrintSuccess("all pins cleared")
 	return Result{Handled: true}
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 func cmdRewind(ctx Context) Result {
