@@ -1,8 +1,11 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"strconv"
 )
@@ -56,32 +59,80 @@ func cmdAutofix(ctx Context) Result {
 	testCmd, testArgs := detectTestCmd(ctx.RepoPath)
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		fmt.Printf("%s[attempt %d/%d]%s running %s %v\n",
-			ColorDim, attempt, maxAttempts, ColorReset, testCmd, testArgs)
+		fmt.Printf("%s[attempt %d/%d]%s  %s %s\n",
+			ColorDim, attempt, maxAttempts, ColorReset, testCmd, joinArgs(testArgs))
 
+		// Run with live output — capture into buf AND stream to terminal simultaneously.
+		var buf bytes.Buffer
 		cmd := exec.Command(testCmd, testArgs...)
 		cmd.Dir = ctx.RepoPath
-		output, err := cmd.CombinedOutput()
+		cmd.Stdout = io.MultiWriter(os.Stdout, &buf)
+		cmd.Stderr = io.MultiWriter(os.Stderr, &buf)
+
+		err := cmd.Run()
 
 		if err == nil {
-			PrintSuccess("tests passed on attempt %d/%d", attempt, maxAttempts)
+			PrintSuccess("all tests pass (%d/%d)", attempt, maxAttempts)
 			return Result{Handled: true}
 		}
 
-		// Tests failed — print failure output
-		fmt.Printf("%s── Test failures ───────────────────%s\n", ColorDim, ColorReset)
-		fmt.Println(string(output))
-		fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
-
+		fmt.Println() // blank line after test output
 		if attempt == maxAttempts {
 			break
 		}
 
-		// Ask agent to fix
-		prompt := fmt.Sprintf("The following tests are failing. Fix them:\n\n%s", string(output))
+		// Truncate failure output sent to agent (keep last 200 lines — most relevant).
+		failureOutput := tailLines(buf.String(), 200)
+		prompt := fmt.Sprintf(
+			"Tests failed (attempt %d/%d). Fix the failures shown below, then ensure all tests pass.\n\n```\n%s\n```",
+			attempt, maxAttempts, failureOutput)
 		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, prompt, ctx.RepoPath)
 	}
 
 	fmt.Printf("%sautofix gave up after %d attempts%s\n\n", ColorRed, maxAttempts, ColorReset)
 	return Result{Handled: true}
+}
+
+func joinArgs(args []string) string {
+	result := ""
+	for i, a := range args {
+		if i > 0 {
+			result += " "
+		}
+		result += a
+	}
+	return result
+}
+
+// tailLines returns the last n lines of s.
+func tailLines(s string, n int) string {
+	lines := splitLines(s)
+	if len(lines) <= n {
+		return s
+	}
+	dropped := len(lines) - n
+	return fmt.Sprintf("[... %d lines omitted ...]\n", dropped) + joinLines(lines[dropped:])
+}
+
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i+1])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
+}
+
+func joinLines(lines []string) string {
+	var b bytes.Buffer
+	for _, l := range lines {
+		b.WriteString(l)
+	}
+	return b.String()
 }

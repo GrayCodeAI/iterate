@@ -129,29 +129,24 @@ func cmdProfileLoad(ctx Context) Result {
 		os.Setenv("ITERATE_MODEL", p.Model)
 	}
 
-	// Apply temperature and max_tokens via RuntimeConfig and agent
+	// Apply temperature and max_tokens via RuntimeConfig, then rebuild the agent.
+	// This matches the pattern used by /set temperature and /set max-tokens.
 	if ctx.RuntimeConfig != nil {
 		if p.Temperature != 0 {
 			t := p.Temperature
 			ctx.RuntimeConfig.Temperature = &t
+		} else {
+			ctx.RuntimeConfig.Temperature = nil
 		}
 		if p.MaxTokens != 0 {
 			m := p.MaxTokens
 			ctx.RuntimeConfig.MaxTokens = &m
+		} else {
+			ctx.RuntimeConfig.MaxTokens = nil
 		}
 	}
 
-	// Apply directly to agent fields
-	if ctx.Agent != nil {
-		if p.Temperature != 0 {
-			ctx.Agent.WithTemperature(p.Temperature)
-		}
-		if p.MaxTokens != 0 {
-			ctx.Agent.WithMaxTokens(p.MaxTokens)
-		}
-	}
-
-	// Rebuild agent with new settings if MakeAgent is available
+	// Rebuild the agent so all settings take effect atomically.
 	if ctx.REPL.MakeAgent != nil {
 		ctx.REPL.MakeAgent()
 	}

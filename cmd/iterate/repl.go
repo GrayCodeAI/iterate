@@ -121,6 +121,12 @@ func replHooks() iteragent.AgentHooks {
 				fmt.Printf("%s[debug] ← %s (%s, %s, %d chars)%s\n",
 					colorDim, toolName, status, elapsed, len(result), colorReset)
 			}
+			// Invalidate the @filename suggestion cache after file-mutating tools
+			// so new files created by the agent are suggested within one cycle.
+			switch toolName {
+			case "write_file", "create_file", "edit_file", "delete_file", "move_file", "make_dir":
+				invalidateAtFileCache()
+			}
 		},
 	}
 }
@@ -537,14 +543,28 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 }
 
 // atFileCache is a session-scoped cache of the repo's filename index.
+// It is rebuilt if the repo path changes or if the TTL expires (60s),
+// so new files created by the agent are picked up within one minute.
 var atFileCache struct {
-	repoPath string
-	index    map[string]string // lowercase base → rel path
+	repoPath  string
+	index     map[string]string // lowercase base → rel path
+	builtAt   time.Time
 }
 
-// buildAtFileIndex walks repoPath once and caches the result.
+const atFileCacheTTL = 60 * time.Second
+
+// invalidateAtFileCache forces the next call to buildAtFileIndex to rebuild.
+// Called after the agent writes or deletes files so suggestions stay fresh.
+func invalidateAtFileCache() {
+	atFileCache.index = nil
+	atFileCache.repoPath = ""
+}
+
+// buildAtFileIndex walks repoPath and caches the result for atFileCacheTTL.
 func buildAtFileIndex(repoPath string) map[string]string {
-	if atFileCache.repoPath == repoPath && atFileCache.index != nil {
+	if atFileCache.repoPath == repoPath &&
+		atFileCache.index != nil &&
+		time.Since(atFileCache.builtAt) < atFileCacheTTL {
 		return atFileCache.index
 	}
 	const maxScan = 800
@@ -572,6 +592,7 @@ func buildAtFileIndex(repoPath string) map[string]string {
 	})
 	atFileCache.repoPath = repoPath
 	atFileCache.index = idx
+	atFileCache.builtAt = time.Now()
 	return idx
 }
 
