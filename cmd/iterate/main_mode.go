@@ -137,7 +137,14 @@ func loadEvolutionSession(f mainFlags, logger *slog.Logger) []iteragent.Message 
 
 	if f.compactFlag && len(sessionMessages) > 0 {
 		ctxCfg := iteragent.DefaultContextConfig()
-		sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, ctxCfg)
+		// Use LLM-aware compaction strategy if a provider is available,
+		// otherwise fall back to the tiered (non-LLM) compaction.
+		if p, err := iteragent.NewProvider("", ""); err == nil && p != nil {
+			strategy := &iteragent.LLMCompactionStrategy{Provider: p, KeepRecent: ctxCfg.KeepRecent}
+			sessionMessages = strategy.Compact(sessionMessages, ctxCfg.MaxTokens)
+		} else {
+			sessionMessages = iteragent.CompactMessagesTiered(sessionMessages, ctxCfg)
+		}
 		logger.Info("compacted session messages", "remaining", len(sessionMessages))
 	}
 	return sessionMessages

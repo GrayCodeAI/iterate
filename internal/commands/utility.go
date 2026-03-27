@@ -122,6 +122,22 @@ func registerUtilityActionCommands(r *Registry) {
 		Category:    "utility",
 		Handler:     cmdUndoFiles,
 	})
+
+	r.Register(Command{
+		Name:        "/scope",
+		Aliases:     []string{},
+		Description: "focus agent on specific files/dirs: /scope path1 path2 ...",
+		Category:    "utility",
+		Handler:     cmdScope,
+	})
+
+	r.Register(Command{
+		Name:        "/perf",
+		Aliases:     []string{},
+		Description: "show token usage breakdown per conversation turn",
+		Category:    "utility",
+		Handler:     cmdPerf,
+	})
 }
 
 func cmdContext(ctx Context) Result {
@@ -647,6 +663,141 @@ func cmdMap(ctx Context) Result {
 		ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.NewUserMessage(mapMsg))
 		PrintSuccess("repo map injected into conversation context")
 	}
+
+	return Result{Handled: true}
+}
+
+// cmdScope focuses the agent on a specific set of files or directories by
+// injecting a scoped context message and optionally prepending a system note.
+// Usage: /scope path1 path2 ...
+// With no args, shows the current scope or clears it.
+func cmdScope(ctx Context) Result {
+	if ctx.Agent == nil {
+		PrintError("no agent available")
+		return Result{Handled: true}
+	}
+
+	if !ctx.HasArg(1) {
+		// Show current scope: look for a scope marker in recent messages.
+		for i := len(ctx.Agent.Messages) - 1; i >= 0; i-- {
+			if strings.HasPrefix(ctx.Agent.Messages[i].Content, "[Scope]") {
+				snippet := ctx.Agent.Messages[i].Content
+				if len(snippet) > 200 {
+					snippet = snippet[:200] + "…"
+				}
+				fmt.Printf("%s%s%s\n\n", ColorDim, snippet, ColorReset)
+				return Result{Handled: true}
+			}
+		}
+		fmt.Printf("%sNo scope set. Use /scope path1 path2 ... to focus the agent.%s\n\n", ColorDim, ColorReset)
+		return Result{Handled: true}
+	}
+
+	paths := ctx.Parts[1:]
+	var verified []string
+	for _, p := range paths {
+		abs := p
+		if !strings.HasPrefix(p, "/") {
+			abs = filepath.Join(ctx.RepoPath, p)
+		}
+		if _, err := os.Stat(abs); err == nil {
+			rel, _ := filepath.Rel(ctx.RepoPath, abs)
+			verified = append(verified, rel)
+		} else {
+			fmt.Printf("%s  warning: %s not found%s\n", ColorDim, p, ColorReset)
+		}
+	}
+
+	if len(verified) == 0 {
+		PrintError("no valid paths found")
+		return Result{Handled: true}
+	}
+
+	scopeMsg := fmt.Sprintf("[Scope] Focus exclusively on the following paths for all changes and analysis:\n%s\n\nOnly read, edit, or reference files within these paths unless explicitly asked otherwise.",
+		"  - "+strings.Join(verified, "\n  - "))
+
+	ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.NewUserMessage(scopeMsg))
+	PrintSuccess("scope set to: %s", strings.Join(verified, ", "))
+	return Result{Handled: true}
+}
+
+// cmdPerf shows a per-turn breakdown of estimated token usage in the conversation.
+// Since most providers return only final usage totals, this estimates per-message
+// cost from content length with a clear approximation disclaimer.
+func cmdPerf(ctx Context) Result {
+	if ctx.Agent == nil || len(ctx.Agent.Messages) == 0 {
+		fmt.Println("No conversation to profile.")
+		return Result{Handled: true}
+	}
+
+	const charPerToken = 4
+	type turnStat struct {
+		idx    int
+		role   string
+		chars  int
+		tokens int
+	}
+
+	var turns []turnStat
+	totalChars := 0
+	for i, m := range ctx.Agent.Messages {
+		if m.Role == "system" {
+			continue
+		}
+		chars := len(m.Content)
+		totalChars += chars
+		turns = append(turns, turnStat{
+			idx:    i,
+			role:   m.Role,
+			chars:  chars,
+			tokens: chars / charPerToken,
+		})
+	}
+
+	if len(turns) == 0 {
+		fmt.Println("No non-system messages.")
+		return Result{Handled: true}
+	}
+
+	maxTokens := 0
+	for _, t := range turns {
+		if t.tokens > maxTokens {
+			maxTokens = t.tokens
+		}
+	}
+
+	fmt.Printf("%s── Token Profile (approx ~1 tok/4 chars) ─────────────%s\n", ColorDim, ColorReset)
+	for _, t := range turns {
+		roleColor := ColorDim
+		roleLabel := "assistant"
+		if t.role == "user" {
+			roleColor = ColorCyan
+			roleLabel = "user     "
+		}
+
+		barWidth := 20
+		barFill := 0
+		if maxTokens > 0 {
+			barFill = t.tokens * barWidth / maxTokens
+		}
+		bar := strings.Repeat("▪", barFill) + strings.Repeat("·", barWidth-barFill)
+
+		snippet := strings.ReplaceAll(strings.TrimSpace(ctx.Agent.Messages[t.idx].Content), "\n", " ")
+		if len(snippet) > 40 {
+			snippet = snippet[:40] + "…"
+		}
+
+		fmt.Printf("  %s%-9s%s [%s%s%s] %s~%d tok%s  %s%s%s\n",
+			roleColor, roleLabel, ColorReset,
+			ColorBold, bar, ColorReset,
+			ColorDim, t.tokens, ColorReset,
+			ColorDim, snippet, ColorReset)
+	}
+
+	totalApprox := totalChars / charPerToken
+	fmt.Printf("%s────────────────────────────────────────────────────%s\n", ColorDim, ColorReset)
+	fmt.Printf("  Total:  ~%s  (%d messages)\n\n",
+		formatTokenCount(totalApprox), len(turns))
 
 	return Result{Handled: true}
 }

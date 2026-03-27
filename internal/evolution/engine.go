@@ -151,6 +151,8 @@ func (e *Engine) savePRState() error {
 }
 
 // loadPRState restores PR info from file at engine creation.
+// It also validates that the PR still exists on GitHub; if not it clears
+// the stale state so the next cycle starts fresh.
 func (e *Engine) loadPRState() {
 	path := filepath.Join(e.repoPath, prStateFile)
 	data, err := os.ReadFile(path)
@@ -163,9 +165,35 @@ func (e *Engine) loadPRState() {
 		os.Remove(path)
 		return
 	}
+
+	// Validate the PR is still open on GitHub before trusting the state.
+	// This guards against the scenario where the PR was merged/closed/deleted
+	// externally and pr_state.json was not cleared (e.g. a crash in phase 5).
+	if state.PRNumber > 0 && e.repo != "" {
+		out, ghErr := e.runGHPRState(state.PRNumber)
+		if ghErr != nil || (out != "OPEN" && out != "") {
+			e.logger.Warn("pr_state.json refers to a non-open PR, clearing it",
+				"pr", state.PRNumber, "state", out, "err", ghErr)
+			os.Remove(path)
+			return
+		}
+	}
+
 	e.prNumber = state.PRNumber
 	e.prURL = state.PRURL
 	e.branchName = state.Branch
+}
+
+// runGHPRState returns the GitHub PR state string ("OPEN", "MERGED", "CLOSED")
+// for the given PR number, or an error if the check fails.
+func (e *Engine) runGHPRState(prNumber int) (string, error) {
+	cmd := fmt.Sprintf("gh pr view %d --repo %s --json state --jq .state 2>/dev/null || echo UNKNOWN",
+		prNumber, e.repo)
+	out, err := e.runTool(context.Background(), "bash", map[string]interface{}{"cmd": cmd})
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
 }
 
 // clearPRState removes the PR state file.

@@ -536,10 +536,48 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 	}
 }
 
+// atFileCache is a session-scoped cache of the repo's filename index.
+var atFileCache struct {
+	repoPath string
+	index    map[string]string // lowercase base → rel path
+}
+
+// buildAtFileIndex walks repoPath once and caches the result.
+func buildAtFileIndex(repoPath string) map[string]string {
+	if atFileCache.repoPath == repoPath && atFileCache.index != nil {
+		return atFileCache.index
+	}
+	const maxScan = 800
+	idx := make(map[string]string)
+	count := 0
+	_ = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			n := info.Name()
+			if n == ".git" || n == "node_modules" || n == "vendor" || n == "dist" || n == "__pycache__" || n == ".next" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if count >= maxScan {
+			return filepath.SkipDir
+		}
+		rel, _ := filepath.Rel(repoPath, path)
+		base := strings.ToLower(filepath.Base(rel))
+		idx[base] = rel
+		count++
+		return nil
+	})
+	atFileCache.repoPath = repoPath
+	atFileCache.index = idx
+	return idx
+}
+
 // suggestAtFiles scans the prompt for words that match repo filenames without
 // an @-prefix already present, and prints a one-line dim hint.
 func suggestAtFiles(prompt, repoPath string) {
-	const maxScan = 500
 	const minWordLen = 4
 
 	// Skip if the prompt already uses @-references.
@@ -551,7 +589,6 @@ func suggestAtFiles(prompt, repoPath string) {
 	var candidates []string
 	seen := make(map[string]bool)
 	for _, w := range words {
-		// Strip trailing punctuation.
 		w = strings.TrimRight(w, ".,;:!?\"')")
 		if len(w) < minWordLen {
 			continue
@@ -566,35 +603,15 @@ func suggestAtFiles(prompt, repoPath string) {
 		return
 	}
 
-	// Build a quick filename index (base names only, limited scan).
-	fileIndex := make(map[string]string) // base → rel path
-	count := 0
-	_ = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			if info != nil && info.IsDir() {
-				n := info.Name()
-				if n == ".git" || n == "node_modules" || n == "vendor" || n == "dist" {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-		if count >= maxScan {
-			return filepath.SkipDir
-		}
-		rel, _ := filepath.Rel(repoPath, path)
-		base := filepath.Base(rel)
-		// index both the base and the rel path
-		fileIndex[strings.ToLower(base)] = rel
-		count++
-		return nil
-	})
+	fileIndex := buildAtFileIndex(repoPath)
 
 	var hints []string
+	hintSeen := make(map[string]bool)
 	for _, word := range candidates {
 		lower := strings.ToLower(word)
 		for base, rel := range fileIndex {
-			if strings.Contains(base, lower) {
+			if strings.Contains(base, lower) && !hintSeen[rel] {
+				hintSeen[rel] = true
 				hints = append(hints, "@"+rel)
 				break
 			}

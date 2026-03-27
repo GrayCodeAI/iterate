@@ -104,6 +104,39 @@ func (e *Engine) pushBranch(ctx context.Context) error {
 	return err
 }
 
+// runGHCommandWithBackoff runs a gh CLI command and retries on rate-limit (HTTP 429/403).
+// Retries up to maxRetries times with exponential backoff starting at 30s.
+func (e *Engine) runGHCommandWithBackoff(ctx context.Context, args []string) (string, error) {
+	const maxRetries = 4
+	wait := 30 * time.Second
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		cmd := exec.Command("gh", args...)
+		cmd.Dir = e.repoPath
+		outBytes, err := cmd.CombinedOutput()
+		out := strings.TrimSpace(string(outBytes))
+		if err == nil {
+			return out, nil
+		}
+		lower := strings.ToLower(out)
+		isRateLimit := strings.Contains(lower, "rate limit") ||
+			strings.Contains(lower, "429") ||
+			strings.Contains(lower, "secondary rate") ||
+			strings.Contains(lower, "abuse detection")
+		if !isRateLimit || attempt == maxRetries {
+			return out, fmt.Errorf("gh command failed: %w, output: %s", err, out)
+		}
+		e.logger.Warn("GitHub rate limit hit, backing off",
+			"attempt", attempt+1, "wait", wait)
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+		wait *= 2
+	}
+	return "", fmt.Errorf("gh command failed after %d retries", maxRetries)
+}
+
 func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []int) (int, string, error) {
 	var linkedIssues []string
 	for _, n := range issueNums {
@@ -120,12 +153,9 @@ func (e *Engine) createPR(ctx context.Context, title, body string, issueNums []i
 
 	// Use gh CLI with proper argument passing to prevent shell injection.
 	args := []string{"pr", "create", "--repo", e.repo, "--title", title, "--body", prBody, "--base", "main", "--head", e.branchName}
-	cmd := exec.Command("gh", args...)
-	cmd.Dir = e.repoPath
-	outBytes, err := cmd.CombinedOutput()
-	out := string(outBytes)
+	out, err := e.runGHCommandWithBackoff(ctx, args)
 	if err != nil {
-		return 0, "", fmt.Errorf("PR creation failed: %w, output: %s", err, out)
+		return 0, "", fmt.Errorf("PR creation failed: %w", err)
 	}
 
 	url := strings.TrimSpace(out)
@@ -238,9 +268,8 @@ func (e *Engine) mergePR(ctx context.Context) error {
 		return fmt.Errorf("no PR to merge")
 	}
 
-	out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
-	})
+	args := []string{"pr", "merge", fmt.Sprintf("%d", e.prNumber), "--repo", e.repo, "--squash", "--delete-branch"}
+	out, err := e.runGHCommandWithBackoff(ctx, args)
 	if err != nil {
 		return fmt.Errorf("PR merge failed: %w, output: %s", err, out)
 	}

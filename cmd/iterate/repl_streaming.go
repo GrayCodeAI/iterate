@@ -365,9 +365,12 @@ func updateSessionTokens(a *iteragent.Agent, fullContent string) (inputDelta, ou
 		}
 	}
 	// Fallback: approximate from streamed content length.
+	// This happens when the provider doesn't return usage metadata.
 	approxTokens := len(fullContent) / 4
 	sess.Tokens += approxTokens
 	sess.OutputTokens += approxTokens
+	slog.Debug("token usage not reported by provider; cost estimate will be approximate",
+		"approx_output_tokens", approxTokens)
 	return 0, approxTokens, 0, 0
 }
 
