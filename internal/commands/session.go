@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -178,6 +179,14 @@ func registerSessionUtilityB(r *Registry) {
 		Description: "show recent audit log entries [n]",
 		Category:    "session",
 		Handler:     cmdAuditLog,
+	})
+
+	r.Register(Command{
+		Name:        "/replay",
+		Aliases:     []string{},
+		Description: "replay a saved session step-by-step [name]",
+		Category:    "session",
+		Handler:     cmdReplay,
 	})
 }
 
@@ -656,5 +665,80 @@ func cmdHistorySearch(ctx Context) Result {
 		fmt.Printf("  %s#%d %-10s%s %s\n", roleColor, m.idx, m.role, ColorReset, m.excerpt)
 	}
 	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	return Result{Handled: true}
+}
+
+// cmdReplay replays a saved session step-by-step, re-sending each user message.
+func cmdReplay(ctx Context) Result {
+	if ctx.Session.LoadSession == nil || ctx.Session.ListSessions == nil {
+		PrintError("session replay not available")
+		return Result{Handled: true}
+	}
+
+	var name string
+	if ctx.HasArg(1) {
+		name = ctx.Arg(1)
+	} else {
+		sessions := ctx.Session.ListSessions()
+		if len(sessions) == 0 {
+			fmt.Println("No saved sessions.")
+			return Result{Handled: true}
+		}
+		if ctx.Session.SelectItem != nil {
+			var ok bool
+			name, ok = ctx.Session.SelectItem("Replay session", sessions)
+			if !ok {
+				return Result{Handled: true}
+			}
+		} else {
+			name = sessions[len(sessions)-1]
+		}
+	}
+
+	msgs, err := ctx.Session.LoadSession(name)
+	if err != nil {
+		PrintError("failed to load session %q: %v", name, err)
+		return Result{Handled: true}
+	}
+
+	// Collect user turns only.
+	var userMsgs []iteragent.Message
+	for _, m := range msgs {
+		if m.Role == "user" {
+			userMsgs = append(userMsgs, m)
+		}
+	}
+	if len(userMsgs) == 0 {
+		fmt.Println("No user messages to replay.")
+		return Result{Handled: true}
+	}
+
+	fmt.Printf("%s── Replaying %q — %d user turns ──%s\n\n", ColorDim, name, len(userMsgs), ColorReset)
+
+	if ctx.Agent != nil {
+		ctx.Agent.Reset()
+	}
+
+	for i, msg := range userMsgs {
+		content := msg.Content
+		if len(content) > 120 {
+			content = content[:120] + "…"
+		}
+		fmt.Printf("%s[step %d/%d]%s  %s%s%s\n\n", ColorDim, i+1, len(userMsgs), ColorReset, ColorYellow, content, ColorReset)
+
+		if ctx.REPL.PromptLine != nil {
+			answer, ok := ctx.REPL.PromptLine("  [enter] continue  [q] quit > ")
+			if !ok || strings.ToLower(strings.TrimSpace(answer)) == "q" {
+				fmt.Printf("\n%s[replay aborted]%s\n\n", ColorDim, ColorReset)
+				return Result{Handled: true}
+			}
+		}
+
+		if ctx.REPL.StreamAndPrint != nil && ctx.Agent != nil {
+			ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, msg.Content, ctx.RepoPath)
+		}
+	}
+
+	fmt.Printf("\n%s[replay complete]%s\n\n", ColorLime, ColorReset)
 	return Result{Handled: true}
 }
