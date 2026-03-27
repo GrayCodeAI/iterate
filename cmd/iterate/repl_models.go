@@ -23,6 +23,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 		"ollama          (local, no key needed)",
 		"opencode-cli    (no key needed — uses CLI)",
 		"nvidia          (NVIDIA_API_KEY)",
+		"azure           (AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT)",
 		"deepseek        (ITERATE_API_KEY)",
 		"mistral         (ITERATE_API_KEY)",
 	}
