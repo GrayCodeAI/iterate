@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -69,6 +70,13 @@ func registerDisplayCommands(r *Registry) {
 		"/explain", "explain code in path", cmdExplain,
 		"/view", "view file with line numbers", cmdView,
 	)
+	r.Register(Command{
+		Name:        "/chain",
+		Aliases:     []string{},
+		Description: "run prompts sequentially, separated by ;; (e.g. /chain fix tests ;; commit the changes)",
+		Category:    "mode",
+		Handler:     cmdChain,
+	})
 	registerDisplayNavCommands(r)
 }
 
@@ -283,7 +291,7 @@ func cmdSummarize(ctx Context) Result {
 			"what was implemented, and any decisions made. Be brief.\n\n"+
 			"(Conversation has %d messages)", len(msgs))
 	if ctx.REPL.StreamAndPrint != nil {
-		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
+		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, prompt, ctx.RepoPath)
 	} else {
 		PrintError("agent stream not available")
 	}
@@ -540,5 +548,42 @@ func cmdRender(ctx Context) Result {
 	} else {
 		PrintSuccess("format: raw (plain text output)")
 	}
+	return Result{Handled: true}
+}
+
+// cmdChain runs multiple prompts sequentially, separated by ";;".
+// Example: /chain write tests for auth.go ;; run the tests ;; fix any failures
+func cmdChain(ctx Context) Result {
+	if ctx.REPL.StreamAndPrint == nil || ctx.Agent == nil {
+		PrintError("agent not available")
+		return Result{Handled: true}
+	}
+
+	raw := ctx.Args()
+	if raw == "" {
+		fmt.Printf("%sUsage: /chain prompt1 ;; prompt2 ;; prompt3%s\n", ColorDim, ColorReset)
+		fmt.Printf("%sEach step runs after the previous one completes.%s\n\n", ColorDim, ColorReset)
+		return Result{Handled: true}
+	}
+
+	steps := strings.Split(raw, ";;")
+	var prompts []string
+	for _, s := range steps {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			prompts = append(prompts, s)
+		}
+	}
+	if len(prompts) == 0 {
+		PrintError("no prompts found — separate them with ;;")
+		return Result{Handled: true}
+	}
+
+	fmt.Printf("%s── Chain: %d steps ──────────────────────%s\n\n", ColorDim, len(prompts), ColorReset)
+	for i, prompt := range prompts {
+		fmt.Printf("%s[%d/%d]%s  %s%s%s\n\n", ColorDim, i+1, len(prompts), ColorReset, ColorYellow, prompt, ColorReset)
+		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, prompt, ctx.RepoPath)
+	}
+	fmt.Printf("%s── Chain complete ───────────────────────%s\n\n", ColorLime, ColorReset)
 	return Result{Handled: true}
 }
