@@ -466,10 +466,10 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			MaxTokens:    rtConfig.MaxTokens,
 			CacheEnabled: rtConfig.CacheEnabled,
 		},
-		InputHistory:        selector.InputHistoryRef,
-		StopWatch:           stopWatch,
-		StartWatch:          startWatch,
-		Pool:                agentPool,
+		InputHistory: selector.InputHistoryRef,
+		StopWatch:    stopWatch,
+		StartWatch:   startWatch,
+		Pool:         agentPool,
 		Config: commands.ConfigCallbacks{
 			LoadConfig: func() interface{} {
 				c := loadConfig()
@@ -547,9 +547,9 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 // It is rebuilt if the repo path changes or if the TTL expires (60s),
 // so new files created by the agent are picked up within one minute.
 var atFileCache struct {
-	repoPath  string
-	index     map[string]string // lowercase base → rel path
-	builtAt   time.Time
+	repoPath string
+	index    map[string]string // lowercase base → rel path
+	builtAt  time.Time
 }
 
 const atFileCacheTTL = 60 * time.Second
