@@ -387,7 +387,41 @@ func printFinalStats(elapsed, ttft time.Duration, beforeTokens int, requestCostU
 	selector.PrintStatusLine(elapsed, delta)
 	fmt.Println()
 
+	// Proactive context window warnings — shown once per threshold crossing.
+	printContextWarning(sess.InputTokens + sess.OutputTokens)
+
 	slog.Debug("request completed", "elapsed_ms", elapsed.Milliseconds(), "ttft_ms", ttft.Milliseconds(), "response_chars", len(fullContent), "total_tokens", sess.Tokens, "cost_usd", requestCostUSD)
+}
+
+// contextWarnState tracks which threshold warnings have been shown this session.
+var contextWarnState struct {
+	shown70 bool
+	shown85 bool
+	shown95 bool
+}
+
+// printContextWarning prints a one-time advisory when the context crosses 70/85/95%.
+func printContextWarning(usedTokens int) {
+	window := selector.ContextWindow
+	if window <= 0 {
+		window = 200_000
+	}
+	pct := float64(usedTokens) * 100 / float64(window)
+
+	switch {
+	case pct >= 95 && !contextWarnState.shown95:
+		contextWarnState.shown95 = true
+		fmt.Printf("%s⚠  Context at %.0f%% — use /compact or /compact llm to free space%s\n\n",
+			colorRed, pct, colorReset)
+	case pct >= 85 && !contextWarnState.shown85:
+		contextWarnState.shown85 = true
+		fmt.Printf("%s⚠  Context at %.0f%% — approaching limit, consider /compact%s\n\n",
+			colorYellow, pct, colorReset)
+	case pct >= 70 && !contextWarnState.shown70:
+		contextWarnState.shown70 = true
+		fmt.Printf("%s  Context at %.0f%% — use /context to monitor usage%s\n\n",
+			colorDim, pct, colorReset)
+	}
 }
 
 // authErrorHint returns a human-readable fix suggestion for known API error

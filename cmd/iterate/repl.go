@@ -589,6 +589,7 @@ func suggestAtFiles(prompt, repoPath string) {
 	var candidates []string
 	seen := make(map[string]bool)
 	for _, w := range words {
+		// Strip trailing punctuation.
 		w = strings.TrimRight(w, ".,;:!?\"')")
 		if len(w) < minWordLen {
 			continue

@@ -167,9 +167,9 @@ func (e *Engine) loadPRState() {
 	}
 
 	// Validate the PR is still open on GitHub before trusting the state.
-	// This guards against the scenario where the PR was merged/closed/deleted
-	// externally and pr_state.json was not cleared (e.g. a crash in phase 5).
-	if state.PRNumber > 0 && e.repo != "" {
+	// Only done in CI (GITHUB_ACTIONS=true) to avoid hitting the API in tests
+	// or local development where credentials may not be available.
+	if state.PRNumber > 0 && e.repo != "" && os.Getenv("GITHUB_ACTIONS") == "true" {
 		out, ghErr := e.runGHPRState(state.PRNumber)
 		if ghErr != nil || (out != "OPEN" && out != "") {
 			e.logger.Warn("pr_state.json refers to a non-open PR, clearing it",
