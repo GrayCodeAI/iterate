@@ -482,6 +482,13 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			RunShell:       runShell,
 			PromptLine:     selector.PromptLine,
 			Undo:           performUndo,
+			BuildRepoMap: func(rp string, refresh bool) string {
+				if refresh {
+					InvalidateRepoMap()
+				}
+				return CachedRepoMap(rp)
+			},
+			InvalidateRepoMap: InvalidateRepoMap,
 			// MakeAgent rebuilds the agent's tool set in-place to reflect a mode change.
 			// It uses WithTools which mutates the agent directly so the REPL loop
 			// automatically uses the new tool set on the next request.

@@ -91,14 +91,14 @@ func TestWrapToolsWithPermissions_DirDenied(t *testing.T) {
 	tool := iteragent.Tool{
 		Name:        "write_file",
 		Description: "write",
-		Execute: func(ctx context.Context, args map[string]string) (string, error) {
+		Execute: func(ctx context.Context, args map[string]interface{}) (string, error) {
 			called = true
 			return "wrote", nil
 		},
 	}
 
 	wrapped := wrapToolsWithPermissions([]iteragent.Tool{tool})
-	result, err := wrapped[0].Execute(context.Background(), map[string]string{"path": "/secret/file.txt"})
+	result, err := wrapped[0].Execute(context.Background(), map[string]interface{}{"path":"/secret/file.txt"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -120,14 +120,14 @@ func TestWrapToolsWithPermissions_DirAllowed(t *testing.T) {
 	tool := iteragent.Tool{
 		Name:        "read_file",
 		Description: "read",
-		Execute: func(ctx context.Context, args map[string]string) (string, error) {
+		Execute: func(ctx context.Context, args map[string]interface{}) (string, error) {
 			called = true
 			return "content", nil
 		},
 	}
 
 	wrapped := wrapToolsWithPermissions([]iteragent.Tool{tool})
-	result, err := wrapped[0].Execute(context.Background(), map[string]string{"path": "/allowed/file.txt"})
+	result, err := wrapped[0].Execute(context.Background(), map[string]interface{}{"path":"/allowed/file.txt"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,14 +149,14 @@ func TestWrapToolsWithPermissions_NoDirRestriction(t *testing.T) {
 	tool := iteragent.Tool{
 		Name:        "write_file",
 		Description: "write",
-		Execute: func(ctx context.Context, args map[string]string) (string, error) {
+		Execute: func(ctx context.Context, args map[string]interface{}) (string, error) {
 			called = true
 			return "ok", nil
 		},
 	}
 
 	wrapped := wrapToolsWithPermissions([]iteragent.Tool{tool})
-	_, err := wrapped[0].Execute(context.Background(), map[string]string{"path": "/anywhere/file.txt"})
+	_, err := wrapped[0].Execute(context.Background(), map[string]interface{}{"path":"/anywhere/file.txt"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -49,6 +49,11 @@ type REPLCallbacks struct {
 	// Undo reverts the last agent file modifications.
 	// Returns the list of restored paths and an error (if any).
 	Undo func() ([]string, error)
+	// BuildRepoMap returns a structural summary of the repository.
+	// refresh=true forces a rebuild; false may return a cached result.
+	BuildRepoMap func(repoPath string, refresh bool) string
+	// InvalidateRepoMap clears the repo map cache.
+	InvalidateRepoMap func()
 }
 
 // StateAccessors groups thread-safe state access callbacks.
