@@ -48,13 +48,33 @@ func registerGitAdvancedCommands(r *Registry) {
 }
 
 func cmdDiff(ctx Context) Result {
-	cmd := exec.Command("git", "diff")
+	viewer := NewDiffViewer()
+
+	// Get list of changed files first
+	cmd := exec.Command("git", "diff", "--name-only")
 	cmd.Dir = ctx.RepoPath
 	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
 	if err != nil {
 		PrintError("Git diff failed: %s", err)
+		return Result{Handled: true}
 	}
+
+	files := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(files) == 0 || (len(files) == 1 && files[0] == "") {
+		fmt.Println("✨ No changes to show")
+		return Result{Handled: true}
+	}
+
+	// Show colored diff for each file
+	for _, file := range files {
+		if file == "" {
+			continue
+		}
+		if err := viewer.ShowGitDiff(file); err != nil {
+			PrintError("Could not show diff for %s: %v", file, err)
+		}
+	}
+
 	return Result{Handled: true}
 }
 
