@@ -84,6 +84,53 @@ func registerDisplayNavCommands(r *Registry) {
 	)
 }
 
+// helpExamples maps command names to their usage examples.
+var helpExamples = map[string][][2]string{
+	"/cache": {
+		{"/cache", "show current cache state"},
+		{"/cache on", "enable caching (saves cost on long sessions)"},
+		{"/cache off", "disable caching"},
+	},
+	"/budget": {
+		{"/budget", "show current spend vs limit"},
+		{"/budget 5.00", "set a $5.00 spending limit"},
+		{"/budget 0", "clear the spending limit"},
+	},
+	"/compare": {
+		{"/compare groq what is a monad?", "compare current provider vs groq"},
+		{"/compare anthropic explain this code", "side-by-side A/B test"},
+	},
+	"/template": {
+		{"/template save fix-tests", "save last prompt as template 'fix-tests'"},
+		{"/template list", "show all saved templates"},
+		{"/template use fix-tests", "queue 'fix-tests' for next message"},
+		{"/template delete fix-tests", "remove template 'fix-tests'"},
+	},
+	"/t": {
+		{"/t fix-tests", "quick shortcut to queue template 'fix-tests'"},
+	},
+	"/capabilities": {
+		{"/capabilities", "show streaming, tools, context window info"},
+		{"/caps", "same via alias"},
+	},
+	"/thinking": {
+		{"/thinking off", "disable extended thinking"},
+		{"/thinking minimal", "minimal thinking"},
+		{"/thinking high", "maximum thinking depth"},
+	},
+	"/model": {
+		{"/model", "open interactive model picker"},
+	},
+	"/safe": {
+		{"/safe", "show current safe-mode state"},
+		{"/safe on", "enable safe mode (confirms destructive ops)"},
+		{"/safe off", "disable safe mode"},
+	},
+	"/image": {
+		{"/image path/to/screenshot.png", "attach image to next message"},
+	},
+}
+
 func cmdHelp(ctx Context) Result {
 	// /help <command> — show description for a specific command.
 	if ctx.HasArg(1) && ctx.Registry != nil {
@@ -96,9 +143,18 @@ func cmdHelp(ctx Context) Result {
 			fmt.Printf("Unknown command: %s\n", name)
 			return Result{Handled: true}
 		}
-		fmt.Printf("%s%s%s — %s\n", ColorBold, cmd.Name, ColorReset, cmd.Description)
+		fmt.Printf("\n%s%s%s — %s\n", ColorBold, cmd.Name, ColorReset, cmd.Description)
 		if len(cmd.Aliases) > 0 {
-			fmt.Printf("  aliases: %s\n", strings.Join(cmd.Aliases, ", "))
+			fmt.Printf("  %saliases:%s %s\n", ColorDim, ColorReset, strings.Join(cmd.Aliases, ", "))
+		}
+		// Print usage examples if available.
+		if examples, ok := helpExamples[cmd.Name]; ok {
+			fmt.Printf("\n  %sExamples:%s\n", ColorDim, ColorReset)
+			for _, ex := range examples {
+				fmt.Printf("    %s%-40s%s %s%s%s\n",
+					ColorCyan, ex[0], ColorReset,
+					ColorDim, "— "+ex[1], ColorReset)
+			}
 		}
 		fmt.Println()
 		return Result{Handled: true}

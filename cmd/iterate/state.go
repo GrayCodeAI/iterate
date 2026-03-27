@@ -25,6 +25,10 @@ type sessionState struct {
 
 var sess sessionState
 
+// budgetLimit is the per-session spending cap in USD (0 = no limit).
+// Set by --budget flag or /budget command at runtime.
+var budgetLimit float64
+
 func init() {
 	sess.Start = time.Now()
 }

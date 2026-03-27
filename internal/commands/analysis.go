@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
@@ -49,6 +50,22 @@ func RegisterAnalysisCommands(r *Registry) {
 		Category:    "analysis",
 		Handler:     cmdLanguages,
 	})
+
+	r.Register(Command{
+		Name:        "/compare",
+		Aliases:     []string{"/ab"},
+		Description: "A/B compare two providers: /compare <provider> <prompt>",
+		Category:    "analysis",
+		Handler:     cmdCompare,
+	})
+
+	r.Register(Command{
+		Name:        "/capabilities",
+		Aliases:     []string{"/caps"},
+		Description: "show current provider/model capabilities",
+		Category:    "analysis",
+		Handler:     cmdCapabilities,
+	})
 }
 
 func cmdCountLines(ctx Context) Result {
@@ -93,6 +110,153 @@ func cmdLanguages(ctx Context) Result {
 	if ctx.REPL.StreamAndPrint != nil {
 		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
 	}
+	return Result{Handled: true}
+}
+
+// cmdCompare sends the same prompt to the current provider and an alternate
+// provider concurrently, then prints the responses side-by-side.
+func cmdCompare(ctx Context) Result {
+	if !ctx.HasArg(1) {
+		fmt.Println("Usage: /compare <provider> <prompt>")
+		fmt.Println("  e.g. /compare groq what is a monad?")
+		return Result{Handled: true}
+	}
+	if !ctx.HasArg(2) {
+		fmt.Println("Usage: /compare <provider> <prompt>  (prompt required)")
+		return Result{Handled: true}
+	}
+	if ctx.Provider == nil {
+		PrintError("no current provider available")
+		return Result{Handled: true}
+	}
+
+	altProviderName := ctx.Arg(1)
+	prompt := ctx.Args()
+	// Strip the provider name from the args to get just the prompt.
+	if len(ctx.Parts) > 2 {
+		prompt = ""
+		for i, p := range ctx.Parts {
+			if i >= 2 {
+				if prompt != "" {
+					prompt += " "
+				}
+				prompt += p
+			}
+		}
+	}
+
+	altProvider, err := iteragent.NewProvider(altProviderName)
+	if err != nil {
+		PrintError("cannot create provider %q: %v", altProviderName, err)
+		return Result{Handled: true}
+	}
+
+	msgs := []iteragent.Message{{Role: "user", Content: prompt}}
+	opts := iteragent.CompletionOptions{MaxTokens: 1024}
+
+	type result struct {
+		response string
+		elapsed  time.Duration
+		err      error
+	}
+	var wg sync.WaitGroup
+	chA := make(chan result, 1)
+	chB := make(chan result, 1)
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		start := time.Now()
+		resp, err := ctx.Provider.Complete(context.Background(), msgs, opts)
+		chA <- result{resp, time.Since(start).Round(time.Millisecond), err}
+	}()
+	go func() {
+		defer wg.Done()
+		start := time.Now()
+		resp, err := altProvider.Complete(context.Background(), msgs, opts)
+		chB <- result{resp, time.Since(start).Round(time.Millisecond), err}
+	}()
+	wg.Wait()
+
+	resA := <-chA
+	resB := <-chB
+
+	sep := fmt.Sprintf("%s%s%s", ColorDim, "──────────────────────────────────────────", ColorReset)
+
+	fmt.Printf("\n%s── Model A (current: %s%s%s) ──%s\n",
+		ColorDim, ColorBold, ctx.Provider.Name(), ColorDim, ColorReset)
+	if resA.err != nil {
+		fmt.Printf("%sError: %v%s\n", ColorRed, resA.err, ColorReset)
+	} else {
+		fmt.Println(resA.response)
+	}
+
+	fmt.Println(sep)
+	fmt.Printf("%s── Model B (%s%s%s) ──%s\n",
+		ColorDim, ColorBold, altProviderName, ColorDim, ColorReset)
+	if resB.err != nil {
+		fmt.Printf("%sError: %v%s\n", ColorRed, resB.err, ColorReset)
+	} else {
+		fmt.Println(resB.response)
+	}
+
+	fmt.Println(sep)
+	fmt.Printf("  %sTime:%s  A=%s%s%s  B=%s%s%s\n\n",
+		ColorDim, ColorReset,
+		ColorLime, resA.elapsed, ColorReset,
+		ColorLime, resB.elapsed, ColorReset)
+
+	return Result{Handled: true}
+}
+
+// cmdCapabilities shows what the current provider/model supports.
+func cmdCapabilities(ctx Context) Result {
+	if ctx.Provider == nil {
+		PrintError("no provider available")
+		return Result{Handled: true}
+	}
+
+	p := ctx.Provider
+	name := p.Name()
+
+	_, isTokenStreamer := p.(iteragent.TokenStreamer)
+	_, isThinkingStreamer := p.(iteragent.ThinkingStreamer)
+	_, isNativeToolCaller := p.(iteragent.NativeToolCaller)
+	cw := iteragent.ProviderContextWindow(p)
+
+	checkmark := func(ok bool, extra string) string {
+		if ok {
+			s := ColorLime + "✓" + ColorReset
+			if extra != "" {
+				s += " " + ColorDim + "(" + extra + ")" + ColorReset
+			}
+			return s
+		}
+		return ColorDim + "✗" + ColorReset
+	}
+
+	cacheStr := ColorDim + "disabled" + ColorReset
+	if ctx.RuntimeConfig != nil && ctx.RuntimeConfig.CacheEnabled != nil && *ctx.RuntimeConfig.CacheEnabled {
+		cacheStr = ColorLime + "enabled (system + messages)" + ColorReset
+	}
+
+	cwStr := ""
+	if cw >= 1_000_000 {
+		cwStr = fmt.Sprintf("%.0fM tokens", float64(cw)/1_000_000)
+	} else if cw >= 1_000 {
+		cwStr = fmt.Sprintf("%dk tokens", cw/1_000)
+	} else {
+		cwStr = fmt.Sprintf("%d tokens", cw)
+	}
+
+	fmt.Printf("%s── Model Capabilities ─────────────────────────%s\n", ColorDim, ColorReset)
+	fmt.Printf("  Provider:        %s%s%s\n", ColorBold, name, ColorReset)
+	fmt.Printf("  Context window:  %s%s%s\n", ColorCyan, cwStr, ColorReset)
+	fmt.Printf("  Streaming:       %s\n", checkmark(isTokenStreamer, "TokenStreamer"))
+	fmt.Printf("  Thinking:        %s\n", checkmark(isThinkingStreamer, "ThinkingStreamer"))
+	fmt.Printf("  Native tools:    %s\n", checkmark(isNativeToolCaller, "NativeToolCaller"))
+	fmt.Printf("  Cache:           %s\n", cacheStr)
+	fmt.Printf("%s───────────────────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
 

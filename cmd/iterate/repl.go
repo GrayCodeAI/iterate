@@ -452,6 +452,13 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 		SessionOutputTokens: &sess.OutputTokens,
 		SessionCacheRead:    &sess.CacheRead,
 		SessionCacheWrite:   &sess.CacheWrite,
+		BudgetLimit:         &budgetLimit,
+		SessionCostUSD:      &sess.CostUSD,
+		RuntimeConfig: &commands.RuntimeConfig{
+			Temperature:  rtConfig.Temperature,
+			MaxTokens:    rtConfig.MaxTokens,
+			CacheEnabled: rtConfig.CacheEnabled,
+		},
 		InputHistory:        selector.InputHistoryRef,
 		StopWatch:           stopWatch,
 		StartWatch:          startWatch,

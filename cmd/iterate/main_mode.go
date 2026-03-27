@@ -39,6 +39,10 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 		if f.noTools {
 			fmt.Fprintf(os.Stderr, "  --no-tools: running in pure chat mode (no tool access)\n")
 		}
+		// Wire spending budget from CLI flag.
+		if f.budget > 0 {
+			budgetLimit = f.budget
+		}
 		runREPL(ctx, p, absRepo, iteragent.ThinkingLevel(f.thinking), logger)
 		return
 	}

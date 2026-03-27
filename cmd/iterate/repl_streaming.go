@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +17,62 @@ import (
 	"github.com/GrayCodeAI/iterate/internal/ui/highlight"
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
+
+// atFileRegexp matches @filename tokens in prompts.
+var atFileRegexp = regexp.MustCompile(`@([\w./\-]+)`)
+
+// injectAtFileContext scans the prompt for @filename patterns, reads up to
+// maxFiles files (each limited to maxLines), and prepends their content as
+// fenced code blocks. Returns the augmented prompt.
+func injectAtFileContext(prompt, repoPath string) string {
+	const maxFiles = 5
+	const maxLines = 200
+
+	matches := atFileRegexp.FindAllStringSubmatch(prompt, -1)
+	if len(matches) == 0 {
+		return prompt
+	}
+
+	seen := make(map[string]bool)
+	var injected strings.Builder
+	injected.WriteString(prompt)
+
+	count := 0
+	for _, m := range matches {
+		if count >= maxFiles {
+			break
+		}
+		relPath := m[1]
+		if seen[relPath] {
+			continue
+		}
+		seen[relPath] = true
+
+		absPath := relPath
+		if !filepath.IsAbs(relPath) {
+			absPath = filepath.Join(repoPath, relPath)
+		}
+
+		f, err := os.Open(absPath)
+		if err != nil {
+			continue // file doesn't exist or not readable — silently skip
+		}
+		defer f.Close()
+
+		var lines []string
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() && len(lines) < maxLines {
+			lines = append(lines, scanner.Text())
+		}
+
+		ext := strings.TrimPrefix(filepath.Ext(relPath), ".")
+		block := fmt.Sprintf("\n\n[File: %s]\n```%s\n%s\n```", relPath, ext, strings.Join(lines, "\n"))
+		injected.WriteString(block)
+		count++
+	}
+
+	return injected.String()
+}
 
 // toolStyle returns the display icon, label, and ANSI color for a tool name.
 func toolStyle(name string) (icon, label, col string) {
@@ -133,6 +192,14 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		prompt = img + "\n\n" + prompt
 	}
 
+	// Prepend any pending template (from /template use command).
+	if tmpl := commands.GetPendingTemplate(); tmpl != "" {
+		prompt = tmpl + "\n\n" + prompt
+	}
+
+	// Inject @filename context blocks for any @file references in the prompt.
+	prompt = injectAtFileContext(prompt, repoPath)
+
 	// Sync pinned messages into the agent before each request.
 	a.SetPinnedMessages(getPinnedMessages())
 	streamingTokenCount.Store(0)
@@ -184,6 +251,12 @@ func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repo
 		sess.CostUSD += requestCost.Total
 	}
 	printFinalStats(elapsed, ttft, beforeTokens, requestCost.Total, fullContent)
+
+	// Check spending budget after each request.
+	if budgetLimit > 0 && sess.CostUSD >= budgetLimit {
+		fmt.Printf("\n%s⚠  Budget limit $%.2f reached — use /budget to increase or continue anyway%s\n",
+			colorYellow, budgetLimit, colorReset)
+	}
 
 	// Autosave after each turn so a crash doesn't lose the session.
 	if len(a.Messages) > 0 {

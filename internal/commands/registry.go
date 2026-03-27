@@ -139,6 +139,10 @@ type Context struct {
 	SessionToolCalls *int
 	SessionMessages  *int
 
+	// Budget tracking
+	BudgetLimit    *float64
+	SessionCostUSD *float64
+
 	// Spinner state
 	IsSpinnerActive *atomic.Int32
 
