@@ -474,8 +474,13 @@ func cmdTrim(ctx Context) Result {
 
 	// Align to a user-message boundary so we always start on a user turn.
 	startIdx := len(msgs) - keep
-	for startIdx > 0 && msgs[startIdx].Role != "user" {
+	for startIdx > 0 && startIdx < len(msgs) && msgs[startIdx].Role != "user" {
 		startIdx++
+	}
+	if startIdx >= len(msgs) {
+		// Pathological case: no user message found in the tail — keep everything.
+		fmt.Printf("Context already at minimum (%d messages).\n", len(msgs))
+		return Result{Handled: true}
 	}
 
 	before := len(msgs)

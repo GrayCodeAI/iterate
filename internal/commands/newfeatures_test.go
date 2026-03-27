@@ -306,6 +306,25 @@ func TestCmdTrim_KeepsLastTurns(t *testing.T) {
 	}
 }
 
+// TestCmdTrim_NoUserMessageInTail covers the out-of-bounds case where every
+// message in the kept tail has a non-user role (pathological but must not panic).
+func TestCmdTrim_NoUserMessageInTail(t *testing.T) {
+	ag := &iteragent.Agent{}
+	// 10 assistant-only messages — no user messages anywhere.
+	for i := 0; i < 10; i++ {
+		ag.Messages = append(ag.Messages, iteragent.Message{Role: "assistant", Content: "a"})
+	}
+	ctx := Context{
+		Parts: []string{"/trim", "2"},
+		Agent: ag,
+	}
+	// Must not panic.
+	result := cmdTrim(ctx)
+	if !result.Handled {
+		t.Error("expected handled")
+	}
+}
+
 func TestCmdTrim_AlreadySmall(t *testing.T) {
 	ag := &iteragent.Agent{}
 	ag.Messages = []iteragent.Message{
