@@ -16,11 +16,12 @@ jobs:
           path: iterate
 
       # The go.mod has: replace github.com/GrayCodeAI/iteragent => ../iteragent
-      # So we also check out iteragent as a sibling directory.
+      # Clone at specific tag v1.5.0 to match local replace
       - name: Checkout iteragent
         uses: actions/checkout@v4
         with:
           repository: GrayCodeAI/iteragent
+          ref: v1.5.0
           path: iteragent
 
       - name: Set up Go
