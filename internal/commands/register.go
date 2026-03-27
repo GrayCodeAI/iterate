@@ -20,6 +20,7 @@ func RegisterAll(r *Registry) {
 	RegisterAnalysisCommands(r)
 	RegisterBudgetCommands(r)
 	RegisterTemplateCommands(r)
+	RegisterSnippetCommands(r)
 }
 
 // DefaultRegistry returns a fully populated registry.
