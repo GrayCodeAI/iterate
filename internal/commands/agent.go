@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/agent"
@@ -248,12 +248,26 @@ func cmdSpawn(ctx Context) Result {
 		}
 		defer ctx.Pool.Release(ag)
 
-		fmt.Printf("%sRunning subagent…%s\n", ColorDim, ColorReset)
-		resp, err := ag.Run(context.Background(), "", task)
-		if err != nil {
-			PrintError("subagent failed: %s", err)
-		} else {
-			fmt.Println(resp)
+		fmt.Printf("%s── subagent output ─────────────────%s\n", ColorDim, ColorReset)
+		var full strings.Builder
+		events := ag.Prompt(context.Background(), task)
+		for e := range events {
+			switch iteragent.EventType(e.Type) {
+			case iteragent.EventTokenUpdate:
+				fmt.Print(e.Content)
+				full.WriteString(e.Content)
+			case iteragent.EventError:
+				PrintError(e.Content)
+			}
+		}
+		ag.Finish()
+		fmt.Printf("\n%s────────────────────────────────────%s\n", ColorDim, ColorReset)
+
+		// Inject subagent result into the parent conversation so the model can reason over it.
+		if ctx.Agent != nil && full.Len() > 0 {
+			injected := fmt.Sprintf("[Subagent result for task: %q]\n\n%s", task, full.String())
+			ctx.Agent.Messages = append(ctx.Agent.Messages, iteragent.NewUserMessage(injected))
+			PrintDim("subagent result injected into conversation")
 		}
 	} else if ctx.REPL.StreamAndPrint != nil {
 		ctx.REPL.StreamAndPrint(nil, ctx.Agent, task, ctx.RepoPath)
@@ -305,44 +319,56 @@ func cmdSwarm(ctx Context) Result {
 	return Result{Handled: true}
 }
 
+type swarmAgentResult struct {
+	idx     int
+	content string
+	isError bool
+}
+
 func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
-	results := make([]string, 0, n)
-	var mu sync.Mutex
-	var wg sync.WaitGroup
+	resultCh := make(chan swarmAgentResult, n)
 	sem := make(chan struct{}, 10)
+	var doneCount int32
 
 	for i := 0; i < n; i++ {
-		sem <- struct{}{}
-		wg.Add(1)
 		go func(idx int) {
-			defer wg.Done()
+			sem <- struct{}{}
 			defer func() { <-sem }()
 
 			ag, err := pool.Acquire(context.Background())
 			if err != nil {
-				mu.Lock()
-				results = append(results, fmt.Sprintf("Agent %d: error: %s", idx, err))
-				mu.Unlock()
+				resultCh <- swarmAgentResult{idx: idx, content: fmt.Sprintf("error: %s", err), isError: true}
 				return
 			}
 			defer pool.Release(ag)
 
-			resp, err := ag.Run(context.Background(), "", task)
-			mu.Lock()
-			if err != nil {
-				results = append(results, fmt.Sprintf("Agent %d: error: %s", idx, err))
-			} else {
-				snippet := resp
-				if len(snippet) > 100 {
-					snippet = snippet[:100] + "…"
+			// Stream the agent, collecting output silently.
+			var full strings.Builder
+			events := ag.Prompt(context.Background(), task)
+			for e := range events {
+				if iteragent.EventType(e.Type) == iteragent.EventTokenUpdate {
+					full.WriteString(e.Content)
 				}
-				results = append(results, fmt.Sprintf("Agent %d: %s", idx, snippet))
 			}
-			mu.Unlock()
+			ag.Finish()
+
+			done := int(atomic.AddInt32(&doneCount, 1))
+			fmt.Printf("\r%sSwarm: %d/%d completed…%s", ColorDim, done, n, ColorReset)
+
+			resultCh <- swarmAgentResult{idx: idx, content: full.String()}
 		}(i)
 	}
-	wg.Wait()
 
+	results := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		r := <-resultCh
+		snippet := r.content
+		if len(snippet) > 120 {
+			snippet = snippet[:120] + "…"
+		}
+		results = append(results, fmt.Sprintf("Agent %d: %s", r.idx, snippet))
+	}
+	fmt.Printf("\r\033[K") // clear progress line
 	return results
 }
 
