@@ -1,11 +1,27 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+// lastRunOutput stores the combined output of the most recent /run invocation.
+// Protected by lastRunMu so concurrent commands don't corrupt it.
+var (
+	lastRunOutput string
+	lastRunMu     sync.Mutex
+)
+
+// LastRunOutput returns the captured output of the most recent /run call.
+func LastRunOutput() string {
+	lastRunMu.Lock()
+	defer lastRunMu.Unlock()
+	return lastRunOutput
+}
 
 // RegisterDevCommands adds development commands.
 func RegisterDevCommands(r *Registry) {
@@ -110,11 +126,23 @@ func cmdFormat(ctx Context) Result {
 
 func cmdRun(ctx Context) Result {
 	if !ctx.HasArg(1) {
-		fmt.Println("Usage: /run <command>")
+		fmt.Println("Usage: /run [--ask] <command>")
 		return Result{Handled: true}
 	}
 
-	cmdStr := ctx.Args()
+	// Parse optional --ask flag: /run --ask <cmd>
+	askMode := false
+	argStart := 1
+	if ctx.Arg(1) == "--ask" {
+		askMode = true
+		argStart = 2
+		if !ctx.HasArg(argStart) {
+			fmt.Println("Usage: /run --ask <command>")
+			return Result{Handled: true}
+		}
+	}
+
+	cmdStr := strings.Join(ctx.Parts[argStart:], " ")
 
 	// Safe-mode gate: require confirmation for arbitrary shell execution.
 	if ctx.SafeMode != nil && *ctx.SafeMode {
@@ -136,10 +164,26 @@ func cmdRun(ctx Context) Result {
 	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Dir = ctx.RepoPath
 	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
+	outStr := string(output)
+	fmt.Print(outStr)
+
+	// Store output for /explain-error and future /run --ask invocations.
+	lastRunMu.Lock()
+	lastRunOutput = outStr
+	lastRunMu.Unlock()
+
 	if err != nil {
 		PrintError("Command failed: %s", err)
 	}
+
+	// --ask: send output to agent automatically.
+	if askMode && ctx.REPL.StreamAndPrint != nil && (outStr != "" || err != nil) {
+		prompt := fmt.Sprintf(
+			"I ran: `%s`\n\nOutput:\n```\n%s\n```\n\nWhat does this mean and what should I do?",
+			cmdStr, outStr)
+		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, prompt, ctx.RepoPath)
+	}
+
 	return Result{Handled: true}
 }
 
@@ -295,12 +339,18 @@ func cmdFix(ctx Context) Result {
 func cmdExplainError(ctx Context) Result {
 	errText := strings.TrimSpace(strings.TrimPrefix(ctx.Line, ctx.Parts[0]))
 	if errText == "" {
-		fmt.Println("Usage: /explain-error <error message>")
-		return Result{Handled: true}
+		// Fall back to the last /run output if available.
+		errText = LastRunOutput()
+		if errText == "" {
+			fmt.Println("Usage: /explain-error <error message>")
+			fmt.Println("  (or run /run <cmd> first to auto-capture output)")
+			return Result{Handled: true}
+		}
+		fmt.Printf("%s(using last /run output)%s\n", ColorDim, ColorReset)
 	}
 	prompt := fmt.Sprintf("Explain this error message clearly: what does it mean, what caused it, and how to fix it?\n\nError:\n%s", errText)
 	if ctx.REPL.StreamAndPrint != nil {
-		ctx.REPL.StreamAndPrint(nil, ctx.Agent, prompt, ctx.RepoPath)
+		ctx.REPL.StreamAndPrint(context.Background(), ctx.Agent, prompt, ctx.RepoPath)
 	}
 	return Result{Handled: true}
 }

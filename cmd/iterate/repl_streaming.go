@@ -182,6 +182,9 @@ func logTokenDelta(beforeTokens int) {
 
 // streamAndPrint runs the agent and prints the streamed response.
 func streamAndPrint(ctx context.Context, a *iteragent.Agent, prompt string, repoPath string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	beginUndoFrame()
 	defer commitUndoFrame()
 
