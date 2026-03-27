@@ -223,6 +223,9 @@ func newSpinnerController() (func(), func(string)) {
 // processStreamEvent handles a single agent stream event and returns updated state.
 func processStreamEvent(e iteragent.Event, fullContent string, toolStart time.Time, stopOnce func(), newSpinner func(string), repoPath string) (string, time.Time) {
 	switch iteragent.EventType(e.Type) {
+	case iteragent.EventThinkingUpdate:
+		// Thinking tokens are displayed dimmed and indented; not included in fullContent.
+		fmt.Printf("\r\033[K%s  %s%s", colorDim, e.Content, colorReset)
 	case iteragent.EventTokenUpdate:
 		fullContent += e.Content
 		streamingTokenCount.Add(1)

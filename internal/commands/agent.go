@@ -23,6 +23,7 @@ func registerAgentCoreCommands(r *Registry) {
 	registerMany(r, "agent",
 		"/model", "switch provider/model", cmdModel,
 		"/thinking", "set thinking level", cmdThinking,
+		"/cache", "toggle Anthropic prompt caching on/off", cmdCache,
 		"/tools", "list available tools", cmdTools,
 		"/skills", "list available skills", cmdSkills,
 	)
@@ -116,6 +117,36 @@ func cmdThinking(ctx Context) Result {
 			ctx.Agent.WithThinkingLevel(*ctx.Thinking)
 		}
 		fmt.Printf("Thinking set to %s.\n", *ctx.Thinking)
+	}
+	return Result{Handled: true}
+}
+
+func cmdCache(ctx Context) Result {
+	if ctx.Agent == nil {
+		fmt.Println("No agent available.")
+		return Result{Handled: true}
+	}
+	// With no argument: show current state.
+	if !ctx.HasArg(1) {
+		enabled := ctx.RuntimeConfig.CacheEnabled != nil && *ctx.RuntimeConfig.CacheEnabled
+		fmt.Printf("Prompt caching: %s\n", map[bool]string{true: "on", false: "off"}[enabled])
+		fmt.Println("Usage: /cache on|off")
+		return Result{Handled: true}
+	}
+	val := strings.ToLower(ctx.Arg(1))
+	switch val {
+	case "on", "true", "1", "yes":
+		on := true
+		ctx.RuntimeConfig.CacheEnabled = &on
+		ctx.Agent.WithCacheEnabled(true)
+		fmt.Printf("%sPrompt caching enabled.%s\n", ColorLime, ColorReset)
+	case "off", "false", "0", "no":
+		off := false
+		ctx.RuntimeConfig.CacheEnabled = &off
+		ctx.Agent.WithCacheEnabled(false)
+		fmt.Printf("%sPrompt caching disabled.%s\n", ColorDim, ColorReset)
+	default:
+		fmt.Printf("Unknown value %q. Usage: /cache on|off\n", val)
 	}
 	return Result{Handled: true}
 }
