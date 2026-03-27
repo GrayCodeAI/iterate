@@ -502,6 +502,13 @@ func cmdCompact(ctx Context) Result {
 		return Result{Handled: true}
 	}
 
+	// /compact llm — use LLM-assisted summarisation for this compaction.
+	if ctx.HasArg(1) && strings.ToLower(ctx.Arg(1)) == "llm" {
+		ctx.Agent.WithLLMCompaction(8)
+		PrintSuccess("LLM compaction enabled — will activate when context fills")
+		return Result{Handled: true}
+	}
+
 	before := len(ctx.Agent.Messages)
 	pins := loadPins(ctx.RepoPath)
 
