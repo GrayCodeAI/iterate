@@ -20,14 +20,14 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	day := e.readDayCount()
 
 	// Sync with remote before branching.
-	if out, err := e.runTool(ctx, "bash", map[string]string{
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git pull --rebase origin main",
 	}); err != nil {
 		e.logger.Warn("pull rebase failed, continuing", "err", err, "output", out)
 	}
 
 	// Skip if nothing has changed relative to origin/main.
-	out, _ := e.runTool(ctx, "bash", map[string]string{
+	out, _ := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git diff origin/main HEAD --stat",
 	})
 	if strings.TrimSpace(out) == "" {
@@ -42,7 +42,7 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	// Delete any stale branch with the same name.
 	_ = e.deleteBranch(ctx, branchName)
 
-	if out, err := e.runTool(ctx, "bash", map[string]string{
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git checkout -b %s", branchName),
 	}); err != nil {
 		return fmt.Errorf("failed to create feature branch %s: %w (output: %s)", branchName, err, out)
@@ -50,11 +50,11 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	e.logger.Info("created feature branch", "branch", branchName)
 
 	// Push with lease; fall back to a plain push on failure.
-	if out, err := e.runTool(ctx, "bash", map[string]string{
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git push -u origin %q --force-with-lease", branchName),
 	}); err != nil {
 		e.logger.Warn("push with lease failed, retrying", "err", err, "output", out)
-		if out2, err2 := e.runTool(ctx, "bash", map[string]string{
+		if out2, err2 := e.runTool(ctx, "bash", map[string]interface{}{
 			"cmd": fmt.Sprintf("git push -u origin %q", branchName),
 		}); err2 != nil {
 			return fmt.Errorf("failed to push branch: %w (output: %s)", err2, out2)
@@ -128,7 +128,7 @@ func (e *Engine) RunMergePhase(ctx context.Context) error {
 	}
 
 	// Pull to make sure local main is up-to-date.
-	if out, err := e.runTool(ctx, "bash", map[string]string{
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git pull origin main",
 	}); err != nil {
 		e.logger.Warn("pull after merge failed", "err", err, "output", out)
@@ -164,7 +164,7 @@ func (e *Engine) waitForCIAndRecord(ctx context.Context) {
 		default:
 		}
 
-		out, err := e.runTool(ciCtx, "bash", map[string]string{
+		out, err := e.runTool(ciCtx, "bash", map[string]interface{}{
 			"cmd": fmt.Sprintf(
 				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json conclusion,status --jq '.[0]|.conclusion+\":\"+.status'",
 				e.repo,
@@ -201,7 +201,7 @@ func (e *Engine) waitForCIAndRecord(ctx context.Context) {
 	case "failure":
 		e.logger.Warn("CI failed after merge — recording for next planner cycle")
 		// Fetch the failed step logs for context.
-		failedLog, _ = e.runTool(ciCtx, "bash", map[string]string{
+		failedLog, _ = e.runTool(ciCtx, "bash", map[string]interface{}{
 			"cmd": fmt.Sprintf(
 				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId' | xargs -I{} gh run view {} --repo %s --log-failed 2>/dev/null | head -60",
 				e.repo, e.repo,

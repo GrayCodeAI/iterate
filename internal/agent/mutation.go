@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
 // MutationTestTool runs go-mutesting to find untested code paths.
@@ -15,8 +17,8 @@ func MutationTestTool(repoPath string) Tool {
 	return Tool{
 		Name:        "mutation_test",
 		Description: "Run mutation testing to find untested code paths.\nArgs: {\"pkg\": \"./internal/agent/...\"} (defaults to ./...)",
-		Execute: func(ctx context.Context, args map[string]string) (string, error) {
-			pkg := args["pkg"]
+		Execute: func(ctx context.Context, args map[string]interface{}) (string, error) {
+			pkg := iteragent.ArgStr(args, "pkg")
 			if pkg == "" {
 				pkg = "./..."
 			}

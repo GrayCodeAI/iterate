@@ -105,7 +105,7 @@ func replHooks() iteragent.AgentHooks {
 					colorDim, turn, elapsed, len(response), colorReset)
 			}
 		},
-		OnToolStart: func(toolName string, args map[string]string) {
+		OnToolStart: func(toolName string, args map[string]interface{}) {
 			toolStart = time.Now()
 			if cfg.DebugMode {
 				fmt.Printf("%s[debug] → %s%s\n", colorDim, toolName, colorReset)

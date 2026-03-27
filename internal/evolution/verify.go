@@ -21,7 +21,7 @@ func (e *Engine) verify(ctx context.Context) *VerificationResult {
 	result := &VerificationResult{}
 
 	// Step 1: Build
-	buildOut, buildErr := e.runTool(ctx, "bash", map[string]string{
+	buildOut, buildErr := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "go build ./...",
 	})
 	result.Output = buildOut
@@ -32,7 +32,7 @@ func (e *Engine) verify(ctx context.Context) *VerificationResult {
 	result.BuildPassed = true
 
 	// Step 2: Vet
-	vetOut, vetErr := e.runTool(ctx, "bash", map[string]string{
+	vetOut, vetErr := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "go vet ./...",
 	})
 	if vetErr != nil {
@@ -42,7 +42,7 @@ func (e *Engine) verify(ctx context.Context) *VerificationResult {
 	}
 
 	// Step 3: Test
-	testOut, testErr := e.runTool(ctx, "bash", map[string]string{
+	testOut, testErr := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "go test ./... -short",
 	})
 	result.Output += "\n" + testOut
@@ -58,7 +58,7 @@ func (e *Engine) verify(ctx context.Context) *VerificationResult {
 // verifyProtected checks if any modified files are protected.
 // Returns a list of protected files that were modified.
 func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
-	out, err := e.runTool(ctx, "bash", map[string]string{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git diff --name-only HEAD",
 	})
 	if err != nil {

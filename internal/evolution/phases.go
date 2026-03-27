@@ -177,7 +177,7 @@ func (e *Engine) RunImplementPhase(ctx context.Context, p iteragent.Provider) er
 	if sessionTitle != "" {
 		finalMsg = "chore: " + sessionTitle
 	}
-	if _, err := e.runTool(ctx, "bash", map[string]string{
+	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git add -u && git diff --cached --quiet || git commit -m %q", finalMsg),
 	}); err != nil {
 		e.logger.Warn("final commit failed", "err", err)
@@ -239,11 +239,11 @@ func (e *Engine) runWave(ctx context.Context, p iteragent.Provider, tasks []plan
 		}
 		e.logger.Info("cherry-picking task commits", "number", r.task.Number, "commits", len(r.commits))
 		for _, hash := range r.commits {
-			if _, err := e.runTool(ctx, "bash", map[string]string{
+			if _, err := e.runTool(ctx, "bash", map[string]interface{}{
 				"cmd": fmt.Sprintf("git cherry-pick %s", hash),
 			}); err != nil {
 				e.logger.Warn("cherry-pick failed, aborting task commits", "number", r.task.Number, "hash", hash, "err", err)
-				_, _ = e.runTool(ctx, "bash", map[string]string{"cmd": "git cherry-pick --abort 2>/dev/null || true"})
+				_, _ = e.runTool(ctx, "bash", map[string]interface{}{"cmd": "git cherry-pick --abort 2>/dev/null || true"})
 				break
 			}
 		}
@@ -257,12 +257,12 @@ func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, ta
 	branchName := fmt.Sprintf("wt/task-%d-%s", task.Number, e.traceID[:6])
 
 	// Clean up any leftover worktree from a previous run.
-	_, _ = e.runTool(ctx, "bash", map[string]string{
+	_, _ = e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git worktree remove --force %q 2>/dev/null; git branch -D %q 2>/dev/null; true", worktreeDir, branchName),
 	})
 
 	// Record base commit before task so we can collect new commits afterward.
-	baseHash, err := e.runTool(ctx, "bash", map[string]string{"cmd": "git rev-parse HEAD"})
+	baseHash, err := e.runTool(ctx, "bash", map[string]interface{}{"cmd": "git rev-parse HEAD"})
 	if err != nil {
 		e.logger.Warn("failed to get base commit hash", "err", err)
 		return nil, false
@@ -270,7 +270,7 @@ func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, ta
 	baseHash = strings.TrimSpace(baseHash)
 
 	// Create the worktree branched at current HEAD.
-	if out, err := e.runTool(ctx, "bash", map[string]string{
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git worktree add -b %q %q HEAD", branchName, worktreeDir),
 	}); err != nil {
 		e.logger.Warn("failed to create worktree", "task", task.Number, "err", err, "output", out)
@@ -279,7 +279,7 @@ func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, ta
 
 	// Always remove the worktree when done.
 	defer func() {
-		_, _ = e.runTool(context.Background(), "bash", map[string]string{
+		_, _ = e.runTool(context.Background(), "bash", map[string]interface{}{
 			"cmd": fmt.Sprintf("git worktree remove --force %q 2>/dev/null; git branch -D %q 2>/dev/null; true", worktreeDir, branchName),
 		})
 	}()
@@ -306,7 +306,7 @@ func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, ta
 	subEngine.executeTask(ctx, p, task, systemPrompt, wtTools, wtSkills, protectedWarning)
 
 	// Collect all commits added by the task (between base and new HEAD of worktree branch).
-	out, err := subEngine.runTool(ctx, "bash", map[string]string{
+	out, err := subEngine.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git log %s..HEAD --format=%%H --reverse", baseHash),
 	})
 	if err != nil || strings.TrimSpace(out) == "" {

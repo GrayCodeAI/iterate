@@ -12,14 +12,14 @@ import (
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
 
-func (e *Engine) runTool(ctx context.Context, name string, args map[string]string) (string, error) {
+func (e *Engine) runTool(ctx context.Context, name string, args map[string]interface{}) (string, error) {
 	tool, ok := e.toolMap[name]
 	if !ok {
 		return "", fmt.Errorf("tool %q not found", name)
 	}
 
 	// Audit log
-	e.auditLog("tool_call", name, args["cmd"])
+	e.auditLog("tool_call", name, iteragent.ArgStr(args, "cmd"))
 
 	result, err := tool.Execute(ctx, args)
 	if err != nil {
@@ -29,7 +29,7 @@ func (e *Engine) runTool(ctx context.Context, name string, args map[string]strin
 }
 
 func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
-	out, err := e.runTool(ctx, "bash", map[string]string{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git status --short",
 	})
 	if err != nil {
@@ -39,7 +39,7 @@ func (e *Engine) hasChanges(ctx context.Context) (bool, error) {
 }
 
 func (e *Engine) currentBranch(ctx context.Context) (string, error) {
-	out, err := e.runTool(ctx, "bash", map[string]string{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git branch --show-current",
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 	}
 	for _, cmd := range cmds {
 		e.logger.Info("running prep command", "cmd", cmd)
-		if out, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err != nil {
+		if out, err := e.runTool(ctx, "bash", map[string]interface{}{"cmd": cmd}); err != nil {
 			e.logger.Warn("prep command failed", "cmd", cmd, "err", err, "output", out)
 			return "", fmt.Errorf("prep command failed: %w", err)
 		}
@@ -88,7 +88,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 	// Create and checkout new branch
 	createCmd := fmt.Sprintf("git checkout -b %s origin/main", branchName)
 	e.logger.Info("creating branch", "cmd", createCmd)
-	if out, err := e.runTool(ctx, "bash", map[string]string{"cmd": createCmd}); err != nil {
+	if out, err := e.runTool(ctx, "bash", map[string]interface{}{"cmd": createCmd}); err != nil {
 		e.logger.Warn("branch creation failed", "err", err, "output", out)
 		return "", fmt.Errorf("branch creation failed: %w", err)
 	}
@@ -98,7 +98,7 @@ func (e *Engine) createFeatureBranch(ctx context.Context, day int) (string, erro
 }
 
 func (e *Engine) pushBranch(ctx context.Context) error {
-	_, err := e.runTool(ctx, "bash", map[string]string{
+	_, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git push -u origin %q", e.branchName),
 	})
 	return err
@@ -168,7 +168,7 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 		return fmt.Errorf("no PR to review")
 	}
 
-	prDiff, err := e.runTool(ctx, "bash", map[string]string{
+	prDiff, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("gh pr diff %d --repo %s", e.prNumber, e.repo),
 	})
 	if err != nil {
@@ -238,7 +238,7 @@ func (e *Engine) mergePR(ctx context.Context) error {
 		return fmt.Errorf("no PR to merge")
 	}
 
-	out, err := e.runTool(ctx, "bash", map[string]string{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("gh pr merge %d --repo %s --squash --delete-branch", e.prNumber, e.repo),
 	})
 	if err != nil {
@@ -256,7 +256,7 @@ func (e *Engine) switchToMain(ctx context.Context) error {
 		"git checkout master",
 		"git checkout origin/main -b main",
 	} {
-		if _, err := e.runTool(ctx, "bash", map[string]string{"cmd": cmd}); err == nil {
+		if _, err := e.runTool(ctx, "bash", map[string]interface{}{"cmd": cmd}); err == nil {
 			return nil
 		}
 	}
@@ -317,7 +317,7 @@ func withPhaseTimeout(ctx context.Context, phase string) (context.Context, conte
 
 func (e *Engine) revert(ctx context.Context) error {
 	// Reset uncommitted changes first.
-	if _, err := e.runTool(ctx, "bash", map[string]string{
+	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git checkout -- . && git clean -fd",
 	}); err == nil {
 		return nil
@@ -329,6 +329,6 @@ func (e *Engine) revert(ctx context.Context) error {
 }
 
 func (e *Engine) commit(ctx context.Context, msg string) error {
-	_, err := e.toolMap["git_commit"].Execute(ctx, map[string]string{"message": msg})
+	_, err := e.toolMap["git_commit"].Execute(ctx, map[string]interface{}{"message": msg})
 	return err
 }

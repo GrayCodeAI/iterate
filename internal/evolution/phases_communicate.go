@@ -32,7 +32,7 @@ func (e *Engine) RunCommunicatePhase(ctx context.Context, p iteragent.Provider) 
 	e.writeJournalEntry(ctx, p, day)
 
 	// Commit journal
-	if _, err := e.runTool(ctx, "bash", map[string]string{
+	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf(`git add docs/JOURNAL.md memory/ && git diff --cached --quiet || git commit -m "journal: Day %s session entry"`, day),
 	}); err != nil {
 		e.logger.Warn("failed to commit journal", "err", err)
@@ -64,7 +64,7 @@ func (e *Engine) writeJournalEntry(ctx context.Context, p iteragent.Provider, da
 	journalCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	recentCommits, _ := e.runTool(journalCtx, "bash", map[string]string{"cmd": "git log --oneline -8"})
+	recentCommits, _ := e.runTool(journalCtx, "bash", map[string]interface{}{"cmd": "git log --oneline -8"})
 
 	minimalPrompt := "You are iterate, a self-evolving coding agent. Reply with ONLY text, no tool calls."
 
@@ -146,7 +146,7 @@ func (e *Engine) persistJournalEntry(journalEntry string, day string) {
 
 // issueAlreadyCommented checks if the bot already commented on an issue today.
 func (e *Engine) issueAlreadyCommented(ctx context.Context, issueNum int, day string) bool {
-	out, err := e.runTool(ctx, "bash", map[string]string{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("gh issue view %d --repo %s --comments --json comments --jq '.comments[-3:][].body' 2>/dev/null || echo ''", issueNum, e.repo),
 	})
 	if err != nil || out == "" {

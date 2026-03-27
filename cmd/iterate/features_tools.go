@@ -199,34 +199,29 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 	for i, t := range tools {
 		t := t // capture
 		origExec := t.Execute
-		t.Execute = func(ctx context.Context, args map[string]string) (string, error) {
-			auditArgs := make(map[string]interface{}, len(args))
-			for k, v := range args {
-				auditArgs[k] = v
-			}
-
+		t.Execute = func(ctx context.Context, args map[string]interface{}) (string, error) {
 			trackSessionChanges(t.Name, args)
 
 			// Capture file snapshot before any write/edit so /undo can restore.
 			if t.Name == "write_file" || t.Name == "edit_file" || t.Name == "create_file" {
-				if p, ok := args["path"]; ok {
+				if p := iteragent.ArgStr(args, "path"); p != "" {
 					captureFileSnapshot(p)
 				}
 			}
 
 			if denied := checkToolDirPermission(cfg, t.Name, args); denied != "" {
-				logAudit(t.Name, auditArgs, "DENIED (dir restriction)")
+				logAudit(t.Name, args, "DENIED (dir restriction)")
 				return denied, nil
 			}
 
 			if cfg.SafeMode && isDenied(t.Name) {
-				if result, handled := handleSafeModePrompt(cfg, t, args, origExec, auditArgs); handled {
+				if result, handled := handleSafeModePrompt(cfg, t, args, origExec, args); handled {
 					return result, nil
 				}
 			}
 
 			result, err := origExec(ctx, args)
-			logAudit(t.Name, auditArgs, result)
+			logAudit(t.Name, args, result)
 			return result, err
 		}
 		out[i] = t
@@ -234,22 +229,22 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 	return out
 }
 
-func trackSessionChanges(toolName string, args map[string]string) {
+func trackSessionChanges(toolName string, args map[string]interface{}) {
 	if toolName == "write_file" {
-		if p, ok := args["path"]; ok {
+		if p := iteragent.ArgStr(args, "path"); p != "" {
 			sessionChanges.recordWrite(p)
 		}
 	}
 	if toolName == "edit_file" {
-		if p, ok := args["path"]; ok {
+		if p := iteragent.ArgStr(args, "path"); p != "" {
 			sessionChanges.recordEdit(p)
 		}
 	}
 }
 
-func checkToolDirPermission(cfg iterConfig, toolName string, args map[string]string) string {
+func checkToolDirPermission(cfg iterConfig, toolName string, args map[string]interface{}) string {
 	if toolName == "write_file" || toolName == "edit_file" || toolName == "read_file" {
-		if p, ok := args["path"]; ok {
+		if p := iteragent.ArgStr(args, "path"); p != "" {
 			if checkDirPermission(cfg, p) {
 				return fmt.Sprintf("Access denied: %s is outside allowed directories.", p)
 			}
@@ -258,9 +253,9 @@ func checkToolDirPermission(cfg iterConfig, toolName string, args map[string]str
 	return ""
 }
 
-func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]string, origExec func(context.Context, map[string]string) (string, error), auditArgs map[string]interface{}) (string, bool) {
+func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]interface{}, origExec func(context.Context, map[string]interface{}) (string, error), auditArgs map[string]interface{}) (string, bool) {
 	if tool.Name == "bash" {
-		cmd := args["command"]
+		cmd := iteragent.ArgStr(args, "command")
 		if allowed, denied := checkBashPermission(cfg, cmd); allowed {
 			result, err := origExec(context.Background(), args)
 			logAudit(tool.Name, auditArgs, result)
@@ -284,7 +279,7 @@ func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]s
 	ans := strings.ToLower(strings.TrimSpace(answer))
 	if ans == "always" {
 		if tool.Name == "bash" {
-			if cmd, ok := args["command"]; ok {
+			if cmd := iteragent.ArgStr(args, "command"); cmd != "" {
 				cfg.AllowPatterns = append(cfg.AllowPatterns, cmd)
 			}
 		} else {
