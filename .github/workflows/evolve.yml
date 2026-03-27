@@ -24,6 +24,12 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Clone iteragent for local replace
+        run: |
+          cd ..
+          git clone --depth 1 --branch v1.5.0 https://github.com/GrayCodeAI/iteragent.git
+          cd iterate
+
       - name: Configure git
         run: |
           git config user.name "iterate-evolve[bot]"
