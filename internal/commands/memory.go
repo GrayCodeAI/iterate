@@ -278,7 +278,7 @@ func isEmpty(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
 
-// RegisterMemoryAnalyticsCommands adds memory analytics commands.
+// RegisterMemoryAnalyticsCommands adds memory search command.
 func RegisterMemoryAnalyticsCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/memory-search",
@@ -286,13 +286,6 @@ func RegisterMemoryAnalyticsCommands(r *Registry) {
 		Description: "search learnings and memories",
 		Category:    "memory",
 		Handler:     cmdMemorySearch,
-	})
-	r.Register(Command{
-		Name:        "/memory-dump",
-		Aliases:     []string{"/md"},
-		Description: "dump all memory files",
-		Category:    "memory",
-		Handler:     cmdMemoryDump,
 	})
 }
 
@@ -344,41 +337,6 @@ func cmdMemorySearch(ctx Context) Result {
 	} else {
 		fmt.Printf("\n  %s%d results found%s\n", ColorDim, found, ColorReset)
 	}
-	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
-	return Result{Handled: true}
-}
-
-func cmdMemoryDump(ctx Context) Result {
-	fmt.Printf("%s── Memory Dump ────────────────────%s\n", ColorDim, ColorReset)
-
-	// Project memory
-	memoryPath := filepath.Join(ctx.RepoPath, ".iterate", "memory.json")
-	if data, err := os.ReadFile(memoryPath); err == nil && len(data) > 0 {
-		fmt.Printf("\n%s── .iterate/memory.json ──%s\n", ColorBold, ColorReset)
-		fmt.Println(string(data))
-	}
-
-	// Learnings
-	learningsPath := filepath.Join(ctx.RepoPath, "memory", "learnings.jsonl")
-	if data, err := os.ReadFile(learningsPath); err == nil && len(data) > 0 {
-		fmt.Printf("\n%s── memory/learnings.jsonl ──%s\n", ColorBold, ColorReset)
-		fmt.Println(string(data))
-	}
-
-	// Active learnings
-	activePath := filepath.Join(ctx.RepoPath, "memory", "ACTIVE_LEARNINGS.md")
-	if data, err := os.ReadFile(activePath); err == nil && len(data) > 0 {
-		fmt.Printf("\n%s── memory/ACTIVE_LEARNINGS.md ──%s\n", ColorBold, ColorReset)
-		fmt.Println(string(data))
-	}
-
-	// Failures
-	failuresPath := filepath.Join(ctx.RepoPath, "memory", "failures.jsonl")
-	if data, err := os.ReadFile(failuresPath); err == nil && len(data) > 0 {
-		fmt.Printf("\n%s── memory/failures.jsonl ──%s\n", ColorBold, ColorReset)
-		fmt.Println(string(data))
-	}
-
 	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }

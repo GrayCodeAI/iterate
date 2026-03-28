@@ -11,13 +11,7 @@ import (
 	"time"
 )
 
-// RegisterLearningCommands adds pattern recognition and learning management commands.
-// Task 51: Pattern Recognition from Active Learnings
-// Task 52: Cross-Project Learning Transfer
-// Task 53: Learning Categories
-// Task 54: Learning Confidence Score
-// Task 55: Learning Expiration
-// Task 60: Manual Learning Curation
+// RegisterLearningCommands adds pattern recognition and learning curation.
 func RegisterLearningCommands(r *Registry) {
 	r.Register(Command{
 		Name:        "/patterns",
@@ -27,25 +21,11 @@ func RegisterLearningCommands(r *Registry) {
 		Handler:     cmdPatterns,
 	})
 	r.Register(Command{
-		Name:        "/learnings",
-		Aliases:     []string{"/ln"},
-		Description: "show learnings with categories and confidence",
-		Category:    "memory",
-		Handler:     cmdLearnings,
-	})
-	r.Register(Command{
 		Name:        "/curate",
 		Aliases:     []string{},
 		Description: "review and curate learnings (approve/reject)",
 		Category:    "memory",
 		Handler:     cmdCurate,
-	})
-	r.Register(Command{
-		Name:        "/learning-stats",
-		Aliases:     []string{"/ls"},
-		Description: "learning analytics and statistics",
-		Category:    "memory",
-		Handler:     cmdLearningStats,
 	})
 	r.Register(Command{
 		Name:        "/expire-learnings",
@@ -54,16 +34,8 @@ func RegisterLearningCommands(r *Registry) {
 		Category:    "memory",
 		Handler:     cmdExpireLearnings,
 	})
-	r.Register(Command{
-		Name:        "/transfer-learnings",
-		Aliases:     []string{},
-		Description: "export learnings for cross-project transfer",
-		Category:    "memory",
-		Handler:     cmdTransferLearnings,
-	})
 }
 
-// learningEntry represents a parsed learning with metadata.
 type learningEntry struct {
 	Day        int     `json:"day"`
 	TS         string  `json:"ts"`
@@ -84,16 +56,12 @@ func cmdPatterns(ctx Context) Result {
 		return Result{Handled: true}
 	}
 
-	// Categorize learnings
 	categories := categorizeLearnings(learnings)
-
-	// Find recurring themes
 	themes := findRecurringThemes(learnings)
 
 	fmt.Printf("%s── Patterns ───────────────────────%s\n", ColorDim, ColorReset)
 
-	// Show category distribution
-	fmt.Printf("\n  %sCategory Distribution:%s\n", ColorBold, ColorReset)
+	fmt.Printf("\n  %sCategories:%s\n", ColorBold, ColorReset)
 	type catCount struct {
 		name  string
 		count int
@@ -110,7 +78,6 @@ func cmdPatterns(ctx Context) Result {
 		fmt.Printf("    %-18s %3d (%.0f%%) %s%s%s\n", c.name, c.count, pct, ColorLime, bar, ColorReset)
 	}
 
-	// Show recurring themes
 	if len(themes) > 0 {
 		fmt.Printf("\n  %sRecurring Themes:%s\n", ColorBold, ColorReset)
 		for i, theme := range themes {
@@ -121,8 +88,7 @@ func cmdPatterns(ctx Context) Result {
 		}
 	}
 
-	// Show high-confidence insights
-	fmt.Printf("\n  %sHigh-Confidence Insights:%s\n", ColorBold, ColorReset)
+	fmt.Printf("\n  %sHigh-Confidence:%s\n", ColorBold, ColorReset)
 	highConf := filterByConfidence(learnings, 0.7)
 	for i, l := range highConf {
 		if i >= 5 {
@@ -131,51 +97,9 @@ func cmdPatterns(ctx Context) Result {
 		fmt.Printf("    %s✓%s %s (day %d)\n", ColorLime, ColorReset, l.Title, l.Day)
 	}
 	if len(highConf) == 0 {
-		fmt.Printf("    %sNo high-confidence learnings yet.%s\n", ColorDim, ColorReset)
+		fmt.Printf("    %sNone yet.%s\n", ColorDim, ColorReset)
 	}
 
-	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
-	return Result{Handled: true}
-}
-
-func cmdLearnings(ctx Context) Result {
-	learnings := loadLearnings(ctx.RepoPath)
-	if len(learnings) == 0 {
-		fmt.Println("No learnings recorded yet.")
-		return Result{Handled: true}
-	}
-
-	// Show learnings with categories and confidence
-	fmt.Printf("%s── Learnings ──────────────────────%s\n", ColorDim, ColorReset)
-	for i, l := range learnings {
-		confStr := fmt.Sprintf("%.0f%%", l.Confidence*100)
-		catStr := l.Category
-		if catStr == "" {
-			catStr = "uncategorized"
-		}
-
-		confColor := ColorDim
-		if l.Confidence >= 0.7 {
-			confColor = ColorLime
-		} else if l.Confidence >= 0.4 {
-			confColor = ColorYellow
-		}
-
-		title := l.Title
-		if len(title) > 60 {
-			title = title[:60] + "..."
-		}
-
-		curated := ""
-		if l.Curated {
-			curated = fmt.Sprintf(" %s✓%s", ColorGreen, ColorReset)
-		}
-
-		fmt.Printf("  %s%d%s %s[%s]%s %s [%s]%s%s\n",
-			ColorDim, i+1, ColorReset,
-			confColor, confStr, ColorReset,
-			title, catStr, curated, ColorReset)
-	}
 	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
@@ -221,7 +145,6 @@ func cmdCurate(ctx Context) Result {
 		action = strings.ToLower(ctx.Arg(2))
 	}
 
-	// Update the learning
 	l := &learnings[n-1]
 	switch action {
 	case "approve":
@@ -238,46 +161,6 @@ func cmdCurate(ctx Context) Result {
 	}
 
 	saveLearnings(ctx.RepoPath, learnings)
-	return Result{Handled: true}
-}
-
-func cmdLearningStats(ctx Context) Result {
-	learnings := loadLearnings(ctx.RepoPath)
-	if len(learnings) == 0 {
-		fmt.Println("No learnings recorded yet.")
-		return Result{Handled: true}
-	}
-
-	categories := categorizeLearnings(learnings)
-	confidenceScores := make([]float64, len(learnings))
-	curatedCount := 0
-	for i, l := range learnings {
-		confidenceScores[i] = l.Confidence
-		if l.Curated {
-			curatedCount++
-		}
-	}
-
-	fmt.Printf("%s── Learning Analytics ─────────────%s\n", ColorDim, ColorReset)
-	fmt.Printf("  Total learnings:  %d\n", len(learnings))
-	fmt.Printf("  Curated:          %d\n", curatedCount)
-	fmt.Printf("  Categories:       %d\n", len(categories))
-
-	// Average confidence
-	avgConf := 0.0
-	for _, c := range confidenceScores {
-		avgConf += c
-	}
-	avgConf /= float64(len(confidenceScores))
-	fmt.Printf("  Avg confidence:   %.1f%%\n", avgConf*100)
-
-	// Time range
-	if len(learnings) > 0 {
-		fmt.Printf("  Earliest:         Day %d\n", learnings[0].Day)
-		fmt.Printf("  Latest:           Day %d\n", learnings[len(learnings)-1].Day)
-	}
-
-	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
 	return Result{Handled: true}
 }
 
@@ -311,44 +194,6 @@ func cmdExpireLearnings(ctx Context) Result {
 	return Result{Handled: true}
 }
 
-func cmdTransferLearnings(ctx Context) Result {
-	learnings := loadLearnings(ctx.RepoPath)
-	if len(learnings) == 0 {
-		fmt.Println("No learnings to transfer.")
-		return Result{Handled: true}
-	}
-
-	// Export high-confidence learnings as a portable JSON file
-	var exportable []learningEntry
-	for _, l := range learnings {
-		if l.Confidence >= 0.5 || l.Curated {
-			exportable = append(exportable, l)
-		}
-	}
-
-	if len(exportable) == 0 {
-		fmt.Println("No transferable learnings (need confidence >= 50% or curated).")
-		return Result{Handled: true}
-	}
-
-	exportPath := filepath.Join(ctx.RepoPath, "memory", "export_learnings.json")
-	data, err := json.MarshalIndent(exportable, "", "  ")
-	if err != nil {
-		PrintError("failed to marshal: %v", err)
-		return Result{Handled: true}
-	}
-
-	if err := os.WriteFile(exportPath, data, 0o644); err != nil {
-		PrintError("failed to write: %v", err)
-		return Result{Handled: true}
-	}
-
-	PrintSuccess("exported %d learnings to %s", len(exportable), exportPath)
-	fmt.Printf("%sImport in another project: /learnings import %s%s\n", ColorDim, exportPath, ColorReset)
-	return Result{Handled: true}
-}
-
-// loadLearnings reads and parses learnings.jsonl
 func loadLearnings(repoPath string) []learningEntry {
 	path := filepath.Join(repoPath, "memory", "learnings.jsonl")
 	f, err := os.Open(path)
@@ -368,11 +213,9 @@ func loadLearnings(repoPath string) []learningEntry {
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			continue
 		}
-		// Auto-categorize if not set
 		if entry.Category == "" {
 			entry.Category = inferCategory(entry)
 		}
-		// Auto-set confidence if zero
 		if entry.Confidence == 0 {
 			entry.Confidence = inferConfidence(entry)
 		}
@@ -381,7 +224,6 @@ func loadLearnings(repoPath string) []learningEntry {
 	return entries
 }
 
-// saveLearnings writes learnings back to learnings.jsonl
 func saveLearnings(repoPath string, entries []learningEntry) {
 	path := filepath.Join(repoPath, "memory", "learnings.jsonl")
 	f, err := os.Create(path)
@@ -397,7 +239,6 @@ func saveLearnings(repoPath string, entries []learningEntry) {
 	}
 }
 
-// categorizeLearnings counts entries by category.
 func categorizeLearnings(entries []learningEntry) map[string]int {
 	counts := make(map[string]int)
 	for _, e := range entries {
@@ -410,7 +251,6 @@ func categorizeLearnings(entries []learningEntry) map[string]int {
 	return counts
 }
 
-// findRecurringThemes finds common words/topics across learnings.
 func findRecurringThemes(entries []learningEntry) []string {
 	wordCounts := make(map[string]int)
 	stopWords := map[string]bool{
@@ -451,12 +291,11 @@ func findRecurringThemes(entries []learningEntry) []string {
 
 	var themes []string
 	for _, wf := range sorted {
-		themes = append(themes, fmt.Sprintf("%s (%d occurrences)", wf.word, wf.count))
+		themes = append(themes, fmt.Sprintf("%s (%d)", wf.word, wf.count))
 	}
 	return themes
 }
 
-// filterByConfidence returns learnings above a confidence threshold.
 func filterByConfidence(entries []learningEntry, threshold float64) []learningEntry {
 	var result []learningEntry
 	for _, e := range entries {
@@ -467,7 +306,6 @@ func filterByConfidence(entries []learningEntry, threshold float64) []learningEn
 	return result
 }
 
-// inferCategory auto-categorizes a learning based on its content.
 func inferCategory(entry learningEntry) string {
 	text := strings.ToLower(entry.Title + " " + entry.Takeaway + " " + entry.Context)
 
@@ -478,7 +316,6 @@ func inferCategory(entry learningEntry) string {
 		"git":          {"git", "commit", "branch", "merge", "rebase", "push"},
 		"ux":           {"user", "prompt", "display", "output", "message"},
 		"safety":       {"safe", "protect", "danger", "revert", "error"},
-		"learning":     {"learn", "insight", "pattern", "recognize", "remember"},
 		"api":          {"api", "provider", "request", "response", "token"},
 	}
 
@@ -499,31 +336,23 @@ func inferCategory(entry learningEntry) string {
 	return bestCat
 }
 
-// inferConfidence assigns a confidence score based on entry quality.
 func inferConfidence(entry learningEntry) float64 {
-	score := 0.3 // base confidence
-
-	// Has a specific takeaway = higher confidence
+	score := 0.3
 	if entry.Takeaway != "" && len(entry.Takeaway) > 20 {
 		score += 0.2
 	}
-	// Has context = higher confidence
 	if entry.Context != "" && len(entry.Context) > 20 {
 		score += 0.1
 	}
-	// Has a meaningful title
 	if entry.Title != "" && len(entry.Title) > 10 {
 		score += 0.1
 	}
-	// Recent entries get a slight boost
 	if entry.Day > 0 {
 		score += 0.1
 	}
-	// Source is evolution (agent's own insight)
 	if entry.Source == "evolution" {
 		score += 0.1
 	}
-
 	if score > 1.0 {
 		score = 1.0
 	}

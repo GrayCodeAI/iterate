@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -138,10 +139,10 @@ func TestFindRecurringThemes(t *testing.T) {
 	foundTesting := false
 	foundCoverage := false
 	for _, theme := range themes {
-		if contains(theme, "testing") {
+		if strings.Contains(theme, "testing") {
 			foundTesting = true
 		}
-		if contains(theme, "coverage") {
+		if strings.Contains(theme, "coverage") {
 			foundCoverage = true
 		}
 	}
@@ -192,17 +193,4 @@ NOT_VALID_JSON
 	if len(learnings) != 2 {
 		t.Errorf("expected 2 valid learnings from mixed file, got %d", len(learnings))
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
