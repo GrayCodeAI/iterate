@@ -8,12 +8,20 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/GrayCodeAI/iterate/internal/autonomous"
 	"github.com/GrayCodeAI/iterate/internal/community"
 	"github.com/GrayCodeAI/iterate/internal/evolution"
 	"github.com/GrayCodeAI/iterate/internal/social"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 )
+
+// sandboxManager holds the active sandbox instance when --sandbox is enabled.
+var sandboxManager struct {
+	enabled bool
+	image   string
+	instance *autonomous.Sandbox
+}
 
 func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logger) {
 	cfg := loadConfig()
@@ -34,10 +42,24 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 		currentMode = modeArchitect // reuse "no tools" mode
 	}
 
+	// Initialize sandbox if enabled
+	if f.sandbox {
+		sandboxManager.enabled = true
+		sandboxManager.image = f.sandboxImage
+		if !autonomous.CheckDockerAvailable() {
+			logger.Error("--sandbox requires Docker to be installed and running")
+			os.Exit(1)
+		}
+		logger.Info("sandbox mode enabled", "image", f.sandboxImage)
+	}
+
 	isREPL := f.chat || (!f.evolve && !f.socialOnly && f.phase == "")
 	if isREPL {
 		if f.noTools {
 			fmt.Fprintf(os.Stderr, "  --no-tools: running in pure chat mode (no tool access)\n")
+		}
+		if f.sandbox {
+			fmt.Fprintf(os.Stderr, "  --sandbox: commands will run in Docker container (%s)\n", f.sandboxImage)
 		}
 		// Wire spending budget from CLI flag.
 		if f.budget > 0 {

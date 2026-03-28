@@ -12,6 +12,10 @@ var (
 	ColorBold   = "\033[1m"
 	ColorCyan   = "\033[36m"
 	ColorRed    = "\033[31m"
+	ColorGreen  = "\033[38;5;114m"
+	ColorAmber  = "\033[38;5;221m"
+	ColorBlue   = "\033[38;5;75m"
+	ColorPurple = "\033[38;5;141m"
 )
 
 // PrintSuccess prints a success message with a checkmark.

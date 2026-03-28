@@ -25,6 +25,8 @@ type mainFlags struct {
 	compactFlag bool
 	noTools     bool
 	budget      float64
+	sandbox     bool
+	sandboxImage string
 }
 
 func parseFlags() mainFlags {
@@ -48,6 +50,8 @@ func parseFlags() mainFlags {
 	flag.BoolVar(&f.compactFlag, "compact", false, "Compact loaded session before running")
 	flag.BoolVar(&f.noTools, "no-tools", false, "Disable all tools — pure chat mode (no file reads/writes/bash)")
 	flag.Float64Var(&f.budget, "budget", 0, "Spending limit in USD (0 = no limit, e.g. --budget 5.00)")
+	flag.BoolVar(&f.sandbox, "sandbox", false, "Enable Docker sandbox for command execution (isolates file system and network)")
+	flag.StringVar(&f.sandboxImage, "sandbox-image", "node:18-slim", "Docker image to use for sandbox (default: node:18-slim)")
 	flag.Parse()
 	return f
 }

@@ -285,6 +285,10 @@ var (
 	ColorBold   = ui.ColorBold
 	ColorCyan   = ui.ColorCyan
 	ColorRed    = ui.ColorRed
+	ColorGreen  = ui.ColorGreen
+	ColorAmber  = ui.ColorAmber
+	ColorBlue   = ui.ColorBlue
+	ColorPurple = ui.ColorPurple
 )
 
 // PrintSuccess prints a success message — delegates to ui.PrintSuccess.

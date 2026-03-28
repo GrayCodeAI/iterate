@@ -277,3 +277,108 @@ func cmdForgetMessage(ctx Context) Result {
 func isEmpty(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
+
+// RegisterMemoryAnalyticsCommands adds memory analytics commands.
+func RegisterMemoryAnalyticsCommands(r *Registry) {
+	r.Register(Command{
+		Name:        "/memory-search",
+		Aliases:     []string{"/ms"},
+		Description: "search learnings and memories",
+		Category:    "memory",
+		Handler:     cmdMemorySearch,
+	})
+	r.Register(Command{
+		Name:        "/memory-dump",
+		Aliases:     []string{"/md"},
+		Description: "dump all memory files",
+		Category:    "memory",
+		Handler:     cmdMemoryDump,
+	})
+}
+
+func cmdMemorySearch(ctx Context) Result {
+	query := strings.ToLower(ctx.Args())
+	if query == "" {
+		fmt.Println("Usage: /memory-search <query>")
+		return Result{Handled: true}
+	}
+
+	fmt.Printf("%s── Search Results ─────────────────%s\n", ColorDim, ColorReset)
+
+	// Search learnings
+	learnings := loadLearnings(ctx.RepoPath)
+	found := 0
+	for _, l := range learnings {
+		text := strings.ToLower(l.Title + " " + l.Takeaway + " " + l.Context)
+		if strings.Contains(text, query) {
+			title := l.Title
+			if len(title) > 70 {
+				title = title[:70] + "..."
+			}
+			fmt.Printf("  %s[learning]%s %s (day %d)\n", ColorCyan, ColorReset, title, l.Day)
+			found++
+		}
+	}
+
+	// Search project memory
+	memoryPath := filepath.Join(ctx.RepoPath, ".iterate", "memory.json")
+	if data, err := os.ReadFile(memoryPath); err == nil {
+		var notes []map[string]string
+		if json.Unmarshal(data, &notes) == nil {
+			for _, note := range notes {
+				text := strings.ToLower(note["note"])
+				if strings.Contains(text, query) {
+					noteText := note["note"]
+					if len(noteText) > 70 {
+						noteText = noteText[:70] + "..."
+					}
+					fmt.Printf("  %s[memory]%s %s\n", ColorYellow, ColorReset, noteText)
+					found++
+				}
+			}
+		}
+	}
+
+	if found == 0 {
+		fmt.Printf("  No results for %q\n", query)
+	} else {
+		fmt.Printf("\n  %s%d results found%s\n", ColorDim, found, ColorReset)
+	}
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	return Result{Handled: true}
+}
+
+func cmdMemoryDump(ctx Context) Result {
+	fmt.Printf("%s── Memory Dump ────────────────────%s\n", ColorDim, ColorReset)
+
+	// Project memory
+	memoryPath := filepath.Join(ctx.RepoPath, ".iterate", "memory.json")
+	if data, err := os.ReadFile(memoryPath); err == nil && len(data) > 0 {
+		fmt.Printf("\n%s── .iterate/memory.json ──%s\n", ColorBold, ColorReset)
+		fmt.Println(string(data))
+	}
+
+	// Learnings
+	learningsPath := filepath.Join(ctx.RepoPath, "memory", "learnings.jsonl")
+	if data, err := os.ReadFile(learningsPath); err == nil && len(data) > 0 {
+		fmt.Printf("\n%s── memory/learnings.jsonl ──%s\n", ColorBold, ColorReset)
+		fmt.Println(string(data))
+	}
+
+	// Active learnings
+	activePath := filepath.Join(ctx.RepoPath, "memory", "ACTIVE_LEARNINGS.md")
+	if data, err := os.ReadFile(activePath); err == nil && len(data) > 0 {
+		fmt.Printf("\n%s── memory/ACTIVE_LEARNINGS.md ──%s\n", ColorBold, ColorReset)
+		fmt.Println(string(data))
+	}
+
+	// Failures
+	failuresPath := filepath.Join(ctx.RepoPath, "memory", "failures.jsonl")
+	if data, err := os.ReadFile(failuresPath); err == nil && len(data) > 0 {
+		fmt.Printf("\n%s── memory/failures.jsonl ──%s\n", ColorBold, ColorReset)
+		fmt.Println(string(data))
+	}
+
+	fmt.Printf("%s──────────────────────────────────%s\n\n", ColorDim, ColorReset)
+	return Result{Handled: true}
+}

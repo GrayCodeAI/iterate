@@ -8,9 +8,11 @@ func RegisterAll(r *Registry) {
 	RegisterDevCommands(r)
 	RegisterAutofixCommands(r)
 	RegisterGitCommands(r)
+	RegisterGitContextCommands(r)
 	RegisterAgentCommands(r)
 	RegisterEvolutionCommands(r)
 	RegisterMemoryCommands(r)
+	RegisterMemoryAnalyticsCommands(r)
 	RegisterGitHubCommands(r)
 	RegisterUtilityCommands(r)
 	RegisterModeCommands(r)
@@ -21,6 +23,10 @@ func RegisterAll(r *Registry) {
 	RegisterBudgetCommands(r)
 	RegisterTemplateCommands(r)
 	RegisterSnippetCommands(r)
+	RegisterASTCommands(r)
+	RegisterLearningCommands(r)
+	RegisterGitHooksCommands(r)
+	RegisterContextTemplateCommands(r)
 }
 
 // DefaultRegistry returns a fully populated registry.
