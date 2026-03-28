@@ -4,6 +4,7 @@ package autonomous
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -404,10 +405,13 @@ func TestQueueStats(t *testing.T) {
 }
 
 func TestTask8FullIntegration(t *testing.T) {
+	var mu sync.Mutex
 	var taskOrder []string
 
 	executor := func(ctx context.Context, task *QueuedTask) (*Result, error) {
+		mu.Lock()
 		taskOrder = append(taskOrder, task.Name)
+		mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		return &Result{Status: "success", FinalMessage: task.Name + " completed"}, nil
 	}
