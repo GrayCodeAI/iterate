@@ -27,6 +27,7 @@ func RegisterAll(r *Registry) {
 	RegisterLearningCommands(r)
 	RegisterGitHooksCommands(r)
 	RegisterContextTemplateCommands(r)
+	RegisterDocsCommands(r)
 }
 
 // DefaultRegistry returns a fully populated registry.
