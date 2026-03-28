@@ -24,7 +24,7 @@ func RegisterGitContextCommands(r *Registry) {
 	})
 	r.Register(Command{
 		Name:        "/ahead-behind",
-		Aliases:     []string{"/ab"},
+		Aliases:     []string{"/aob"},
 		Description: "show ahead/behind counts vs remote",
 		Category:    "git",
 		Handler:     cmdAheadBehind,
