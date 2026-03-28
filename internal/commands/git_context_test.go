@@ -53,11 +53,11 @@ func TestGitHookExists(t *testing.T) {
 		t.Error("expected no pre-commit hook")
 	}
 
-	// Create a non-executable hook
+	// Create an executable hook
 	hookPath := filepath.Join(hooksDir, "pre-commit")
-	os.WriteFile(hookPath, []byte("#!/bin/sh\necho test"), 0o644)
+	os.WriteFile(hookPath, []byte("#!/bin/sh\necho test"), 0o755)
 	if !gitHookExists(dir, "pre-commit") {
-		t.Error("expected pre-commit hook to exist after creation")
+		t.Error("expected executable pre-commit hook to exist")
 	}
 
 	// Remove execute bit
