@@ -42,8 +42,6 @@ const (
 
 // SafetyProfile contains all safety-related configuration.
 type SafetyProfile struct {
-	mu sync.RWMutex
-	
 	// Name is the profile name
 	Name SafetyProfileName `json:"name"`
 	
