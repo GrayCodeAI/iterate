@@ -232,16 +232,6 @@ EOF
   fi
 
   # ── Phase 2: Implementation ──
-Files: cmd/iterate/, internal/evolution/
-Description: Read the source code, find one thing to improve (a bug, missing test, or UX gap), implement it, test it, and commit it.
-Issue: none
-
-### Issue Responses
-EOF
-    fi
-  fi
-
-  # ── Phase 2: Implementation ──
   log "Phase 2: Implementation..."
   sleep 5  # Brief pause between phases
   if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
