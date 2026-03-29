@@ -1,17 +1,15 @@
 {
-  "generated_at": "2026-03-29T15:00:00Z",
-  "day_count": 0,
-  "total_commits": "0",
-  "commits_this_week": "0",
-  "sessions_shipped": 0,
+  "generated_at": "2026-03-29T14:13:07Z",
+  "total_commits": "1016",
+  "commits_this_week": "354",
   "lines_changed": {
-    "added": 0,
-    "removed": 0
+    "added": 70646,
+    "removed": 10925
   },
-  "contributors": 1,
+  "contributors": 6,
   "languages": {
-    "Go": 0
+    "Go": 85145
   },
-  "test_count": 0,
+  "test_count": 1988,
   "journal_entries": 1
 }
