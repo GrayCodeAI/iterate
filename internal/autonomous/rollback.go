@@ -6,12 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 )
-
-// rollbackIDCounter ensures unique IDs even within the same nanosecond.
-var rollbackIDCounter atomic.Int64
 
 // RollbackType represents the type of rollback operation.
 type RollbackType string
@@ -86,7 +82,7 @@ func (rs *RollbackStack) PushFileEdit(path string, originalContent string) *Roll
 	defer rs.mu.Unlock()
 
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d_%d", time.Now().UnixNano(), rollbackIDCounter.Add(1)),
+		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
 		Type:      RollbackTypeFileEdit,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -112,7 +108,7 @@ func (rs *RollbackStack) PushFileCreate(path string) *RollbackEntry {
 	defer rs.mu.Unlock()
 
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d_%d", time.Now().UnixNano(), rollbackIDCounter.Add(1)),
+		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
 		Type:      RollbackTypeFileCreate,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -130,7 +126,7 @@ func (rs *RollbackStack) PushFileDelete(path string, content string) *RollbackEn
 	defer rs.mu.Unlock()
 
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d_%d", time.Now().UnixNano(), rollbackIDCounter.Add(1)),
+		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
 		Type:      RollbackTypeFileDelete,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -156,7 +152,7 @@ func (rs *RollbackStack) PushGitCommit(commitHash string) *RollbackEntry {
 	defer rs.mu.Unlock()
 
 	entry := RollbackEntry{
-		ID:         fmt.Sprintf("rb_%d_%d", time.Now().UnixNano(), rollbackIDCounter.Add(1)),
+		ID:         fmt.Sprintf("rb_%d", time.Now().UnixNano()),
 		Type:       RollbackTypeGitCommit,
 		Timestamp:  time.Now().Unix(),
 		CommitHash: commitHash,

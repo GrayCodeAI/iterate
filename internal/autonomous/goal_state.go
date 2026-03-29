@@ -4,12 +4,8 @@ package autonomous
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 )
-
-// goalIDCounter ensures unique IDs even within the same nanosecond.
-var goalIDCounter atomic.Int64
 
 // GoalStatus represents the status of a goal.
 type GoalStatus string
@@ -208,7 +204,7 @@ func (gt *GoalTracker) AddMilestone(goalID string, name string, description stri
 	}
 	
 	milestone := Milestone{
-		ID:          fmt.Sprintf("ms_%d_%d", time.Now().UnixNano(), goalIDCounter.Add(1)),
+		ID:          fmt.Sprintf("ms_%d", time.Now().UnixNano()),
 		Name:        name,
 		Description: description,
 		Completed:   false,

@@ -5,12 +5,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 )
-
-// taskIDCounter ensures unique IDs even within the same nanosecond.
-var taskIDCounter atomic.Int64
 
 // TaskPriority represents the priority level of a task.
 type TaskPriority int
@@ -112,7 +108,7 @@ func NewTaskQueue(executor TaskExecutor, config TaskQueueConfig) *TaskQueue {
 	if config.Timeout <= 0 {
 		config.Timeout = 5 * time.Minute
 	}
-	if config.MaxRetries < 0 {
+	if config.MaxRetries <= 0 {
 		config.MaxRetries = 2
 	}
 
@@ -135,7 +131,7 @@ func (tq *TaskQueue) AddTask(name string, description string, priority TaskPrior
 	defer tq.mu.Unlock()
 
 	task := &QueuedTask{
-		ID:           fmt.Sprintf("task_%d_%d", time.Now().UnixNano(), taskIDCounter.Add(1)),
+		ID:           fmt.Sprintf("task_%d", time.Now().UnixNano()),
 		Name:         name,
 		Description:  description,
 		Priority:     priority,
