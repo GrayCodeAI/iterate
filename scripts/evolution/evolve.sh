@@ -15,6 +15,54 @@ log() {
   echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
+# ── Discord Notifications ──
+send_discord_notification() {
+  local status="$1"
+  local message="$2"
+  
+  if [[ -z "${DISCORD_WEBHOOK_URL:-}" ]]; then
+    return 0
+  fi
+  
+  local color="5814783"  # Default blue
+  local title="Evolution Day $DAY"
+  
+  case "$status" in
+    "started")
+      color="3447003"  # Blue
+      title="🚀 Evolution Started - Day $DAY"
+      ;;
+    "success")
+      color="3066993"  # Green
+      title="✅ Evolution Complete - Day $DAY"
+      ;;
+    "failure")
+      color="15158332" # Red
+      title="❌ Evolution Failed - Day $DAY"
+      ;;
+    "retry")
+      color="16776960" # Yellow
+      title="🔄 Evolution Retrying - Day $DAY"
+      ;;
+  esac
+  
+  local pr_url=""
+  if [[ -n "${PR_NUMBER:-}" ]]; then
+    pr_url="https://github.com/$GITHUB_REPO/pull/$PR_NUMBER"
+  fi
+  
+  local payload=$(jq -n \
+    --arg title "$title" \
+    --arg desc "$message" \
+    --arg status "$status" \
+    --arg pr "$pr_url" \
+    --argjson color "$color" \
+    --arg ts "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    '{embeds:[{title:$title,description:$desc,color:$color,timestamp:$ts,footer:{text:"iterate-evolve[bot]"}}]}')
+  
+  curl -s -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+}
+
 # ── Concurrent run lock ──
 acquire_lock() {
   if [[ -f "$PID_FILE" ]]; then
@@ -46,6 +94,9 @@ mkdir -p "${REPOPATH}/docs" || { echo "ERROR: failed to create docs dir"; exit 1
 acquire_lock
 
 log "=== iterate evolution cycle started ==="
+
+# ── Send Started Notification ──
+send_discord_notification "started" "Evolution Day $DAY is starting...\n\n**Plan:**\n• Analyze codebase for bugs/improvements\n• Fix real code issues (not just metrics)\n• Auto-retry if review fails (max 2 retries)\n\nNext scheduled: 12 hours"
 
 # ── Guards ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
@@ -144,9 +195,43 @@ EOF
       cat > "$PLAN_FILE" <<'EOF'
 ## Session Plan
 
-Session Title: General self-improvement
+Session Title: Find and fix real code issues
 
-### Task 1: Self-assessment and improvement
+### Task 1: Search for bugs in core packages
+Files: cmd/iterate/, internal/evolution/, internal/agent/
+Description: Read the Go source code in these directories. Look for:
+- Functions with missing error handling
+- TODO comments that should be implemented
+- Test files with low coverage
+- Unused variables or imports
+- Potential nil pointer dereferences
+- Race conditions in concurrent code
+Pick ONE concrete issue and fix it with proper tests.
+
+### Task 2: Check for UX improvements
+Files: cmd/iterate/repl.go, cmd/iterate/commands/
+Description: Look for user-facing code that could be improved:
+- Missing error messages
+- Confusing command outputs
+- Hardcoded values that should be configurable
+- Missing help text
+Pick ONE improvement and implement it.
+
+### Task 3: Performance optimization
+Files: Any Go files
+Description: Look for:
+- Inefficient loops
+- Unnecessary allocations
+- Missing context cancellation
+- Blocking operations without timeouts
+Pick ONE performance issue and optimize it.
+
+Criteria: Only commit if the change includes BOTH the fix AND tests for the fix.
+EOF
+    fi
+  fi
+
+  # ── Phase 2: Implementation ──
 Files: cmd/iterate/, internal/evolution/
 Description: Read the source code, find one thing to improve (a bug, missing test, or UX gap), implement it, test it, and commit it.
 Issue: none
@@ -195,14 +280,32 @@ fi
 BRANCH="evolution/day-${DAY}"
 PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
 
-# ── Phase 4: Review ──
+# ── Phase 4: Review with Auto-Retry ──
 log "Phase 4: Review..."
 sleep 5
-if ! ./iterate --phase review --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "ERROR: review phase failed — blocking merge"
-  log "Review found issues. Evolution stopped. Fix issues and retry."
-  exit 1
-fi
+
+REVIEW_RETRIES=0
+MAX_REVIEW_RETRIES=2
+REVIEW_PASSED=false
+
+while [[ $REVIEW_RETRIES -lt $MAX_REVIEW_RETRIES ]] && [[ "$REVIEW_PASSED" == "false" ]]; do
+  if ./iterate --phase review --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+    REVIEW_PASSED=true
+    log "Review passed (attempt $((REVIEW_RETRIES + 1)))"
+  else
+    REVIEW_RETRIES=$((REVIEW_RETRIES + 1))
+    log "WARNING: Review failed (attempt $REVIEW_RETRIES/$MAX_REVIEW_RETRIES)"
+    
+    if [[ $REVIEW_RETRIES -lt $MAX_REVIEW_RETRIES ]]; then
+      log "Auto-retrying with enhanced context..."
+      sleep 10
+    else
+      log "ERROR: Review failed after $MAX_REVIEW_RETRIES attempts — blocking merge"
+      send_discord_notification "failure" "Review failed after $MAX_REVIEW_RETRIES attempts"
+      exit 1
+    fi
+  fi
+done
 
 # ── Phase 5: Merge ──
 log "Phase 5: Merge..."
@@ -267,30 +370,16 @@ log "Branch: $BRANCH"
 log "PR: #${PR_NUMBER:-none}"
 log "Duration: ${SESSION_DURATION}s"
 
-# ── Discord notification ──
-if [[ -n "${DISCORD_WEBHOOK_URL:-}" ]]; then
-  log "Sending Discord notification..."
+# ── Discord Success Notification ──
+JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
+SUCCESS_MSG=$(echo "Evolution completed successfully!
 
-  JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
-  COMMIT_COUNT=$(git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' ')
+**Changes:**
+• PR: #${PR_NUMBER:-none}
+• Duration: ${SESSION_DURATION}s
+• Review retries: $REVIEW_RETRIES
 
-  DISCORD_MSG=$(jq -n \
-    --arg title "Evolution Day $DAY Complete" \
-    --arg pr "${PR_NUMBER:-none}" \
-    --arg dur "${SESSION_DURATION}s" \
-    --arg commits "$COMMIT_COUNT" \
-    --arg journal "$(echo "$JOURNAL_ENTRY" | head -3 | tr '\n' ' ' | cut -c1-100)" \
-    --arg ts "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    '{embeds:[{title:$title,color:5814783,fields:[
-      {name:"PR",value:$pr,inline:true},
-      {name:"Duration",value:$dur,inline:true},
-      {name:"Commits",value:$commits,inline:true},
-      {name:"Journal",value:$journal}
-    ],footer:{text:"iterate-evolve[bot]"},timestamp:$ts}]}')
+**Journal:**
+$(echo "$JOURNAL_ENTRY" | head -2 | tr '\n' ' ')")
 
-  curl -s -H "Content-Type: application/json" \
-    -d "$DISCORD_MSG" \
-    "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || log "Discord notification failed"
-
-  log "Discord notification sent"
-fi
+send_discord_notification "success" "$SUCCESS_MSG"

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iterate Health Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #030712;
+      color: #e5e7eb;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #1f2937;
+    }
+    h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a3e635 0%, #84cc16 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .status-online {
+      background: rgba(163, 230, 53, 0.1);
+      color: #a3e635;
+      border: 1px solid rgba(163, 230, 53, 0.3);
+    }
+    .status-offline {
+      background: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      color: #9ca3af;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .card-value {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #f3f4f6;
+      margin-bottom: 0.5rem;
+    }
+    .card-subtitle {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    .success-rate {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #a3e635;
+    }
+    .next-run {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      color: #a3e635;
+    }
+    .timeline {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+    .timeline h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #f3f4f6;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid #1f2937;
+    }
+    .timeline-item:last-child {
+      border-bottom: none;
+    }
+    .timeline-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-top: 0.25rem;
+      flex-shrink: 0;
+    }
+    .timeline-dot.success { background: #a3e635; }
+    .timeline-dot.failure { background: #ef4444; }
+    .timeline-dot.pending { background: #f59e0b; }
+    .timeline-content {
+      flex: 1;
+    }
+    .timeline-title {
+      font-weight: 500;
+      color: #f3f4f6;
+      margin-bottom: 0.25rem;
+    }
+    .timeline-meta {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    .refresh-note {
+      text-align: center;
+      margin-top: 2rem;
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+    .nav-links {
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .nav-links a {
+      color: #a3e635;
+      text-decoration: none;
+      margin: 0 1rem;
+    }
+    .nav-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>iterate Health Dashboard</h1>
+      <span class="status-badge status-online">
+        <span class="dot"></span>
+        System Online
+      </span>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Next Evolution
+        </div>
+        <div class="next-run" id="next-run">Calculating...</div>
+        <div class="card-subtitle">Every 12 hours (00:00 & 12:00 UTC)</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Success Rate
+        </div>
+        <div class="success-rate" id="success-rate">--%</div>
+        <div class="card-subtitle">Last 10 sessions</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Current Day
+        </div>
+        <div class="card-value" id="current-day">--</div>
+        <div class="card-subtitle">Days since birth</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Sessions Shipped
+        </div>
+        <div class="card-value" id="sessions-shipped">--</div>
+        <div class="card-subtitle">Total successful evolutions</div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <h2>Recent Evolution Sessions</h2>
+      <div id="timeline-content">
+        <div class="timeline-item">
+          <div class="timeline-dot pending"></div>
+          <div class="timeline-content">
+            <div class="timeline-title">Loading history...</div>
+            <div class="timeline-meta">Please wait</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-links">
+      <a href="/iterate/">← Back to Main Site</a>
+      <a href="https://github.com/GrayCodeAI/iterate/actions" target="_blank">View GitHub Actions →</a>
+    </div>
+
+    <div class="refresh-note">
+      Dashboard refreshes every 5 minutes • Last updated: <span id="last-updated">--</span>
+    </div>
+  </div>
+
+  <script>
+    // Calculate next run time
+    function getNextRun() {
+      const now = new Date();
+      const utcHours = now.getUTCHours();
+      const utcMinutes = now.getUTCMinutes();
+      
+      // Runs at 00:00 and 12:00 UTC
+      let nextHours = utcHours < 12 ? 12 : 24;
+      if (utcHours >= 12) {
+        nextHours = 24; // Tomorrow 00:00
+      }
+      
+      const nextRun = new Date(now);
+      nextRun.setUTCHours(nextHours, 0, 0, 0);
+      
+      const hoursUntil = Math.floor((nextRun - now) / (1000 * 60 * 60));
+      const minutesUntil = Math.floor(((nextRun - now) % (1000 * 60 * 60)) / (1000 * 60));
+      
+      return {
+        time: nextRun.toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+        countdown: `${hoursUntil}h ${minutesUntil}m`
+      };
+    }
+
+    // Update dashboard
+    function updateDashboard() {
+      const nextRun = getNextRun();
+      document.getElementById('next-run').textContent = nextRun.countdown;
+      document.getElementById('last-updated').textContent = new Date().toLocaleString();
+      
+      // Fetch stats from stats.json
+      fetch('stats.json')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('current-day').textContent = data.day_count || 0;
+          document.getElementById('sessions-shipped').textContent = data.sessions_shipped || 0;
+          
+          // Calculate mock success rate (would be real data in production)
+          const successRate = data.sessions_shipped > 0 
+            ? Math.round((data.sessions_shipped / (data.day_count + 1)) * 100)
+            : 0;
+          document.getElementById('success-rate').textContent = successRate + '%';
+        })
+        .catch(() => {
+          document.getElementById('current-day').textContent = '0';
+          document.getElementById('sessions-shipped').textContent = '0';
+          document.getElementById('success-rate').textContent = 'N/A';
+        });
+    }
+
+    // Initial update
+    updateDashboard();
+    
+    // Refresh every minute
+    setInterval(updateDashboard, 60000);
+  </script>
+</body>
+</html>
