@@ -33,13 +33,13 @@ func initAuditLog() {
 	_ = os.MkdirAll(filepath.Dir(auditLogPath), 0o755)
 }
 
-func logAudit(toolName string, args map[string]interface{}, result string) {
+func logAudit(toolName string, args map[string]interface{}, result string) error {
 	if auditLogPath == "" {
-		return
+		return nil
 	}
 	f, err := os.OpenFile(auditLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
-		return
+		return fmt.Errorf("open audit log: %w", err)
 	}
 	defer f.Close()
 
@@ -58,10 +58,15 @@ func logAudit(toolName string, args map[string]interface{}, result string) {
 	}
 	line, err := json.Marshal(entry)
 	if err != nil {
-		return
+		return fmt.Errorf("marshal audit entry: %w", err)
 	}
-	f.Write(line)        //nolint:errcheck
-	f.Write([]byte{'\n'}) //nolint:errcheck
+	if _, err := f.Write(line); err != nil {
+		return fmt.Errorf("write audit entry: %w", err)
+	}
+	if _, err := f.Write([]byte{'\n'}); err != nil {
+		return fmt.Errorf("write audit newline: %w", err)
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -98,8 +103,9 @@ func loadSession(name string) ([]iteragent.Message, error) {
 	}
 	var msgs []iteragent.Message
 	if err := json.Unmarshal(data, &msgs); err != nil {
-		// Try .bak file if primary is corrupt.
-		if bakData, bakErr := os.ReadFile(path + ".bak"); bakErr == nil {
+		// Attempt to restore from .bak file
+		bakData, bakErr := os.ReadFile(path + ".bak")
+		if bakErr == nil {
 			var bakMsgs []iteragent.Message
 			if json.Unmarshal(bakData, &bakMsgs) == nil {
 				return bakMsgs, nil
@@ -201,3 +207,23 @@ func maybeNotify() {
 // ---------------------------------------------------------------------------
 // /debug — toggle debug logging
 // ---------------------------------------------------------------------------
+
+func toggleDebugLogging() bool {
+	if _, ok := os.LookupEnv("ITERATE_DEBUG"); ok {
+		os.Unsetenv("ITERATE_DEBUG")
+		return false
+	}
+	os.Setenv("ITERATE_DEBUG", "1")
+	return true
+}
+
+func isDebugLogging() bool {
+	_, ok := os.LookupEnv("ITERATE_DEBUG")
+	return ok
+}
+
+func debugLog(msg string, args ...interface{}) {
+	if isDebugLogging() {
+		fmt.Fprintf(os.Stderr, "[debug] "+msg+"\n", args...)
+	}
+}
