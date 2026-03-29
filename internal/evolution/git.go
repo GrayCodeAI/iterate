@@ -193,7 +193,8 @@ If the changes are good, reply: "LGTM"
 `, e.prNumber, util.Truncate(prDiff, 8000), e.branchName)
 }
 
-func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet) error {
+// reviewPR runs the AI self-review. If isReReview is true, this is a second review after auto-fix.
+func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, isReReview ...bool) error {
 	if e.prNumber == 0 {
 		return fmt.Errorf("no PR to review")
 	}
@@ -206,6 +207,9 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	}
 
 	userMsg := e.buildPRReviewMessage(prDiff)
+	if len(isReReview) > 0 && isReReview[0] {
+		userMsg = "This is a RE-REVIEW after auto-fixes were applied.\n\n" + userMsg
+	}
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var reviewOutput string
@@ -225,32 +229,39 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	low := strings.ToLower(reviewOutput)
 	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good")
 
-	// Always post the review output as a PR comment for visibility.
-	e.postReviewComment(ctx, reviewOutput, passed)
-
 	if passed {
+		// Only post comment for final successful review
+		e.postReviewComment(ctx, reviewOutput, true)
 		e.logger.Info("PR self-review passed")
 		return nil
 	}
 
-	// Reviewer found issues — try to auto-fix them
+	// Reviewer found issues — try to auto-fix them (only on first review)
+	if len(isReReview) > 0 && isReReview[0] {
+		// Already tried auto-fix, still failed
+		e.postReviewComment(ctx, reviewOutput, false)
+		return fmt.Errorf("review blocked merge: issues remain after auto-fix")
+	}
+
 	e.logger.Warn("PR self-review found issues — attempting auto-fix")
 
 	fixed, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewOutput)
 	if fixErr != nil {
 		e.logger.Error("auto-fix failed", "err", fixErr)
-		e.postReviewComment(ctx, "Auto-fix attempt failed: "+fixErr.Error(), false)
+		// Post the original review + auto-fix failure
+		e.postReviewComment(ctx, reviewOutput+"\n\n---\n**Auto-fix failed:** "+fixErr.Error(), false)
 		return fmt.Errorf("review blocked merge: %w", fixErr)
 	}
 
 	if !fixed {
 		e.logger.Warn("auto-fix could not resolve all issues — blocking merge")
+		e.postReviewComment(ctx, reviewOutput+"\n\n---\n**Auto-fix:** Could not resolve all issues automatically.", false)
 		return fmt.Errorf("review blocked merge: auto-fix could not resolve all issues")
 	}
 
 	// Re-review after fixes
 	e.logger.Info("auto-fix applied — re-reviewing PR")
-	return e.reviewPR(ctx, p, tools, systemPrompt, skills)
+	return e.reviewPR(ctx, p, tools, systemPrompt, skills, true)
 }
 
 // autoFixIssues attempts to fix issues identified during review.
@@ -267,7 +278,6 @@ Fix these issues in the codebase. Run tests to verify the fixes work.
 If you cannot fix an issue, explain why. Only commit if tests pass.`, reviewOutput)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
-	var fixResult string
 	for ev := range a.Prompt(ctx, fixPrompt) {
 		if e.eventSink != nil {
 			select {
@@ -275,9 +285,7 @@ If you cannot fix an issue, explain why. Only commit if tests pass.`, reviewOutp
 			default:
 			}
 		}
-		if ev.Type == string(iteragent.EventMessageEnd) {
-			fixResult = ev.Content
-		}
+
 	}
 	a.Finish()
 
@@ -323,8 +331,7 @@ If you cannot fix an issue, explain why. Only commit if tests pass.`, reviewOutp
 		return false, fmt.Errorf("failed to push auto-fix: %w", err)
 	}
 
-	e.logger.Info("auto-fix applied successfully")
-	e.postReviewComment(ctx, fmt.Sprintf("Auto-fix applied:\n\n%s\n\nChanges committed and pushed.", fixResult), true)
+	e.logger.Info("auto-fix applied successfully - will re-review")
 	return true, nil
 }
 
