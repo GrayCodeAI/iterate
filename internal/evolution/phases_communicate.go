@@ -83,13 +83,23 @@ Rules:
 - If nothing happened, write "Evolution session completed." as the body`, recentCommits, day, day)
 
 	a := e.newAgent(p, nil, minimalPrompt, nil)
+	var entryBuilder strings.Builder
 	var journalEntry string
 	for ev := range a.Prompt(journalCtx, journalMsg) {
+		if ev.Type == string(iteragent.EventMessageUpdate) {
+			entryBuilder.WriteString(ev.Content)
+		}
 		if ev.Type == string(iteragent.EventMessageEnd) {
 			journalEntry = strings.TrimSpace(ev.Content)
 		}
 	}
 	a.Finish()
+
+	// Use accumulated content or final content, whichever is longer
+	accumulatedEntry := strings.TrimSpace(entryBuilder.String())
+	if len(accumulatedEntry) > len(journalEntry) {
+		journalEntry = accumulatedEntry
+	}
 
 	e.persistJournalEntry(journalEntry, day)
 }

@@ -26,13 +26,23 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	a := e.newAgent(p, e.tools, systemPrompt, e.skills)
 
+	var contentBuilder strings.Builder
 	var lastContent string
 	for ev := range a.Prompt(ctx, userMessage) {
+		if ev.Type == string(iteragent.EventMessageUpdate) {
+			contentBuilder.WriteString(ev.Content)
+		}
 		if ev.Type == string(iteragent.EventMessageEnd) {
 			lastContent = ev.Content
 		}
 	}
 	a.Finish()
+
+	// Use accumulated content or final content, whichever is longer
+	accumulatedContent := contentBuilder.String()
+	if len(accumulatedContent) > len(lastContent) {
+		lastContent = accumulatedContent
+	}
 
 	// Extract plan from agent output if it didn't write the file via tool call.
 	planPath := filepath.Join(e.repoPath, "SESSION_PLAN.md")
@@ -353,9 +363,13 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	userMsg += "\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes using a conventional commit message (e.g. feat: ..., fix: ..., chore: ..., refactor: ..., test: ..., docs: ...)."
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
+	var outputBuilder strings.Builder
 	var taskOutput string
 	var taskErr error
 	for ev := range a.Prompt(ctx, userMsg) {
+		if ev.Type == string(iteragent.EventMessageUpdate) {
+			outputBuilder.WriteString(ev.Content)
+		}
 		if ev.Type == string(iteragent.EventMessageEnd) {
 			taskOutput = ev.Content
 		}
@@ -364,6 +378,12 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 		}
 	}
 	a.Finish()
+
+	// Use accumulated content or final content, whichever is longer
+	accumulatedOutput := outputBuilder.String()
+	if len(accumulatedOutput) > len(taskOutput) {
+		taskOutput = accumulatedOutput
+	}
 
 	if taskErr != nil {
 		e.logger.Warn("task error", "number", task.Number, "err", taskErr)

@@ -212,7 +212,8 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	}
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
-	var reviewOutput string
+	var reviewBuilder strings.Builder
+	var finalContent string
 	for ev := range a.Prompt(ctx, userMsg) {
 		if e.eventSink != nil {
 			select {
@@ -220,18 +221,33 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 			default:
 			}
 		}
+		// Accumulate content from streaming updates
+		if ev.Type == string(iteragent.EventMessageUpdate) {
+			reviewBuilder.WriteString(ev.Content)
+		}
 		if ev.Type == string(iteragent.EventMessageEnd) {
-			reviewOutput = ev.Content
+			finalContent = ev.Content
 		}
 	}
 	a.Finish()
 
-	low := strings.ToLower(reviewOutput)
-	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good")
+	// Use accumulated content or final content, whichever is longer
+	reviewText := reviewBuilder.String()
+	if len(finalContent) > len(reviewText) {
+		reviewText = finalContent
+	}
+
+	// Fallback if still empty
+	if strings.TrimSpace(reviewText) == "" {
+		reviewText = "Review completed but no output was generated. Please check the code manually."
+	}
+
+	low := strings.ToLower(reviewText)
+	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good") || strings.Contains(low, "approved")
 
 	if passed {
 		// Only post comment for final successful review
-		e.postReviewComment(ctx, reviewOutput, true)
+		e.postReviewComment(ctx, reviewText, true)
 		e.logger.Info("PR self-review passed")
 		return nil
 	}
@@ -239,23 +255,23 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	// Reviewer found issues — try to auto-fix them (only on first review)
 	if len(isReReview) > 0 && isReReview[0] {
 		// Already tried auto-fix, still failed
-		e.postReviewComment(ctx, reviewOutput, false)
+		e.postReviewComment(ctx, reviewText, false)
 		return fmt.Errorf("review blocked merge: issues remain after auto-fix")
 	}
 
 	e.logger.Warn("PR self-review found issues — attempting auto-fix")
 
-	fixed, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewOutput)
+	fixed, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewText)
 	if fixErr != nil {
 		e.logger.Error("auto-fix failed", "err", fixErr)
 		// Post the original review + auto-fix failure
-		e.postReviewComment(ctx, reviewOutput+"\n\n---\n**Auto-fix failed:** "+fixErr.Error(), false)
+		e.postReviewComment(ctx, reviewText+"\n\n---\n**Auto-fix failed:** "+fixErr.Error(), false)
 		return fmt.Errorf("review blocked merge: %w", fixErr)
 	}
 
 	if !fixed {
 		e.logger.Warn("auto-fix could not resolve all issues — blocking merge")
-		e.postReviewComment(ctx, reviewOutput+"\n\n---\n**Auto-fix:** Could not resolve all issues automatically.", false)
+		e.postReviewComment(ctx, reviewText+"\n\n---\n**Auto-fix:** Could not resolve all issues automatically.", false)
 		return fmt.Errorf("review blocked merge: auto-fix could not resolve all issues")
 	}
 
