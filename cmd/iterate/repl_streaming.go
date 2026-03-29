@@ -57,13 +57,13 @@ func injectAtFileContext(prompt, repoPath string) string {
 		if err != nil {
 			continue // file doesn't exist or not readable — silently skip
 		}
-		defer f.Close()
 
 		var lines []string
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() && len(lines) < maxLines {
 			lines = append(lines, scanner.Text())
 		}
+		f.Close() // explicit close — defer in loop would leak file descriptors
 
 		ext := strings.TrimPrefix(filepath.Ext(relPath), ".")
 		block := fmt.Sprintf("\n\n[File: %s]\n```%s\n%s\n```", relPath, ext, strings.Join(lines, "\n"))

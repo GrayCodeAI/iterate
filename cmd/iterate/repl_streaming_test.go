@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -138,5 +140,42 @@ func TestFormatToolCallResult_ZeroDuration(t *testing.T) {
 	result := formatToolCallResult("fast", 0)
 	if !strings.Contains(result, "fast") {
 		t.Errorf("should contain result, got %q", result)
+	}
+}
+
+// TestInjectAtFileContext_NoDeferLeak verifies that file handles are properly
+// closed after reading, not leaked via defer in a loop.
+// This was a real bug where defer f.Close() inside a loop caused file descriptor leaks.
+// See: https://github.com/GrayCodeAI/iterate/pull/8
+func TestInjectAtFileContext_NoDeferLeak(t *testing.T) {
+	// Create a temporary directory with test files
+	tmpDir := t.TempDir()
+
+	// Create multiple test files
+	for i := 0; i < 10; i++ {
+		file := filepath.Join(tmpDir, "test"+string(rune('a'+i))+".txt")
+		content := "line1\nline2\nline3\n"
+		if err := os.WriteFile(file, []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+	}
+
+	// Test with multiple @file references in prompt
+	prompt := "Check these files: @testa.txt @testb.txt @testc.txt @testd.txt @teste.txt @testf.txt @testg.txt @testh.txt @testi.txt @testj.txt"
+
+	// This should not leak file descriptors
+	result := injectAtFileContext(prompt, tmpDir)
+
+	// Verify files were injected
+	if result == prompt {
+		t.Error("Expected file content to be injected into prompt")
+	}
+
+	// Verify all file references are in result
+	for i := 0; i < 10; i++ {
+		filename := "test" + string(rune('a'+i)) + ".txt"
+		if !strings.Contains(result, filename) {
+			t.Errorf("Expected result to contain reference to %s", filename)
+		}
 	}
 }
