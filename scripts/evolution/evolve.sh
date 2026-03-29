@@ -199,14 +199,17 @@ PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq
 log "Phase 4: Review..."
 sleep 5
 if ! ./iterate --phase review --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: review phase exited with error — continuing"
+  log "ERROR: review phase failed — blocking merge"
+  log "Review found issues. Evolution stopped. Fix issues and retry."
+  exit 1
 fi
 
 # ── Phase 5: Merge ──
 log "Phase 5: Merge..."
 sleep 5
 if ! ./iterate --phase merge --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
-  log "WARNING: merge phase exited with error — continuing"
+  log "ERROR: merge phase failed"
+  exit 1
 fi
 
 # ── Phase 6: Communication ──
