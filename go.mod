@@ -12,8 +12,6 @@ require (
 	golang.org/x/tools v0.43.0
 )
 
-replace github.com/GrayCodeAI/iteragent => ../iteragent
-
 require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
