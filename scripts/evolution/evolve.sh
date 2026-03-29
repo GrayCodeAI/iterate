@@ -104,17 +104,14 @@ if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   exit 1
 fi
 
-# ── Validate GitHub token scope ──
+# ── Validate GitHub authentication ──
 if command -v gh &>/dev/null; then
   GH_AUTH_STATUS=$(gh auth status 2>&1 || true)
   if echo "$GH_AUTH_STATUS" | grep -q "not logged in\|no credentials"; then
-    log "ERROR: gh CLI not authenticated — run 'gh auth login' or set GITHUB_TOKEN"
+    log "ERROR: gh CLI not authenticated"
     exit 1
   fi
-  # Warn (don't abort) if pull_requests scope is missing — it's needed for PR creation.
-  if ! echo "$GH_AUTH_STATUS" | grep -q "pull_requests\|admin:repo_hook\|repo"; then
-    log "WARNING: GitHub token may lack pull_requests scope — PR creation may fail"
-  fi
+  log "GitHub authentication verified"
 fi
 
 # ── Calculate day from BIRTH_DATE ──
@@ -359,6 +356,15 @@ log "Day: $DAY"
 log "Branch: $BRANCH"
 log "PR: #${PR_NUMBER:-none}"
 log "Duration: ${SESSION_DURATION}s"
+
+# ── Cleanup SESSION_PLAN.md ──
+if [[ -f "$PLAN_FILE" ]]; then
+  log "Cleaning up SESSION_PLAN.md..."
+  rm -f "$PLAN_FILE"
+  git add "$PLAN_FILE" 2>/dev/null || true
+  git commit -m "chore: cleanup SESSION_PLAN.md after evolution" 2>/dev/null || true
+  git push origin "$BRANCH" 2>/dev/null || true
+fi
 
 # ── Discord Success Notification ──
 JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
