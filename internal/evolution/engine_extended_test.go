@@ -158,6 +158,9 @@ func TestWithTimeout_DefaultTimeout(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSaveAndLoadPRState(t *testing.T) {
+	// Skip GitHub validation in CI to test core save/load functionality
+	t.Setenv("GITHUB_ACTIONS", "")
+
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, ".iterate"), 0o755)
 	e := New(dir, slog.Default())
