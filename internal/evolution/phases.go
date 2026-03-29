@@ -356,11 +356,33 @@ func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task pla
 // runTaskAttempt executes one attempt at a task. Returns (success, errorContext).
 // errorContext is populated on failure with build/test output captured before reverting.
 func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning, extraContext string) (bool, string) {
-	userMsg := fmt.Sprintf("Implement Task %d: %s\n\n%s", task.Number, task.Description, protectedWarning)
-	if extraContext != "" {
-		userMsg += "\n\n" + extraContext
+	userMsg := fmt.Sprintf(`CRITICAL: You MUST make ACTUAL CODE CHANGES to complete this task.
+
+Task %d: %s
+
+%s
+
+REQUIREMENTS:
+1. Read the source files mentioned in the task
+2. Identify concrete issues (bugs, missing tests, UX problems, performance issues)
+3. MAKE ACTUAL CODE CHANGES using edit_file or write_file tools
+4. DO NOT just update metrics or documentation - change real code
+5. After code changes, run: go build ./... && go test ./...
+6. Commit with: git add -A && git commit -m "type: description"
+
+IMPORTANT:
+- If you don't make code changes, the task fails
+- Just updating docs/stats/dashboard does NOT count
+- You MUST modify .go files in cmd/iterate/ or internal/ directories
+- If tests fail after your changes, fix them
+
+%s
+
+Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Description, protectedWarning, extraContext)
+
+	if extraContext == "" {
+		userMsg = strings.Replace(userMsg, "\n\n\n", "\n\n", 1)
 	}
-	userMsg += "\n\nAfter implementing, run: go build ./... && go test ./...\nThen commit your changes using a conventional commit message (e.g. feat: ..., fix: ..., chore: ..., refactor: ..., test: ..., docs: ...)."
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var outputBuilder strings.Builder

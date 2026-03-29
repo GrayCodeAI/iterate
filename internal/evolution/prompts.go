@@ -54,7 +54,9 @@ You have these tools. USE THEM. Do not just describe what you would do — actua
 3. If tests fail, fix the code and try again
 4. If you need to create SESSION_PLAN.md, use write_file
 5. Be direct. No explanations. Just act.
-6. One tool call at a time. Wait for results before next action.`,
+6. One tool call at a time. Wait for results before next action.
+7. CRITICAL: You MUST make actual code changes. Updating metrics/docs alone is FAILURE.
+8. Look for real bugs: defer in loops, missing error handling, race conditions, etc.`,
 		identity,
 		string(personality),
 	)
