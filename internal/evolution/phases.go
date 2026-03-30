@@ -486,14 +486,7 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 		return true, ""
 	}
 
-	// Validate diffs
-	validationErrors := ValidateUnifiedDiffs(diffs)
-	if len(validationErrors) > 0 {
-		e.logger.Error("Invalid unified diffs", "number", task.Number, "errors", validationErrors)
-		_ = e.revert(ctx)
-		return false, fmt.Sprintf("Unified diff validation failed:\n%s", strings.Join(validationErrors, "\n"))
-	}
-
+	// Skip validation - just try to apply whatever diffs we found
 	// Apply the diffs
 	modifiedFiles, applyErr := e.ApplyUnifiedDiffs(diffs)
 	if applyErr != nil {

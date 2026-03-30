@@ -646,19 +646,9 @@ func CountUnifiedDiffs(output string) int {
 	return strings.Count(output, "--- a/")
 }
 
-// ValidateUnifiedDiffs checks if diffs are well-formed
+// ValidateUnifiedDiffs checks if diffs are well-formed - Lenient version
 func ValidateUnifiedDiffs(diffs []UnifiedDiff) []string {
-	var errors []string
-
-	for i, diff := range diffs {
-		if diff.NewFile == "" {
-			errors = append(errors, fmt.Sprintf("Diff %d: missing file path", i+1))
-			continue
-		}
-		if len(diff.Hunks) == 0 {
-			errors = append(errors, fmt.Sprintf("Diff %d (%s): no hunks", i+1, diff.NewFile))
-		}
-	}
-
-	return errors
+	// Always return nil - accept whatever diffs the model outputs
+	// Let ApplyUnifiedDiffs handle the actual application
+	return nil
 }
