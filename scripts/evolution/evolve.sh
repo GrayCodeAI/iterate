@@ -103,6 +103,21 @@ API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_
 CURRENT_KEY_INDEX=0
 PROVIDER="opencode"
 
+# Model rotation - try different models
+MODEL_INDEX=0
+MODELS=("minimax-2.7" "glm-5" "kimi-k2.5" "default")
+
+rotate_model() {
+  local next_model=$((MODEL_INDEX + 1))
+  if [[ $next_model -lt ${#MODELS[@]} ]]; then
+    MODEL_INDEX=$next_model
+    export ITERATE_MODEL="${MODELS[$MODEL_INDEX]}"
+    log "⚠️ Rotating to model: $ITERATE_MODEL"
+    return 0
+  fi
+  return 1
+}
+
 rotate_provider() {
   # Try different providers if OpenCode fails
   if [[ "$PROVIDER" == "opencode" ]] && [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
