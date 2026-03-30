@@ -307,6 +307,10 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 func (e *Engine) autoFixIssues(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, reviewOutput string) (bool, error) {
 	e.logger.Info("starting auto-fix based on review feedback")
 
+	// Create fresh context with longer timeout for auto-fix (it runs multiple operations)
+	autoFixCtx, autoFixCancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer autoFixCancel()
+
 	// Build fix prompt with review feedback - emphasize unified diffs
 	fixPrompt := fmt.Sprintf(`The code review identified issues:
 
@@ -329,7 +333,7 @@ Make the fixes now!`, reviewOutput)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var outputBuilder strings.Builder
-	for ev := range a.Prompt(ctx, fixPrompt) {
+	for ev := range a.Prompt(autoFixCtx, fixPrompt) {
 		if e.eventSink != nil {
 			select {
 			case e.eventSink <- ev:
@@ -358,12 +362,12 @@ Make the fixes now!`, reviewOutput)
 	}
 
 	// Also try tool_call JSON parsing (like in executeTask)
-	if modified, err := e.applyToolCallChanges(ctx, output); err == nil && len(modified) > 0 {
+	if modified, err := e.applyToolCallChanges(autoFixCtx, output); err == nil && len(modified) > 0 {
 		e.logger.Info("applied tool calls from auto-fix", "files", modified)
 	}
 
 	// Check if any changes were made
-	status, err := e.runTool(ctx, "bash", map[string]interface{}{
+	status, err := e.runTool(autoFixCtx, "bash", map[string]interface{}{
 		"cmd": "git status --porcelain",
 	})
 	if err != nil {
@@ -377,13 +381,13 @@ Make the fixes now!`, reviewOutput)
 
 	// Run tests to verify fixes
 	e.logger.Info("running tests to verify auto-fix")
-	_, testErr := e.runTool(ctx, "bash", map[string]interface{}{
+	_, testErr := e.runTool(autoFixCtx, "bash", map[string]interface{}{
 		"cmd": "go test ./... 2>&1 | head -50",
 	})
 	if testErr != nil {
 		e.logger.Warn("tests failed after auto-fix, reverting changes")
 		// Revert failed fixes
-		e.runTool(ctx, "bash", map[string]interface{}{
+		e.runTool(autoFixCtx, "bash", map[string]interface{}{
 			"cmd": "git checkout -- .",
 		})
 		return false, fmt.Errorf("tests failed after auto-fix")
@@ -391,14 +395,14 @@ Make the fixes now!`, reviewOutput)
 
 	// Commit the fixes
 	e.logger.Info("committing auto-fix changes")
-	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
+	if _, err := e.runTool(autoFixCtx, "bash", map[string]interface{}{
 		"cmd": "git add -A && git commit -m 'fix: auto-fix issues from review'",
 	}); err != nil {
 		return false, fmt.Errorf("failed to commit auto-fix: %w", err)
 	}
 
 	// Push fixes to the PR branch
-	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
+	if _, err := e.runTool(autoFixCtx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git push origin %s", e.branchName),
 	}); err != nil {
 		return false, fmt.Errorf("failed to push auto-fix: %w", err)
