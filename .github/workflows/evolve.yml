@@ -49,7 +49,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
           OPENCODE_API_KEY_3: ${{ secrets.OPENCODE_API_KEY_3 }}
-          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/v1' }}
+          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1' }}
           ITERATE_PROVIDER: opencode
           ITERATE_MODEL: glm-5
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
