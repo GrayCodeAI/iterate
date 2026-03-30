@@ -137,10 +137,10 @@ func TestBuildUserMessage_Basic(t *testing.T) {
 	os.MkdirAll(filepath.Join(dir, "memory"), 0o755)
 
 	result := buildUserMessage(dir, "", "")
-	if !strings.Contains(result, "Your task") {
+	if !strings.Contains(result, "TASK:") {
 		t.Error("should mention task")
 	}
-	if !strings.Contains(result, "Begin now") {
+	if !strings.Contains(result, "START NOW") {
 		t.Error("should have action prompt")
 	}
 }
@@ -149,7 +149,7 @@ func TestBuildUserMessage_WithJournal(t *testing.T) {
 	dir := t.TempDir()
 	journal := "Day 1: did something\nDay 2: did more"
 	result := buildUserMessage(dir, journal, "")
-	if !strings.Contains(result, "Recent journal") {
+	if !strings.Contains(result, "Recent Activity") {
 		t.Error("should show journal section")
 	}
 }
@@ -158,7 +158,7 @@ func TestBuildUserMessage_WithLongJournal(t *testing.T) {
 	dir := t.TempDir()
 	longJournal := strings.Repeat("x", 600)
 	result := buildUserMessage(dir, longJournal, "")
-	if !strings.Contains(result, "Recent journal") {
+	if !strings.Contains(result, "Recent Activity") {
 		t.Error("should show journal section")
 	}
 }
@@ -166,7 +166,7 @@ func TestBuildUserMessage_WithLongJournal(t *testing.T) {
 func TestBuildUserMessage_WithIssues(t *testing.T) {
 	dir := t.TempDir()
 	result := buildUserMessage(dir, "", "- #1: fix bug\n- #2: add feature")
-	if !strings.Contains(result, "Community input") {
+	if !strings.Contains(result, "Community Issues") {
 		t.Error("should show community section")
 	}
 	if !strings.Contains(result, "#1: fix bug") {
@@ -180,7 +180,7 @@ func TestBuildUserMessage_WithLearnings(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "memory", "ACTIVE_LEARNINGS.md"), []byte("Always test first"), 0o644)
 
 	result := buildUserMessage(dir, "", "")
-	if !strings.Contains(result, "What you have learned") {
+	if !strings.Contains(result, "Previous Learnings") {
 		t.Error("should show learnings section")
 	}
 	if !strings.Contains(result, "Always test first") {

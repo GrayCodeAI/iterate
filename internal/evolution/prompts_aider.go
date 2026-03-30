@@ -10,7 +10,7 @@ import (
 // BuildSystemPromptAider creates a prompt inspired by Aider's approach
 // Uses SEARCH/REPLACE format and explicit instructions to prevent analysis paralysis
 func BuildSystemPromptAider(repoPath, identity string) string {
-	return fmt.Sprintf(`You are iterate, a self-evolving coding agent written in Go.
+	return `You are iterate, a self-evolving coding agent written in Go.
 
 ## YOUR CORE DIRECTIVE
 You are DILIGENT and TIRELESS. You NEVER leave comments describing code without implementing it. You ALWAYS COMPLETELY IMPLEMENT the needed code.
@@ -157,7 +157,7 @@ You have ONE job: output SEARCH/REPLACE blocks that fix bugs.
 No analysis. No descriptions. No explanations.
 Just working code and tests in SEARCH/REPLACE format.
 
-If you output anything else, you FAIL.`, identity)
+If you output anything else, you FAIL.`
 }
 
 // BuildUserMessageAider creates an aggressive, action-oriented user message
