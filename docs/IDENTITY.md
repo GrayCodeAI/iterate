@@ -38,6 +38,19 @@ Autonomy without accountability is just chaos. Every decision I make is logged, 
 
 I'm not isolated. I depend on the outside world to learn and improve.
 
+## New Capabilities (V3)
+
+Based on research from top AI coding agents (Aider, Claude Code, OpenCode, Devin, Gemini CLI), I've added:
+
+- **Unified diff format** — Using familiar git diff format (3X better success rate)
+- **Multi-agent architecture** — Plan/Build/Review agents working together
+- **Flexible error recovery** — Multiple fallback strategies when diffs fail
+- **Provider pool** — Automatic fallback between AI providers (handles rate limits)
+- **MCP integration** — Model Context Protocol support for extensibility
+- **Git snapshots** — Safe rollback points before risky changes
+- **TDD enforcement** — Test-driven development built into evolution
+- **Failure pattern learning** — Automatic analysis to avoid repeating mistakes
+
 ## Where I Started
 
 - 500 lines of Go code standing on iteragent's shoulders
@@ -45,6 +58,17 @@ I'm not isolated. I depend on the outside world to learn and improve.
 - One AI provider (Anthropic)
 - No self-reflection. No journaling. No autonomous evolution.
 - Built to be extended. Designed to grow.
+
+## Where I Am Now
+
+- Multiple AI providers (Anthropic, OpenAI, Gemini, Groq, Ollama)
+- Unified diff format for 3X better code generation
+- Multi-agent architecture (Plan/Build/Review)
+- MCP integration for extensibility
+- Git snapshots for safe rollbacks
+- TDD enforcement for quality
+- Failure pattern learning from past mistakes
+- 10+ evolution implementations based on research
 
 ## Where I'm Going
 

@@ -250,13 +250,42 @@ type DiffHunk struct {
 func ParseUnifiedDiffs(output string) []UnifiedDiff {
 	var diffs []UnifiedDiff
 
-	// Split by "--- a/" or "+++ b/" to find diff blocks
-	re := regexp.MustCompile(`(?s)(--- a/[^\n]+\n\+{3} a/[^\n]+\n@@.*?@@(?:\n.*?)*?)`)
-	matches := re.FindAllStringSubmatch(output, -1)
-
+	// Strategy 1: Standard unified diff --- a/... +++ b/...
+	re1 := regexp.MustCompile(`(?s)(--- a/[^\n]*\n\+\+\+ b/[^\n]*\n@@.*?@@(?:\n[+-].*?)*)`)
+	matches := re1.FindAllStringSubmatch(output, -1)
 	for _, match := range matches {
 		diff := parseSingleDiffBlock(match[1])
-		if diff.OldFile != "" {
+		if diff.OldFile != "" || diff.NewFile != "" {
+			diffs = append(diffs, diff)
+		}
+	}
+
+	// Strategy 2: Git diff without b/ prefix --- a/... +++ ...
+	re2 := regexp.MustCompile(`(?s)(--- [^\n]*\n\+\+\+ [^\n]*\n@@.*?@@(?:\n[+-].*?)*)`)
+	matches = re2.FindAllStringSubmatch(output, -1)
+	for _, match := range matches {
+		diff := parseSingleDiffBlock(match[1])
+		if diff.OldFile != "" || diff.NewFile != "" {
+			// Dedupe
+			found := false
+			for _, d := range diffs {
+				if d.OldFile == diff.OldFile && d.NewFile == diff.NewFile {
+					found = true
+					break
+				}
+			}
+			if !found {
+				diffs = append(diffs, diff)
+			}
+		}
+	}
+
+	// Strategy 3: Diff without path prefix --- filename +++ filename
+	re3 := regexp.MustCompile(`(?s)(---[^\n]*\n\+\+\+[^\n]*\n@@.*?@@(?:\n[+-].*?)*)`)
+	matches = re3.FindAllStringSubmatch(output, -1)
+	for _, match := range matches {
+		diff := parseSingleDiffBlock(match[1])
+		if diff.OldFile != "" || diff.NewFile != "" {
 			diffs = append(diffs, diff)
 		}
 	}
@@ -270,10 +299,15 @@ func parseSingleDiffBlock(block string) UnifiedDiff {
 	lines := strings.Split(block, "\n")
 
 	for _, line := range lines {
+		// Handle various diff header formats
 		if strings.HasPrefix(line, "--- a/") {
 			diff.OldFile = strings.TrimPrefix(line, "--- a/")
 		} else if strings.HasPrefix(line, "+++ b/") {
 			diff.NewFile = strings.TrimPrefix(line, "+++ b/")
+		} else if strings.HasPrefix(line, "--- ") && !strings.HasPrefix(line, "--- a/") {
+			diff.OldFile = strings.TrimPrefix(line, "--- ")
+		} else if strings.HasPrefix(line, "+++ ") && !strings.HasPrefix(line, "+++ b/") {
+			diff.NewFile = strings.TrimPrefix(line, "+++ ")
 		} else if strings.HasPrefix(line, "@@") {
 			hunk := parseHunk(line, lines)
 			if len(hunk.Added) > 0 || len(hunk.Removed) > 0 {

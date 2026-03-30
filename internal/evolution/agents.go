@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -290,9 +291,10 @@ func (ma *MultiAgentEngine) applyChanges(output string) ([]string, error) {
 func parseLegacyEdits(output string) []UnifiedDiff {
 	var diffs []UnifiedDiff
 
-	filePattern := "FILE: "
 	lines := strings.Split(output, "\n")
 
+	// Strategy 1: FILE: pattern
+	filePattern := "FILE: "
 	var currentFile string
 	var content []string
 	inBlock := false
@@ -329,7 +331,64 @@ func parseLegacyEdits(output string) []UnifiedDiff {
 		diffs = append(diffs, createDiffFromContent(currentFile, content))
 	}
 
+	// Strategy 2: Code blocks with file hints
+	// Look for patterns like: filename.go or path/to/file.go followed by code
+	codeBlockRe := regexp.MustCompile("(?s)```(?:diff)?\n(.*?)```")
+	blocks := codeBlockRe.FindAllStringSubmatch(output, -1)
+	for _, block := range blocks {
+		if len(block) > 1 {
+			content := block[1]
+			// Try to extract filename from context before the code block
+			diff := parseDiffContent(content)
+			if diff.OldFile != "" || diff.NewFile != "" {
+				diffs = append(diffs, diff)
+			}
+		}
+	}
+
+	// Strategy 3: Look for file paths near diff-like content
+	// e.g., "Here is the change for file.go:\n+new line\n-old line"
+	fileRe := regexp.MustCompile(`(?s)([a-zA-Z0-9_/-]+\.go):?\s*\n([+-].*(?:\n[+-].*)*)`)
+	fileMatches := fileRe.FindAllStringSubmatch(output, -1)
+	for _, match := range fileMatches {
+		if len(match) > 2 {
+			filename := match[1]
+			diffContent := match[2]
+			lines := strings.Split(diffContent, "\n")
+			d := createDiffFromContent(filename, lines)
+			if len(d.Hunks) > 0 {
+				diffs = append(diffs, d)
+			}
+		}
+	}
+
 	return diffs
+}
+
+func parseDiffContent(content string) UnifiedDiff {
+	diff := UnifiedDiff{}
+	lines := strings.Split(content, "\n")
+
+	var added []string
+	var removed []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "+") && !strings.HasPrefix(trimmed, "+++") {
+			added = append(added, strings.TrimPrefix(trimmed, "+"))
+		} else if strings.HasPrefix(trimmed, "-") && !strings.HasPrefix(trimmed, "---") {
+			removed = append(removed, strings.TrimPrefix(trimmed, "-"))
+		}
+	}
+
+	if len(added) > 0 || len(removed) > 0 {
+		diff.Hunks = append(diff.Hunks, DiffHunk{
+			Added:   added,
+			Removed: removed,
+		})
+	}
+
+	return diff
 }
 
 func createDiffFromContent(file string, lines []string) UnifiedDiff {
