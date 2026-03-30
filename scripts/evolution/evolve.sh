@@ -103,9 +103,9 @@ API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_
 CURRENT_KEY_INDEX=0
 PROVIDER="opencode"
 
-# Model rotation - try different models (OPENCODE supports: GML5, Kimi2.5, MiniMax2.7)
+# Model rotation - try different models (OPENCODE Zen supports: minimax-m2.5, kimi-k2.5, glm-5)
 MODEL_INDEX=0
-MODELS=("MiniMax2.7" "Kimi2.5" "GML5")
+MODELS=("minimax-m2.5" "kimi-k2.5" "glm-5")
 
 rotate_model() {
   local next_model=$((MODEL_INDEX + 1))

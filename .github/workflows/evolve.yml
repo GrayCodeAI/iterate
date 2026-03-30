@@ -51,7 +51,7 @@ jobs:
           OPENCODE_API_KEY_3: ${{ secrets.OPENCODE_API_KEY_3 }}
           OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1' }}
           ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: MiniMax2.7
+          ITERATE_MODEL: minimax-m2.5
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
