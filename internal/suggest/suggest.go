@@ -46,7 +46,7 @@ type Suggestion struct {
 // GetSuggestions returns completions for the given context
 func (s *Suggester) GetSuggestions(ctx context.Context, c Context) ([]Suggestion, error) {
 	// Simple pattern matching for now
-	var suggestions []Suggestion
+	suggestions := []Suggestion{}
 
 	// Check for common patterns
 	if strings.HasSuffix(c.Prefix, "func ") {
@@ -83,7 +83,7 @@ func (s *Suggester) GetSuggestions(ctx context.Context, c Context) ([]Suggestion
 	return suggestions, nil
 }
 
-// listGoFiles finds Go files in the repo
+// listGoFiles finds Go files in the repo (excluding test files)
 func listGoFiles(repoPath string) ([]string, error) {
 	var files []string
 
@@ -91,7 +91,7 @@ func listGoFiles(repoPath string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && strings.HasSuffix(path, ".go") {
+		if !info.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
 			// Skip vendor and hidden dirs
 			if strings.Contains(path, "/vendor/") || strings.Contains(path, "/.") {
 				return nil
@@ -105,37 +105,143 @@ func listGoFiles(repoPath string) ([]string, error) {
 	return files, err
 }
 
-// CompleteWord tries to complete the current word
-func CompleteWord(line string, cursorPos int) (string, int) {
-	if cursorPos <= 0 || cursorPos > len(line) {
-		return "", 0
+// GetCompletionsForQuery returns fuzzy-matched completions for a query string
+func GetCompletionsForQuery(query string, repoPath string) ([]Suggestion, error) {
+	suggester := NewSuggester(nil, nil)
+	ctx := context.Background()
+
+	// Detect trigger character
+	triggerChar := ""
+	if len(query) > 0 {
+		lastChar := query[len(query)-1]
+		if lastChar == '@' {
+			triggerChar = "@"
+		}
 	}
 
-	// Find word boundaries
-	start := cursorPos - 1
-	for start >= 0 && isWordChar(rune(line[start])) {
-		start--
-	}
-	start++
-
-	end := cursorPos
-	for end < len(line) && isWordChar(rune(line[end])) {
-		end++
+	// Simple context detection
+	prefix := query
+	if triggerChar != "" {
+		prefix = triggerChar
 	}
 
-	word := line[start:end]
-	return word, start
+	return suggester.GetSuggestions(ctx, Context{
+		Prefix:   prefix,
+		RepoPath: repoPath,
+	})
 }
 
-// isWordChar checks if a rune is part of a word
-func isWordChar(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+// GetCompletionsForLine provides suggestions based on cursor position in a line
+func GetCompletionsForLine(line string, col int, repoPath string) ([]Suggestion, error) {
+	if col < 0 || col > len(line) {
+		return nil, fmt.Errorf("invalid column position")
+	}
+
+	prefix := line[:col]
+	ctx := Context{
+		CurrentLine: line,
+		Prefix:      prefix,
+		RepoPath:    repoPath,
+		Language:    "go",
+	}
+
+	suggester := NewSuggester(nil, nil)
+	return suggester.GetSuggestions(context.Background(), ctx)
 }
 
-// CommonGoSnippets provides Go-specific code snippets
+// AnalyzeContext examines the code around cursor to provide contextual suggestions
+func AnalyzeContext(lines []string, lineNum, col int) (Context, error) {
+	if lineNum < 0 || lineNum >= len(lines) {
+		return Context{}, fmt.Errorf("invalid line number")
+	}
+
+	line := lines[lineNum]
+	if col < 0 || col > len(line) {
+		return Context{}, fmt.Errorf("invalid column position")
+	}
+
+	prefix := line[:col]
+
+	// Detect context based on surrounding code
+	ctx := Context{
+		CurrentLine: line,
+		Prefix:      prefix,
+		Language:    "go",
+	}
+
+	// Check if we're inside a function
+	inFunc := false
+	braceCount := 0
+	for i := 0; i <= lineNum && i < len(lines); i++ {
+		for _, ch := range lines[i] {
+			if ch == '{' {
+				braceCount++
+				inFunc = true
+			} else if ch == '}' {
+				braceCount--
+				if braceCount <= 0 {
+					inFunc = false
+				}
+			}
+		}
+	}
+
+	_ = inFunc // Will be used for context-aware suggestions
+
+	return ctx, nil
+}
+
+// MatchSuggestion ranks how well a suggestion matches the current context
+func MatchSuggestion(s Suggestion, ctx Context) float64 {
+	score := 0.0
+
+	// Exact prefix match gets highest score
+	if strings.HasPrefix(strings.ToLower(s.Text), strings.ToLower(ctx.Prefix)) {
+		score += 1.0
+	}
+
+	// Contains match
+	if strings.Contains(strings.ToLower(s.Text), strings.ToLower(ctx.Prefix)) {
+		score += 0.5
+	}
+
+	// Boost for certain kinds
+	switch s.Kind {
+	case "snippet":
+		score += 0.3
+	case "function":
+		score += 0.2
+	}
+
+	return score
+}
+
+// IsValidIdentifier checks if text is a valid Go identifier
+func IsValidIdentifier(text string) bool {
+	if text == "" {
+		return false
+	}
+
+	// First char must be letter or underscore
+	runes := []rune(text)
+	if !unicode.IsLetter(runes[0]) && runes[0] != '_' {
+		return false
+	}
+
+	// Rest can be letters, digits, or underscores
+	for i := 1; i < len(runes); i++ {
+		if !unicode.IsLetter(runes[i]) && !unicode.IsDigit(runes[i]) && runes[i] != '_' {
+			return false
+		}
+	}
+
+	return true
+}
+
+// CommonGoSnippets provides built-in Go code snippets
 var CommonGoSnippets = map[string]Suggestion{
 	"func": {
-		Text:        "func name(params) returnType {\n\t// TODO: implement\n\treturn\n}",
+		Text:        "func Name() {\n\t\n}",
 		Label:       "function",
 		Description: "Function declaration",
 		Kind:        "snippet",
