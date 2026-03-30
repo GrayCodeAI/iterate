@@ -105,7 +105,7 @@ PROVIDER="opencode"
 
 # Model rotation - try different models
 MODEL_INDEX=0
-MODELS=("minimax-2.7" "glm-5" "kimi-k2.5" "default")
+MODELS=("default" "kimi-k2.5" "glm-4")
 
 rotate_model() {
   local next_model=$((MODEL_INDEX + 1))
