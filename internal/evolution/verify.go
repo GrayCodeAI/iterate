@@ -97,3 +97,36 @@ func (e *Engine) hasCodeChanges(ctx context.Context) bool {
 	}
 	return strings.TrimSpace(out) != ""
 }
+
+// hasTestChanges checks if any test files (*_test.go) were added or modified
+// Returns true if test files changed, false otherwise
+func (e *Engine) hasTestChanges(ctx context.Context) bool {
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": "git diff --name-only HEAD | grep \"_test\\.go$\" || true",
+	})
+	if err != nil {
+		e.logger.Warn("failed to check for test changes", "err", err)
+		return false
+	}
+	return strings.TrimSpace(out) != ""
+}
+
+// getModifiedFiles returns list of all modified files
+func (e *Engine) getModifiedFiles(ctx context.Context) []string {
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": "git diff --name-only HEAD",
+	})
+	if err != nil {
+		e.logger.Warn("failed to get modified files", "err", err)
+		return nil
+	}
+
+	var files []string
+	for _, file := range strings.Split(strings.TrimSpace(out), "\n") {
+		file = strings.TrimSpace(file)
+		if file != "" {
+			files = append(files, file)
+		}
+	}
+	return files
+}

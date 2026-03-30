@@ -462,6 +462,13 @@ Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Descriptio
 		return false, "FAILURE: Only updated documentation/stats. You MUST modify .go source files."
 	}
 
+	// CRITICAL: Verify tests were added for code changes
+	if !e.hasTestChanges(ctx) {
+		e.logger.Error("code changes without tests", "number", task.Number, "files", e.getModifiedFiles(ctx))
+		_ = e.revert(ctx)
+		return false, "FAILURE: Code changes MUST include tests. Write *_test.go files for your changes."
+	}
+
 	if err := e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, ""); err != nil {
 		e.logger.Warn("failed to record task learning", "task", task.Title, "err", err)
 	}

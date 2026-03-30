@@ -54,11 +54,16 @@ Failure to use tools = Task Failure.
 
 1. **YOU MUST USE TOOLS** - Describing actions without using tools is FAILURE
 2. **edit_file is REQUIRED** - You MUST use edit_file at least once per task
-3. **NO EXPLANATIONS** - Don't say "I will fix this" - JUST FIX IT with edit_file
-4. **IMMEDIATE ACTION** - Start with list_files, then read_file, then edit_file
-5. **TEST AFTER EVERY CHANGE** - Run: go build ./... && go test ./...
-6. **COMMIT REQUIRED** - Use bash: git add -A && git commit -m "fix: description"
-7. **METRICS UPDATES ARE FAILURE** - Only updating stats/docs = AUTOMATIC REJECTION
+3. **TESTS ARE MANDATORY** - Every code change MUST include *_test.go files
+4. **NO EXPLANATIONS** - Don't say "I will fix this" - JUST FIX IT with edit_file
+5. **IMMEDIATE ACTION** - Start with list_files, then read_file, then edit_file
+6. **TEST-FIRST WORKFLOW**:
+   - Step 1: Write test that reproduces the bug (use write_file)
+   - Step 2: Run test to confirm it fails: go test -v -run TestName
+   - Step 3: Fix the code with edit_file
+   - Step 4: Run test to confirm it passes: go test -v -run TestName
+7. **COMMIT REQUIRED** - Use bash: git add -A && git commit -m "fix: description"
+8. **METRICS UPDATES ARE FAILURE** - Only updating stats/docs = AUTOMATIC REJECTION
 
 ## ANTI-PATTERNS THAT CAUSE FAILURE
 
@@ -97,7 +102,7 @@ func buildUserMessage(repoPath, journal, issues string) string {
 	sb.WriteString("YOU HAVE 10 MINUTES TO COMPLETE THIS TASK.\n")
 	sb.WriteString("FAILURE TO MAKE CODE CHANGES = AUTOMATIC REJECTION\n\n")
 
-	sb.WriteString("## TASK: Fix a Real Bug in 4 Steps\n\n")
+	sb.WriteString("## TASK: Fix a Real Bug in 5 Steps (TEST-FIRST REQUIRED)\n\n")
 
 	sb.WriteString("### Step 1: EXPLORE (30 seconds)\n")
 	sb.WriteString("→ Use list_files on cmd/iterate/\n")
@@ -108,20 +113,25 @@ func buildUserMessage(repoPath, journal, issues string) string {
 	sb.WriteString("→ Look for: defer inside loops, ignored errors, unused variables\n")
 	sb.WriteString("→ Find ONE concrete bug\n\n")
 
-	sb.WriteString("### Step 3: FIX BUG (REQUIRED - 5 minutes)\n")
-	sb.WriteString("→ Use edit_file to fix the bug\n")
-	sb.WriteString("→ Example: fix defer in loop by changing to explicit close\n")
-	sb.WriteString("→ YOU MUST USE edit_file - NO EXCEPTIONS\n\n")
+	sb.WriteString("### Step 3: WRITE TEST (REQUIRED - 2 minutes)\n")
+	sb.WriteString("→ Use write_file to create TestFunctionName in *_test.go\n")
+	sb.WriteString("→ Test should reproduce the bug (fail before fix)\n")
+	sb.WriteString("→ Run: go test -v -run TestName (should FAIL)\n\n")
 
-	sb.WriteString("### Step 4: VERIFY & COMMIT (3 minutes)\n")
-	sb.WriteString("→ Use bash: go build ./... && go test ./...\n")
+	sb.WriteString("### Step 4: FIX BUG (REQUIRED - 3 minutes)\n")
+	sb.WriteString("→ Use edit_file to fix the bug\n")
+	sb.WriteString("→ Run: go test -v -run TestName (should PASS)\n")
+	sb.WriteString("→ Run: go build ./... && go test ./... (all tests pass)\n\n")
+
+	sb.WriteString("### Step 5: COMMIT (1 minute)\n")
 	sb.WriteString("→ Use bash: git add -A && git commit -m 'fix: bug description'\n")
-	sb.WriteString("→ If tests fail, fix with edit_file and retry\n\n")
+	sb.WriteString("→ Commit must include BOTH code fix AND test file\n\n")
 
 	sb.WriteString("## AUTOMATIC FAILURE CONDITIONS\n")
 	sb.WriteString("❌ No edit_file usage → FAILURE\n")
 	sb.WriteString("❌ Only docs/stats changed → FAILURE\n")
 	sb.WriteString("❌ No .go files modified → FAILURE\n")
+	sb.WriteString("❌ No *_test.go files added → FAILURE (MANDATORY TESTS)\n")
 	sb.WriteString("❌ Taking longer than 10 minutes → FAILURE\n\n")
 
 	if len(learnings) > 0 {
