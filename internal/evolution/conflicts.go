@@ -74,7 +74,6 @@ func (e *Engine) canAutoResolve(ctx context.Context, file string) bool {
 // autoResolveFile attempts to auto-resolve a file with a single conflict.
 // Strategy: prefer "our" changes (current branch) for simple conflicts.
 func (e *Engine) autoResolveFile(ctx context.Context, file string) error {
-	// Read the conflicted file
 	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("cat %q", file),
 	})
@@ -82,7 +81,6 @@ func (e *Engine) autoResolveFile(ctx context.Context, file string) error {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Check if one side is empty (add-only or delete-only conflict)
 	hasOurs := strings.Contains(out, "<<<<<<<") && strings.Contains(out, "=======")
 	hasTheirs := strings.Contains(out, "=======") && strings.Contains(out, ">>>>>>>")
 
@@ -90,7 +88,6 @@ func (e *Engine) autoResolveFile(ctx context.Context, file string) error {
 		return fmt.Errorf("malformed conflict markers")
 	}
 
-	// Extract sections
 	parts := strings.Split(out, "<<<<<<<")
 	if len(parts) != 2 {
 		return fmt.Errorf("unexpected conflict format")
@@ -111,29 +108,26 @@ func (e *Engine) autoResolveFile(ctx context.Context, file string) error {
 	theirs := strings.TrimSpace(theirPart[0])
 	after := theirPart[1]
 
-	// Strategy: if one side is empty, take the other
 	var resolved string
 	if ours == "" && theirs != "" {
 		resolved = theirs
 	} else if theirs == "" && ours != "" {
 		resolved = ours
 	} else {
-		// Both sides have content — prefer ours (current branch)
 		resolved = ours
 	}
 
-	// Reconstruct the file
 	result := parts[0] + resolved + after
 
-	// Write resolved file
+	// Write resolved file using printf to avoid heredoc injection
+	escapedFile := strings.ReplaceAll(file, "'", "'\\''")
 	_, err = e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("cat > %q << 'RESOLVE_EOF'\n%s\nRESOLVE_EOF", file, result),
+		"cmd": fmt.Sprintf("printf '%%s' '%s' > %q", result, escapedFile),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to write resolved file: %w", err)
 	}
 
-	// Stage the resolved file
 	_, err = e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git add %q", file),
 	})

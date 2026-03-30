@@ -2,7 +2,6 @@ package evolution
 
 import (
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,12 +21,16 @@ func AnalyzeCodebase(repoPath string) CodeAnalysis {
 	analysis := CodeAnalysis{BuildOK: true, TestOK: true}
 
 	// Check build
-	if err := exec.Command("go", "build", "./...").Run(); err != nil {
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
 		analysis.BuildOK = false
 	}
 
 	// Check tests
-	if err := exec.Command("go", "test", "./...").Run(); err != nil {
+	cmd = exec.Command("go", "test", "./...")
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
 		analysis.TestOK = false
 	}
 
@@ -90,11 +93,12 @@ func (a CodeAnalysis) FormatAnalysis() string {
 }
 
 func findTODOs(repoPath string) []string {
-	out, err := exec.Command("grep", "-rn", "--include=*.go",
+	cmd := exec.Command("grep", "-rn", "--include=*.go",
 		"TODO\\|FIXME\\|HACK\\|XXX",
-		filepath.Join(repoPath, "cmd"),
-		filepath.Join(repoPath, "internal"),
-	).CombinedOutput()
+		"cmd", "internal",
+	)
+	cmd.Dir = repoPath
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil
 	}
@@ -104,8 +108,6 @@ func findTODOs(repoPath string) []string {
 		if line == "" {
 			continue
 		}
-		// Strip repo path prefix
-		line = strings.TrimPrefix(line, repoPath+"/")
 		results = append(results, line)
 	}
 	return results
@@ -151,7 +153,9 @@ func findHotspots(repoPath string) []string {
 }
 
 func findNoTestPackages(repoPath string) []string {
-	out, err := exec.Command("go", "list", "./...").Output()
+	cmd := exec.Command("go", "list", "./...")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
 	if err != nil {
 		return nil
 	}
@@ -161,8 +165,9 @@ func findNoTestPackages(repoPath string) []string {
 		if pkg == "" || strings.Contains(pkg, "vendor") {
 			continue
 		}
-		// Check if package has test files
-		testOut, _ := exec.Command("go", "list", "-f", "{{.TestGoFiles}}", pkg).Output()
+		testCmd := exec.Command("go", "list", "-f", "{{.TestGoFiles}}", pkg)
+		testCmd.Dir = repoPath
+		testOut, _ := testCmd.Output()
 		if strings.TrimSpace(string(testOut)) == "[]" {
 			noTest = append(noTest, pkg)
 		}

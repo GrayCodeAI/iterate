@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/provider"
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
@@ -18,6 +20,7 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 	providers := []string{
 		"anthropic       (ANTHROPIC_API_KEY)",
 		"openai          (OPENAI_API_KEY)",
+		"openrouter      (OPENROUTER_API_KEY)",
 		"gemini          (GEMINI_API_KEY)",
 		"groq            (GROQ_API_KEY)",
 		"ollama          (local, no key needed)",
@@ -39,6 +42,75 @@ func selectModel(currentThinking iteragent.ThinkingLevel) (iteragent.Provider, i
 	if providerName == "ollama" {
 		os.Setenv("ITERATE_PROVIDER", "ollama")
 		return selectOllamaModel(currentThinking)
+	}
+
+	if providerName == "openrouter" {
+		os.Setenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
+		os.Setenv("ITERATE_PROVIDER", "openrouter")
+
+		// Fetch free models dynamically and let user pick one.
+		fmt.Printf("\n%sfetching free models from OpenRouter…%s\n", colorDim, colorReset)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		freeModels, err := provider.FreeOpenRouterModels(ctx)
+		cancel()
+
+		if err != nil || len(freeModels) == 0 {
+			fmt.Printf("%swarning: could not fetch models (%v), using default%s\n\n", colorYellow, err, colorReset)
+		} else {
+			// Show top free models sorted by context length (best first).
+			sort.Slice(freeModels, func(i, j int) bool {
+				return freeModels[i].ContextLength > freeModels[j].ContextLength
+			})
+
+			// Show top 20 to keep the list manageable.
+			maxShow := 20
+			if len(freeModels) > maxShow {
+				freeModels = freeModels[:maxShow]
+			}
+
+			items := make([]string, len(freeModels))
+			for i, m := range freeModels {
+				ctxStr := ""
+				if m.ContextLength > 0 {
+					if m.ContextLength >= 1000 {
+						ctxStr = fmt.Sprintf("%dK", m.ContextLength/1000)
+					} else {
+						ctxStr = fmt.Sprintf("%d", m.ContextLength)
+					}
+				}
+				items[i] = fmt.Sprintf("%-55s  ctx=%s  %s", m.ID, ctxStr, m.Modality)
+			}
+
+			choice, ok := selector.SelectItem("Select free OpenRouter model", items)
+			if !ok {
+				return nil, currentThinking
+			}
+			modelID := strings.Fields(choice)[0]
+			os.Setenv("ITERATE_MODEL", modelID)
+
+			// Get API key.
+			apiKey := os.Getenv("OPENROUTER_API_KEY")
+			if apiKey == "" {
+				key, ok2 := selector.PromptLine("OpenRouter API key (or set OPENROUTER_API_KEY):")
+				if !ok2 {
+					return nil, currentThinking
+				}
+				apiKey = key
+			}
+
+			var newP iteragent.Provider
+			if apiKey != "" {
+				newP, err = iteragent.NewProvider("openai", apiKey)
+			} else {
+				newP, err = iteragent.NewProvider("openai")
+			}
+			if err != nil {
+				fmt.Printf("%serror: %s%s\n\n", colorRed, err, colorReset)
+				return nil, currentThinking
+			}
+			selector.ContextWindow = iteragent.ProviderContextWindow(newP)
+			return newP, currentThinking
+		}
 	}
 
 	// opencode-cli and ollama don't need an API key.

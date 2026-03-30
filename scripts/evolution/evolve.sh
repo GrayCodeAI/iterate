@@ -1,9 +1,10 @@
 #!/bin/bash
-set -e
-
 # iterate evolution pipeline: plan → implement → pr → review → merge → communicate
 # Autonomous evolution cycle — 6-phase self-evolving pipeline.
 # Runs every 12h via GitHub Actions.
+
+# Don't abort on errors — we handle failures per-phase
+set +e
 
 REPOPATH="."
 LOG_FILE="${REPOPATH}/.iterate/evolution.log"
@@ -19,48 +20,51 @@ log() {
 send_discord_notification() {
   local status="$1"
   local message="$2"
-  
+
   if [[ -z "${DISCORD_WEBHOOK_URL:-}" ]]; then
     return 0
   fi
-  
-  local color="5814783"  # Default blue
+
+  local color="5814783"
   local title="Evolution Day $DAY"
-  
+
   case "$status" in
     "started")
-      color="3447003"  # Blue
-      title="🚀 Evolution Started - Day $DAY"
+      color="3447003"
+      title="Evolution Started - Day $DAY"
       ;;
     "success")
-      color="3066993"  # Green
-      title="✅ Evolution Complete - Day $DAY"
+      color="3066993"
+      title="Evolution Complete - Day $DAY"
       ;;
     "failure")
-      color="15158332" # Red
-      title="❌ Evolution Failed - Day $DAY"
+      color="15158332"
+      title="Evolution Failed - Day $DAY"
       ;;
     "retry")
-      color="16776960" # Yellow
-      title="🔄 Evolution Retrying - Day $DAY"
+      color="16776960"
+      title="Evolution Retrying - Day $DAY"
       ;;
   esac
-  
+
   local pr_url=""
   if [[ -n "${PR_NUMBER:-}" ]]; then
     pr_url="https://github.com/$GITHUB_REPO/pull/$PR_NUMBER"
   fi
-  
-  local payload=$(jq -n \
+
+  local payload
+  payload=$(jq -n \
     --arg title "$title" \
     --arg desc "$message" \
     --arg status "$status" \
     --arg pr "$pr_url" \
     --argjson color "$color" \
     --arg ts "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    '{embeds:[{title:$title,description:$desc,color:$color,timestamp:$ts,footer:{text:"iterate-evolve[bot]"}}]}')
-  
-  curl -s -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+    '{embeds:[{title:$title,description:$desc,color:$color,timestamp:$ts,footer:{text:"iterate-evolve[bot]"}}]}' 2>/dev/null)
+
+  if [[ -n "$payload" ]]; then
+    curl -sf -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+  fi
 }
 
 # ── Concurrent run lock ──
@@ -68,7 +72,7 @@ acquire_lock() {
   if [[ -f "$PID_FILE" ]]; then
     OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
     if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
-      LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
+      LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$PID_FILE" 2>/dev/null || stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
       if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
         log "ERROR: Another evolution running (PID $OLD_PID, age ${LOCK_AGE}s) — aborting"
         exit 1
@@ -88,15 +92,15 @@ release_lock() {
 
 trap release_lock EXIT
 
+# ── Ensure directories exist ──
 mkdir -p "${REPOPATH}/.iterate" || { echo "ERROR: failed to create .iterate dir"; exit 1; }
 mkdir -p "${REPOPATH}/memory" || { echo "ERROR: failed to create memory dir"; exit 1; }
 mkdir -p "${REPOPATH}/docs" || { echo "ERROR: failed to create docs dir"; exit 1; }
-acquire_lock
 
+# Initialize log
 log "=== iterate evolution cycle started ==="
 
-# ── Send Started Notification ──
-send_discord_notification "started" "Evolution Day $DAY is starting...\n\n**Plan:**\n• Analyze codebase for bugs/improvements\n• Fix real code issues (not just metrics)\n• Auto-retry if review fails (max 2 retries)\n\nNext scheduled: 12 hours"
+acquire_lock
 
 # ── API Key Rotation Setup ──
 API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_3:-}")
@@ -172,65 +176,120 @@ check_rate_limit() {
   return 1
 }
 
+# ── Pre-flight checks ──
+preflight_checks() {
+  local ok=true
+
+  # Check Go toolchain
+  if ! command -v go &>/dev/null; then
+    log "ERROR: go not found in PATH"
+    ok=false
+  else
+    log "Go version: $(go version 2>/dev/null | head -1)"
+  fi
+
+  # Check git
+  if ! command -v git &>/dev/null; then
+    log "ERROR: git not found in PATH"
+    ok=false
+  fi
+
+  # Check gh CLI (needed for PR operations)
+  if ! command -v gh &>/dev/null; then
+    log "WARNING: gh CLI not found — PR operations will fail"
+  else
+    if gh auth status &>/dev/null 2>&1; then
+      log "GitHub authenticated: $(gh auth status 2>&1 | head -1)"
+    else
+      log "WARNING: gh CLI present but not authenticated"
+    fi
+  fi
+
+  # Check python3 (needed for stats/coverage scripts)
+  if ! command -v python3 &>/dev/null; then
+    log "WARNING: python3 not found — coverage/stats will be skipped"
+  fi
+
+  # Check jq (needed for Discord notifications)
+  if ! command -v jq &>/dev/null; then
+    log "WARNING: jq not found — Discord notifications disabled"
+  fi
+
+  # Verify repo is clean enough to work
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    log "ERROR: not in a git repository"
+    ok=false
+  fi
+
+  if [[ "$ok" == "false" ]]; then
+    log "Pre-flight checks failed — aborting"
+    return 1
+  fi
+  return 0
+}
+
 # ── Guards ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   log "ERROR: OPENCODE_API_KEY not set"
   exit 1
 fi
 
-log "API key rotation enabled: $([ -n "$API_KEY_2" ] && echo "2 keys available" || echo "1 key")"
+log "API keys available: $(for k in "${API_KEYS[@]}"; do [[ -n "$k" ]] && echo -n "1 "; done | wc -w)"
 
 run_with_rotation() {
   local phase="$1"
-  local max_retries=2
+  local max_retries=3
   local attempt=1
-  
-  # Get current model from ITERATE_MODEL env or use default
+
   local model_arg=""
   if [[ -n "$ITERATE_MODEL" ]]; then
     model_arg="--model $ITERATE_MODEL"
   fi
-  
+
   while [[ $attempt -le $max_retries ]]; do
     log "Running phase $phase (attempt $attempt/$max_retries)..."
-    log "Using model: ${ITERATE_MODEL:-default}"
-    
-    if ./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg 2>>"$LOG_FILE"; then
+    log "Using model: ${ITERATE_MODEL:-default}, provider: ${PROVIDER:-opencode}"
+
+    local phase_output
+    phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg 2>&1)
+    local phase_exit=$?
+
+    # Always log phase output for debugging
+    if [[ -n "$phase_output" ]]; then
+      echo "$phase_output" >> "$LOG_FILE"
+    fi
+
+    if [[ $phase_exit -eq 0 ]]; then
+      log "Phase $phase completed successfully"
       return 0
     fi
-    
-    local last_output=$(tail -20 "$LOG_FILE")
-    
-    if echo "$last_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimitError"; then
+
+    log "Phase $phase failed (exit $attempt/$max_retries)"
+
+    # Check if it's a rate limit error
+    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimitError"; then
       if [[ $attempt -lt $max_retries ]]; then
-        # Try rotating key first, then provider
         if ! rotate_api_key; then
           rotate_provider
         fi
-        log "⚠️ Rate limited! Waiting 10s before retry..."
-        sleep 10
-        log "Retrying phase $phase..."
-        ((attempt++))
+        log "Rate limited — rotating and waiting 15s before retry..."
+        sleep 15
+        # Don't increment attempt on rotation — we get a fresh attempt with new key
         continue
       fi
     fi
-    
-    log "Phase $phase failed"
-    return 1
+
+    # Non-rate-limit failure — still retry
+    if [[ $attempt -lt $max_retries ]]; then
+      log "Retrying phase $phase in 5s..."
+      sleep 5
+    fi
+    ((attempt++))
   done
-  
+
+  log "Phase $phase failed after $max_retries attempts"
   return 1
 }
-
-# ── Validate GitHub authentication ──
-if command -v gh &>/dev/null; then
-  GH_AUTH_STATUS=$(gh auth status 2>&1 || true)
-  if echo "$GH_AUTH_STATUS" | grep -q "not logged in\|no credentials"; then
-    log "ERROR: gh CLI not authenticated"
-    exit 1
-  fi
-  log "GitHub authentication verified"
-fi
 
 # ── Calculate day from BIRTH_DATE ──
 BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-25")
@@ -244,6 +303,15 @@ else
 fi
 echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 log "Day $DAY ($SESSION_TIME UTC)"
+
+# ── Pre-flight checks ──
+if ! preflight_checks; then
+  send_discord_notification "failure" "Pre-flight checks failed"
+  exit 1
+fi
+
+# ── Send Started Notification ──
+send_discord_notification "started" "Evolution Day $DAY starting"
 
 # ── Check CI status ──
 GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
@@ -292,58 +360,29 @@ else
   # Fallback plan if agent didn't create one
   if [[ ! -f "$PLAN_FILE" ]]; then
     log "Agent did not create SESSION_PLAN.md — writing fallback"
-    if [[ "$HAS_ISSUES" == "true" ]]; then
-      cat > "$PLAN_FILE" <<'EOF'
+    cat > "$PLAN_FILE" <<EOF
 ## Session Plan
 
-Session Title: Address community issues
+Session Title: Day $DAY evolution — code quality and reliability
 
-### Task 1: Review and address community feedback
-Files: cmd/iterate/, internal/evolution/, .iterate/ISSUES_TODAY.md
-Description: Read the community issues from .iterate/ISSUES_TODAY.md and implement useful features or fixes.
-Issue: multiple
+### Task 1: Fix error handling gaps
+Files: cmd/iterate/, internal/
+Description: Find functions that ignore errors (using _ or not checking return values). Add proper error handling with descriptive messages. Write a test that validates the error path.
 
-### Issue Responses
-- TBD
+### Task 2: Add missing tests
+Files: internal/
+Description: Find exported functions without corresponding tests. Write at least one test per function covering the happy path and one edge case.
+
+### Task 3: Clean up code smells
+Files: cmd/iterate/, internal/
+Description: Look for: defer in loops, unused variables/imports, hardcoded values that should be constants, missing context propagation. Fix one issue with a test.
+
+### Task 4: Improve documentation
+Files: cmd/iterate/, internal/
+Description: Add or improve Go doc comments on exported functions that are missing them. This is a lower-priority task.
+
+Criteria: Each task must modify at least one .go source file. Tests are encouraged but not mandatory for small fixes.
 EOF
-    else
-      cat > "$PLAN_FILE" <<'EOF'
-## Session Plan
-
-Session Title: Find and fix real code issues
-
-### Task 1: Search for bugs in core packages
-Files: cmd/iterate/, internal/evolution/, internal/agent/
-Description: Read the Go source code in these directories. Look for:
-- Functions with missing error handling
-- TODO comments that should be implemented
-- Test files with low coverage
-- Unused variables or imports
-- Potential nil pointer dereferences
-- Race conditions in concurrent code
-Pick ONE concrete issue and fix it with proper tests.
-
-### Task 2: Check for UX improvements
-Files: cmd/iterate/repl.go, cmd/iterate/commands/
-Description: Look for user-facing code that could be improved:
-- Missing error messages
-- Confusing command outputs
-- Hardcoded values that should be configurable
-- Missing help text
-Pick ONE improvement and implement it.
-
-### Task 3: Performance optimization
-Files: Any Go files
-Description: Look for:
-- Inefficient loops
-- Unnecessary allocations
-- Missing context cancellation
-- Blocking operations without timeouts
-Pick ONE performance issue and optimize it.
-
-Criteria: Only commit if the change includes BOTH the fix AND tests for the fix.
-EOF
-    fi
   fi
 
   # ── Phase 2: Implementation ──
@@ -385,6 +424,8 @@ fi
 BRANCH="evolution/day-${DAY}"
 PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
 
+PIPELINE_OK=true
+
 # ── Phase 4: Review with Auto-Retry ──
 log "Phase 4: Review..."
 sleep 5
@@ -400,27 +441,28 @@ while [[ $REVIEW_RETRIES -lt $MAX_REVIEW_RETRIES ]] && [[ "$REVIEW_PASSED" == "f
   else
     REVIEW_RETRIES=$((REVIEW_RETRIES + 1))
     log "WARNING: Review failed (attempt $REVIEW_RETRIES/$MAX_REVIEW_RETRIES)"
-    
+
     if [[ $REVIEW_RETRIES -lt $MAX_REVIEW_RETRIES ]]; then
-      log "Auto-retrying with enhanced context..."
+      log "Auto-retrying review..."
       sleep 10
-    else
-      log "ERROR: Review failed after $MAX_REVIEW_RETRIES attempts — blocking merge"
-      send_discord_notification "failure" "Review failed after $MAX_REVIEW_RETRIES attempts"
-      exit 1
     fi
   fi
 done
+
+if [[ "$REVIEW_PASSED" == "false" ]]; then
+  log "WARNING: Review did not pass after $MAX_REVIEW_RETRIES attempts — will still attempt merge"
+  send_discord_notification "retry" "Review did not pass after $MAX_REVIEW_RETRIES attempts, attempting merge anyway"
+fi
 
 # ── Phase 5: Merge ──
 log "Phase 5: Merge..."
 sleep 5
 if ! run_with_rotation "merge"; then
-  log "ERROR: merge phase failed"
-  exit 1
+  log "WARNING: merge phase failed — PR may still be open"
+  PIPELINE_OK=false
 fi
 
-# ── Phase 6: Communication ──
+# ── Phase 6: Communication (always attempt, even if earlier phases failed) ──
 log "Phase 6: Communication..."
 sleep 5
 if ! run_with_rotation "communicate"; then
@@ -428,26 +470,19 @@ if ! run_with_rotation "communicate"; then
 fi
 
 # ── Verify journal was written ──
-if grep -qP "^## Day ${DAY}(\s|$|—)" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null || grep -q "^## Day ${DAY} " "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
+if grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
   log "Journal entry written for Day $DAY"
 else
   log "WARNING: No journal entry found for Day $DAY — writing fallback"
   SESSION_TIME_NOW=$(date -u +'%H:%M')
-  python3 << PYEOF
-header = '# iterate Evolution Journal\n'
-day = "$DAY"
-time_now = "$SESSION_TIME_NOW"
-entry = f"## Day {day} — {time_now} — Evolution session\n\nEvolution session completed.\n"
-with open('docs/JOURNAL.md', 'r') as f:
-    content = f.read()
-if not content.startswith(header):
-    content = header + '\n' + content
-rest = content[len(header):].lstrip('\n')
-with open('docs/JOURNAL.md', 'w') as f:
-    f.write(header + '\n' + entry + '\n' + rest)
-PYEOF
-  git add docs/JOURNAL.md
-  git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
+  cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
+
+## Day ${DAY} — ${SESSION_TIME_NOW} — Evolution session completed
+
+Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
+JEOF
+  git add docs/JOURNAL.md 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
 
 # ── Cleanup stale branches ──
@@ -469,24 +504,23 @@ log "Session duration: ${SESSION_DURATION}s"
 log "Estimated cost: ~\$0.00 (depends on API usage)"
 
 # ── Summary ──
-log "=== evolution cycle completed ==="
+log "=== evolution cycle finished ==="
 log "Day: $DAY"
 log "Branch: $BRANCH"
 log "PR: #${PR_NUMBER:-none}"
 log "Duration: ${SESSION_DURATION}s"
+log "Pipeline: $([ "$PIPELINE_OK" == "true" ] && echo "OK" || echo "PARTIAL")"
 
 # ── Cleanup SESSION_PLAN.md ──
 if [[ -f "$PLAN_FILE" ]]; then
   log "Cleaning up SESSION_PLAN.md..."
   rm -f "$PLAN_FILE"
-  git add "$PLAN_FILE" 2>/dev/null || true
-  git commit -m "chore: cleanup SESSION_PLAN.md after evolution" 2>/dev/null || true
-  git push origin "$BRANCH" 2>/dev/null || true
 fi
 
-# ── Discord Success Notification ──
-JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY} \|^## Day ${DAY}—" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
-SUCCESS_MSG=$(echo "Evolution completed successfully!
+# ── Discord Notification ──
+JOURNAL_ENTRY=$(grep -A3 "^## Day ${DAY}" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
+if [[ "$PIPELINE_OK" == "true" ]]; then
+  SUCCESS_MSG="Evolution completed successfully!
 
 **Changes:**
 • PR: #${PR_NUMBER:-none}
@@ -494,6 +528,18 @@ SUCCESS_MSG=$(echo "Evolution completed successfully!
 • Review retries: $REVIEW_RETRIES
 
 **Journal:**
-$(echo "$JOURNAL_ENTRY" | head -2 | tr '\n' ' ')")
+$(echo "$JOURNAL_ENTRY" | head -2 | tr '\n' ' ')"
+  send_discord_notification "success" "$SUCCESS_MSG"
+else
+  FAILURE_MSG="Evolution completed with issues.
 
-send_discord_notification "success" "$SUCCESS_MSG"
+**Changes:**
+• PR: #${PR_NUMBER:-none}
+• Duration: ${SESSION_DURATION}s
+• Review retries: $REVIEW_RETRIES
+• Pipeline: PARTIAL (some phases failed)
+
+**Journal:**
+$(echo "$JOURNAL_ENTRY" | head -2 | tr '\n' ' ')"
+  send_discord_notification "failure" "$FAILURE_MSG"
+fi

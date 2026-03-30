@@ -38,7 +38,7 @@ func parseFlags() mainFlags {
 	flag.BoolVar(&f.socialOnly, "social", false, "Run social loop only (no evolution)")
 	flag.BoolVar(&f.replyIssues, "reply-issues", true, "Post bot replies to addressed issues")
 	flag.StringVar(&f.provider, "provider", "gemini",
-		"LLM provider: anthropic, openai, gemini, groq, ollama, azure, vertex, opencode (default: gemini)")
+		"LLM provider: anthropic, openai, openrouter, gemini, groq, ollama, azure, vertex, opencode (default: gemini)")
 	flag.StringVar(&f.model, "model", "", "Model name override (e.g. claude-opus-4-6, gpt-4o, gemini-2.0-flash)")
 	flag.StringVar(&f.apiKey, "api-key", "", "API key override (or set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, etc.)")
 	flag.StringVar(&f.thinking, "thinking", "off", "Extended thinking depth: off, minimal, low, medium, high")

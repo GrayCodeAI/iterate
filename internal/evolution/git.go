@@ -411,16 +411,19 @@ func (e *Engine) postReviewComment(ctx context.Context, reviewOutput string, pas
 		return
 	}
 
-	verdict := "❌ Issues found — merge blocked."
+	verdict := "Issues found — merge blocked."
 	if passed {
-		verdict = "✅ LGTM — auto-merging."
+		verdict = "LGTM — approved for merge."
 	}
 
 	body := fmt.Sprintf("## Self-Review\n\n%s\n\n---\n**Verdict:** %s\n\n*Reviewed by iterate-evolve[bot]*",
 		reviewOutput, verdict)
 
+	commentCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// Use exec.Command to avoid shell injection via body content.
-	cmd := exec.Command("gh", "pr", "comment", fmt.Sprintf("%d", e.prNumber),
+	cmd := exec.CommandContext(commentCtx, "gh", "pr", "comment", fmt.Sprintf("%d", e.prNumber),
 		"--repo", e.repo, "--body", body)
 	cmd.Dir = e.repoPath
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -514,14 +517,20 @@ func withPhaseTimeout(ctx context.Context, phase string) (context.Context, conte
 func (e *Engine) revert(ctx context.Context) error {
 	// Reset uncommitted changes first.
 	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git checkout -- . && git clean -fd",
-	}); err == nil {
-		return nil
+		"cmd": "git checkout -- . 2>/dev/null; git clean -fd 2>/dev/null; true",
+	}); err != nil {
+		e.logger.Warn("git checkout failed during revert", "err", err)
 	}
-	// Fall back: use git_revert tool for any committed changes.
-	e.logger.Warn("git checkout failed, trying revert tool")
-	_, err := e.toolMap["git_revert"].Execute(ctx, nil)
-	return err
+
+	// Reset any commits made in this worktree back to HEAD~N or original.
+	// Try soft reset first (keeps changes staged), then hard reset.
+	if _, err := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": "git reset --hard HEAD 2>/dev/null || true",
+	}); err != nil {
+		e.logger.Warn("git reset failed during revert", "err", err)
+	}
+
+	return nil
 }
 
 func (e *Engine) commit(ctx context.Context, msg string) error {

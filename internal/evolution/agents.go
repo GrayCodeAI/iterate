@@ -3,6 +3,7 @@ package evolution
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -433,7 +434,7 @@ func loadIdentity(repoPath string) (string, error) {
 }
 
 func loadFile(path string) ([]byte, error) {
-	return nil, nil
+	return os.ReadFile(path)
 }
 
 type SequentialAgent struct {

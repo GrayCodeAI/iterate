@@ -1,70 +1,46 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"strings"
-	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
+	"github.com/GrayCodeAI/iterate/internal/provider"
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
 // resolveProviderConfig merges flag values with persisted config.
 // Flags take precedence: only defaults ("gemini", empty) are overridden.
-func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterConfig) (provider, model, apiKey string) {
-	provider = flagProvider
-	model = flagModel
-	apiKey = flagAPIKey
-
-	if provider == "gemini" && cfg.Provider != "" && cfg.Provider != "gemini" {
-		provider = cfg.Provider
-	}
-	if model == "" && cfg.Model != "" {
-		model = cfg.Model
-	}
-	if apiKey == "" && cfg.APIKey != "" {
-		apiKey = cfg.APIKey
-	}
-	if cfg.OllamaBaseURL != "" && os.Getenv("OLLAMA_BASE_URL") == "" {
-		os.Setenv("OLLAMA_BASE_URL", cfg.OllamaBaseURL)
-	}
-	if model != "" {
-		os.Setenv("ITERATE_MODEL", model)
-	}
-
-	return provider, model, apiKey
+func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterConfig) (providerName, model, apiKey string) {
+	pc := provider.ResolveConfig(flagProvider, flagModel, flagAPIKey,
+		cfg.Provider, cfg.Model, cfg.APIKey, cfg.OllamaBaseURL)
+	return pc.Provider, pc.Model, pc.APIKey
 }
 
 // resolveThinkingLevel returns the effective thinking level, falling back to
 // the persisted config value when the flag is still at its default "off".
 func resolveThinkingLevel(flagThinking string, cfg iterConfig) string {
-	if flagThinking == "off" && cfg.ThinkingLevel != "" {
-		return cfg.ThinkingLevel
-	}
-	return flagThinking
+	return provider.ResolveThinkingLevel(flagThinking, cfg.ThinkingLevel)
 }
 
 // initProvider creates an LLM provider from the given name and API key.
 // It also wires the provider's context window into the selector for display,
 // and runs a background health check to surface auth errors early.
 func initProvider(providerName, apiKey string, logger *slog.Logger) (iteragent.Provider, error) {
-	p, err := iteragent.NewProvider(providerName, apiKey)
+	p, err := provider.New(providerName, apiKey)
 	if err != nil {
 		return nil, err
 	}
 	logger.Info("using provider", "name", p.Name())
-	selector.ContextWindow = iteragent.ProviderContextWindow(p)
+	selector.ContextWindow = provider.ContextWindow(p)
 
-	// Skip health check for Ollama (local — no auth needed) and when
-	// the user explicitly passed --no-health-check (not currently a flag,
-	// but the env var ITERATE_SKIP_HEALTH_CHECK=1 disables it).
-	if os.Getenv("ITERATE_SKIP_HEALTH_CHECK") != "1" &&
-		!strings.EqualFold(providerName, "ollama") {
-		go runProviderHealthCheck(p, logger)
-	}
+	provider.RunHealthCheckInBackground(p, logger, func(err error) {
+		hint := provider.AuthErrorHint(err.Error())
+		fmt.Printf("\n%s⚠  Provider health check failed: %s%s\n", colorYellow, err, colorReset)
+		if hint != "" {
+			fmt.Printf("%s   Fix: %s%s\n", colorYellow, hint, colorReset)
+		}
+	})
 
 	return p, nil
 }
@@ -73,25 +49,12 @@ func initProvider(providerName, apiKey string, logger *slog.Logger) (iteragent.P
 // provider returns an auth / connectivity error. Runs in a goroutine so it
 // doesn't block startup.
 func runProviderHealthCheck(p iteragent.Provider, logger *slog.Logger) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	ag := iteragent.New(p, nil, logger)
-	events := ag.Prompt(ctx, "ping")
-	for e := range events {
-		if iteragent.EventType(e.Type) == iteragent.EventError {
-			hint := authErrorHint(e.Content)
-			fmt.Printf("\n%s⚠  Provider health check failed: %s%s\n", colorYellow, e.Content, colorReset)
-			if hint != "" {
-				fmt.Printf("%s   Fix: %s%s\n", colorYellow, hint, colorReset)
-			}
-			logger.Warn("provider health check failed", "error", e.Content)
-			return
+	if err := provider.HealthCheck(nil, p, logger); err != nil {
+		hint := provider.AuthErrorHint(err.Error())
+		fmt.Printf("\n%s⚠  Provider health check failed: %s%s\n", colorYellow, err, colorReset)
+		if hint != "" {
+			fmt.Printf("%s   Fix: %s%s\n", colorYellow, hint, colorReset)
 		}
-		// Got any non-error event — provider is reachable.
-		if iteragent.EventType(e.Type) == iteragent.EventTokenUpdate {
-			ag.Finish()
-			return
-		}
+		logger.Warn("provider health check failed", "error", err)
 	}
 }

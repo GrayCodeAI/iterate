@@ -181,6 +181,7 @@ func cmdConfigWizard(ctx Context) Result {
 	providerItems := []string{
 		"anthropic      — Claude (sk-ant-…)",
 		"openai         — GPT (sk-…)",
+		"openrouter     — 400+ models (sk-or-…)",
 		"gemini         — Google (AIza…)",
 		"groq           — fast, free tier (gsk_…)",
 		"opencode       — OpenCode API (sk-oc-…)",
@@ -249,6 +250,8 @@ func apiKeyHint(provider string) string {
 		return "starts with sk-ant-"
 	case "openai":
 		return "starts with sk-"
+	case "openrouter":
+		return "starts with sk-or-"
 	case "gemini":
 		return "starts with AIza or alphanumeric"
 	case "groq":

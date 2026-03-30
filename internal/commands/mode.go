@@ -482,6 +482,7 @@ func cmdProviders(ctx Context) Result {
 	providers := []providerInfo{
 		{"anthropic", "ANTHROPIC_API_KEY", "claude-sonnet-4-6, claude-3-5-sonnet, claude-3-haiku"},
 		{"openai", "OPENAI_API_KEY", "gpt-4o, gpt-4o-mini, gpt-4-turbo"},
+		{"openrouter", "OPENROUTER_API_KEY", "anthropic/claude-sonnet-4, openai/gpt-4o, google/gemini-2.5-flash"},
 		{"gemini", "GEMINI_API_KEY", "gemini-2.0-flash, gemini-1.5-pro, gemini-2.5-pro"},
 		{"groq", "GROQ_API_KEY", "llama-3.3-70b-versatile, llama-3.1-8b-instant"},
 		{"ollama", "OLLAMA_BASE_URL", "llama3, codellama, mistral (local)"},

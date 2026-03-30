@@ -58,8 +58,9 @@ func (e *Engine) verify(ctx context.Context) *VerificationResult {
 // verifyProtected checks if any modified files are protected.
 // Returns a list of protected files that were modified.
 func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
+	// Check both uncommitted changes and the most recent commit
 	out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git diff --name-only HEAD",
+		"cmd": "(git diff --name-only HEAD 2>/dev/null; git diff --name-only HEAD~1 HEAD 2>/dev/null) | sort -u",
 	})
 	if err != nil {
 		return nil, err
@@ -88,8 +89,9 @@ func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
 // hasCodeChanges checks if any actual code files (.go) were modified
 // Returns false if only docs/stats/dashboard files were changed
 func (e *Engine) hasCodeChanges(ctx context.Context) bool {
+	// Check both uncommitted and the most recent commit
 	out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git diff --name-only HEAD | grep \"\\.go$\" || true",
+		"cmd": "(git diff --name-only HEAD 2>/dev/null; git diff --name-only HEAD~1 HEAD 2>/dev/null) | grep '\\.go$' || true",
 	})
 	if err != nil {
 		e.logger.Warn("failed to check for code changes", "err", err)
@@ -102,7 +104,7 @@ func (e *Engine) hasCodeChanges(ctx context.Context) bool {
 // Returns true if test files changed, false otherwise
 func (e *Engine) hasTestChanges(ctx context.Context) bool {
 	out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git diff --name-only HEAD | grep \"_test\\.go$\" || true",
+		"cmd": "(git diff --name-only HEAD 2>/dev/null; git diff --name-only HEAD~1 HEAD 2>/dev/null) | grep '_test\\.go$' || true",
 	})
 	if err != nil {
 		e.logger.Warn("failed to check for test changes", "err", err)
@@ -114,7 +116,7 @@ func (e *Engine) hasTestChanges(ctx context.Context) bool {
 // getModifiedFiles returns list of all modified files
 func (e *Engine) getModifiedFiles(ctx context.Context) []string {
 	out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git diff --name-only HEAD",
+		"cmd": "(git diff --name-only HEAD 2>/dev/null; git diff --name-only HEAD~1 HEAD 2>/dev/null) | sort -u",
 	})
 	if err != nil {
 		e.logger.Warn("failed to get modified files", "err", err)

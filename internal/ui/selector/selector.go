@@ -286,7 +286,7 @@ var slashCommands = []string{
 // commandArgCompletions maps commands to their known argument completions.
 var commandArgCompletions = map[string][]string{
 	"/thinking": {"off", "minimal", "low", "medium", "high"},
-	"/provider": {"anthropic", "openai", "gemini", "groq", "ollama", "azure", "bedrock", "vertex", "mistral", "deepseek"},
+	"/provider": {"anthropic", "openai", "openrouter", "gemini", "groq", "ollama", "azure", "bedrock", "vertex", "mistral", "deepseek"},
 	"/theme":    {"default", "nord", "monokai", "minimal"},
 	"/pr":       {"list", "view", "diff", "review", "comment", "checkout", "create"},
 	"/git":      {"status", "log", "diff", "add", "commit", "push", "pull", "branch", "stash", "rebase", "fetch"},

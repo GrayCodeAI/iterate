@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/GrayCodeAI/iterate/internal/provider"
 )
 
 // ModelPricing holds per-million-token prices for a model.
@@ -106,12 +110,78 @@ var knownPricing = map[string]ModelPricing{
 	"nim/mixtral-8x22b":  {1.58, 1.58, 0, 0},
 }
 
+// openRouterPricingCache holds dynamically fetched OpenRouter pricing.
+var (
+	openRouterPricingCache map[string]ModelPricing
+	openRouterPricingTime  time.Time
+)
+
+// getOpenRouterPricing returns pricing for OpenRouter models, fetching from the
+// API if the cache is stale. Returns empty if not an OpenRouter model.
+func getOpenRouterPricing(model string) (ModelPricing, bool) {
+	if !provider.IsOpenRouterModel(model) {
+		return ModelPricing{}, false
+	}
+
+	// Return cached results if fresh (1 hour).
+	if openRouterPricingCache != nil && time.Since(openRouterPricingTime) < time.Hour {
+		p, ok := openRouterPricingCache[model]
+		if ok {
+			return p, true
+		}
+		// Model not in cache — try a substring match.
+		for k, v := range openRouterPricingCache {
+			if strings.Contains(model, k) || strings.Contains(k, model) {
+				return v, true
+			}
+		}
+		return ModelPricing{}, false
+	}
+
+	// Fetch from API (non-blocking, uses cached disk data if API unavailable).
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	models, err := provider.FetchOpenRouterModels(ctx)
+	if err != nil {
+		// API unavailable — fall through to static pricing below.
+		return ModelPricing{}, false
+	}
+
+	openRouterPricingCache = make(map[string]ModelPricing, len(models))
+	for _, m := range models {
+		openRouterPricingCache[m.ID] = ModelPricing{
+			InputPerMTok:  m.InputPrice,
+			OutputPerMTok: m.OutputPrice,
+		}
+	}
+	openRouterPricingTime = time.Now()
+
+	// Try exact match first.
+	if p, ok := openRouterPricingCache[model]; ok {
+		return p, true
+	}
+	// Substring match.
+	for k, v := range openRouterPricingCache {
+		if strings.Contains(model, k) || strings.Contains(k, model) {
+			return v, true
+		}
+	}
+	return ModelPricing{}, false
+}
+
 // lookupPricing returns the best pricing match for a model name (substring match, longest wins).
 func lookupPricing(model string) (ModelPricing, bool) {
 	modelLower := strings.ToLower(model)
 	if p, ok := knownPricing[modelLower]; ok {
 		return p, true
 	}
+
+	// Check OpenRouter dynamic pricing.
+	if p, ok := getOpenRouterPricing(modelLower); ok {
+		return p, true
+	}
+
 	best := ""
 	var bestP ModelPricing
 	for k, v := range knownPricing {

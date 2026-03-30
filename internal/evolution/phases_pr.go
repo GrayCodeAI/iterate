@@ -21,17 +21,31 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 
 	// Sync with remote before branching.
 	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git pull --rebase origin main",
+		"cmd": "git fetch origin main",
 	}); err != nil {
-		e.logger.Warn("pull rebase failed, continuing", "err", err, "output", out)
+		e.logger.Warn("fetch failed, continuing", "err", err, "output", out)
+	}
+
+	// Check if there are any uncommitted changes to include.
+	hasUncommitted := false
+	if out, _ := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": "git status --short",
+	}); strings.TrimSpace(out) != "" {
+		hasUncommitted = true
+		e.logger.Info("found uncommitted changes, committing before PR")
+		if _, err := e.runTool(ctx, "bash", map[string]interface{}{
+			"cmd": "git add -A && git diff --cached --quiet || git commit -m 'chore: evolution day " + day + " changes'",
+		}); err != nil {
+			e.logger.Warn("failed to commit uncommitted changes", "err", err)
+		}
 	}
 
 	// Skip if nothing has changed relative to origin/main.
 	out, _ := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git diff origin/main HEAD --stat",
 	})
-	if strings.TrimSpace(out) == "" {
-		e.logger.Info("no changes vs origin/main — skipping PR creation")
+	if strings.TrimSpace(out) == "" && !hasUncommitted {
+		e.logger.Info("no changes vs origin/main and no uncommitted changes — skipping PR creation")
 		return nil
 	}
 
@@ -51,14 +65,9 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 
 	// Push with lease; fall back to a plain push on failure.
 	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("git push -u origin %q --force-with-lease", branchName),
+		"cmd": fmt.Sprintf("git push -u origin %q --force-with-lease 2>/dev/null || git push -u origin %q", branchName, branchName),
 	}); err != nil {
-		e.logger.Warn("push with lease failed, retrying", "err", err, "output", out)
-		if out2, err2 := e.runTool(ctx, "bash", map[string]interface{}{
-			"cmd": fmt.Sprintf("git push -u origin %q", branchName),
-		}); err2 != nil {
-			return fmt.Errorf("failed to push branch: %w (output: %s)", err2, out2)
-		}
+		return fmt.Errorf("failed to push branch: %w (output: %s)", err, out)
 	}
 	e.logger.Info("pushed branch", "branch", branchName)
 
@@ -115,7 +124,33 @@ func (e *Engine) RunMergePhase(ctx context.Context) error {
 		return nil
 	}
 
+	// Check if PR is still open before attempting merge.
+	prState, _ := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": fmt.Sprintf("gh pr view %d --repo %s --json state --jq .state 2>/dev/null || echo UNKNOWN", e.prNumber, e.repo),
+	})
+	prState = strings.TrimSpace(prState)
+	switch prState {
+	case "MERGED":
+		e.logger.Info("PR already merged", "number", e.prNumber)
+	case "CLOSED":
+		e.logger.Info("PR was closed without merge", "number", e.prNumber)
+		e.clearPRState()
+		e.clearSessionPlan()
+		return nil
+	}
+
 	if err := e.mergePR(ctx); err != nil {
+		// Check if PR was already merged by someone else
+		if strings.Contains(err.Error(), "already merged") || strings.Contains(err.Error(), "closed") {
+			e.logger.Info("PR already merged or closed, cleaning up state")
+			e.clearPRState()
+			e.clearSessionPlan()
+			if err := e.switchToMain(ctx); err != nil {
+				e.logger.Warn("failed to switch to main after merge", "err", err)
+			}
+			e.waitForCIAndRecord(ctx)
+			return nil
+		}
 		return fmt.Errorf("merge failed: %w", err)
 	}
 	e.logger.Info("PR merged", "number", e.prNumber)
@@ -129,7 +164,7 @@ func (e *Engine) RunMergePhase(ctx context.Context) error {
 
 	// Pull to make sure local main is up-to-date.
 	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": "git pull origin main",
+		"cmd": "git pull origin main 2>/dev/null || git pull origin main --rebase 2>/dev/null || true",
 	}); err != nil {
 		e.logger.Warn("pull after merge failed", "err", err, "output", out)
 	}
@@ -152,13 +187,18 @@ func (e *Engine) waitForCIAndRecord(ctx context.Context) {
 
 	e.logger.Info("waiting for CI to complete after merge...")
 
+	// Give GitHub a moment to register the CI run after merge.
+	time.Sleep(15 * time.Second)
+
 	var conclusion string
 	var failedLog string
+	pollCount := 0
+	const maxPolls = 40 // 40 * 30s = 20 minutes max
 
-	for {
+	for pollCount < maxPolls {
 		select {
 		case <-ciCtx.Done():
-			e.logger.Warn("CI wait timed out")
+			e.logger.Warn("CI wait timed out", "polls", pollCount)
 			_ = os.WriteFile(ciPath, []byte("CI TIMED OUT after merge. Check GitHub Actions manually."), 0o644)
 			return
 		default:
@@ -166,27 +206,40 @@ func (e *Engine) waitForCIAndRecord(ctx context.Context) {
 
 		out, err := e.runTool(ciCtx, "bash", map[string]interface{}{
 			"cmd": fmt.Sprintf(
-				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json conclusion,status --jq '.[0]|.conclusion+\":\"+.status'",
+				"gh run list --repo %s --workflow ci.yml --branch main --limit 1 --json conclusion,status --jq '.[0]|.conclusion+\":\"+.status' 2>/dev/null || echo 'error:'",
 				e.repo,
 			),
 		})
 		if err != nil {
-			e.logger.Warn("CI poll failed", "err", err)
-			break
+			e.logger.Warn("CI poll failed", "err", err, "poll", pollCount)
+			pollCount++
+			time.Sleep(30 * time.Second)
+			continue
 		}
 
-		parts := strings.SplitN(strings.TrimSpace(out), ":", 2)
+		out = strings.TrimSpace(out)
+		if out == "" || out == "error:" || out == ":" {
+			e.logger.Info("CI run not yet visible, waiting...", "poll", pollCount)
+			pollCount++
+			time.Sleep(30 * time.Second)
+			continue
+		}
+
+		parts := strings.SplitN(out, ":", 2)
 		conclusion = parts[0]
 		status := ""
 		if len(parts) > 1 {
 			status = parts[1]
 		}
 
-		if status == "completed" {
+		// "in_progress" or "queued" means still running
+		if status == "completed" || conclusion == "success" || conclusion == "failure" {
+			e.logger.Info("CI run completed", "conclusion", conclusion)
 			break
 		}
 
-		// Not done yet — sleep and retry.
+		e.logger.Info("CI still running", "status", status, "conclusion", conclusion, "poll", pollCount)
+		pollCount++
 		select {
 		case <-ciCtx.Done():
 			return
