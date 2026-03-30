@@ -499,21 +499,27 @@ func (e *Engine) commit(ctx context.Context, msg string) error {
 
 // summarizeReview makes the review comment concise by removing verbose tool call blocks
 func (e *Engine) summarizeReview(text string) string {
-	// Remove tool call blocks like ```tool {"tool":"...",...} ```
-	// Keep only the final verdict (LGTM, APPROVED, issues found, etc.)
+	// Remove tool call blocks and keep only important lines (verdict, issues, fixes)
 
 	lines := strings.Split(text, "\n")
 	var result []string
 	var inToolBlock bool
 	var hasVerdict bool
+	var verdictLine string
+
+	verdictKeywords := []string{"lgtm", "approved", "looks good", "verdict:", "issues found",
+		"critical issue", "fixes applied", "rejected", "block", "not ready", "auto-fix",
+		"build and tests pass", "approved for merge"}
 
 	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
 		// Track if we're in a tool block
-		if strings.HasPrefix(strings.TrimSpace(line), "```tool") {
+		if strings.HasPrefix(trimmed, "```tool") || strings.HasPrefix(trimmed, "```json") {
 			inToolBlock = true
 			continue
 		}
-		if inToolBlock && strings.TrimSpace(line) == "```" {
+		if trimmed == "```" {
 			inToolBlock = false
 			continue
 		}
@@ -521,35 +527,62 @@ func (e *Engine) summarizeReview(text string) string {
 			continue
 		}
 
-		// Keep the line
-		result = append(result, line)
+		// Skip empty lines at start
+		if len(result) == 0 && trimmed == "" {
+			continue
+		}
 
 		// Check for verdict keywords
-		lower := strings.ToLower(line)
-		if strings.Contains(lower, "lgtm") ||
-			strings.Contains(lower, "approved") ||
-			strings.Contains(lower, "looks good") ||
-			strings.Contains(lower, "verdict:") ||
-			strings.Contains(lower, "issues found") ||
-			strings.Contains(lower, "critical issue") ||
-			strings.Contains(lower, "fixes applied") ||
-			strings.Contains(lower, "rejected") {
+		lower := strings.ToLower(trimmed)
+		isVerdict := false
+		for _, kw := range verdictKeywords {
+			if strings.Contains(lower, kw) {
+				isVerdict = true
+				verdictLine = trimmed
+				break
+			}
+		}
+
+		if isVerdict {
 			hasVerdict = true
+		}
+
+		// Keep lines that are: verdict lines, headers (##), or bullet points with content
+		if isVerdict || strings.HasPrefix(trimmed, "##") ||
+			(strings.HasPrefix(trimmed, "-") && len(trimmed) > 5) ||
+			(strings.HasPrefix(trimmed, "*") && len(trimmed) > 5) {
+			result = append(result, line)
 		}
 	}
 
-	// If no clear verdict found, extract just the summary
-	if !hasVerdict {
-		// Take only the first 15 and last 10 lines
-		if len(result) > 30 {
-			result = append(result[:15], append([]string{"..."}, result[len(result)-10:]...)...)
+	// If no clear verdict found, just take first few non-empty lines
+	if !hasVerdict || len(result) > 20 {
+		// Take only first 10 meaningful lines
+		newResult := []string{}
+		count := 0
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "```") {
+				continue
+			}
+			newResult = append(newResult, line)
+			count++
+			if count >= 10 {
+				break
+			}
 		}
+		result = newResult
+	}
+
+	// Ensure we have a verdict line at the end
+	if hasVerdict && verdictLine != "" {
+		result = append(result, "", verdictLine)
 	}
 
 	// Truncate if still too long
 	output := strings.Join(result, "\n")
-	if len(output) > 3000 {
-		output = output[:3000] + "\n...(truncated)"
+	if len(output) > 2000 {
+		output = output[:2000] + "\n...(truncated)"
 	}
 
 	return output
