@@ -29,15 +29,20 @@ func loadMCPServers() []commands.MCPServerEntry {
 }
 
 // saveMCPServers writes the MCP server list to disk.
-func saveMCPServers(servers []commands.MCPServerEntry) {
-	if err := os.MkdirAll(filepath.Dir(mcpServersPath()), 0o755); err != nil {
-		return
+// Returns an error if the write fails so callers can handle it appropriately.
+func saveMCPServers(servers []commands.MCPServerEntry) error {
+	path := mcpServersPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create mcp servers dir: %w", err)
 	}
 	data, err := json.MarshalIndent(servers, "", "  ")
 	if err != nil {
-		return
+		return fmt.Errorf("marshal mcp servers: %w", err)
 	}
-	_ = os.WriteFile(mcpServersPath(), data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write mcp servers file: %w", err)
+	}
+	return nil
 }
 
 // mcpJSONEntry is the shape of an entry in .mcp.json.
@@ -98,7 +103,9 @@ func discoverMCPServers(absRepo string) int {
 	}
 
 	if added > 0 {
-		saveMCPServers(existing)
+		if err := saveMCPServers(existing); err != nil {
+			fmt.Fprintf(os.Stderr, "warn: failed to save MCP servers: %v\n", err)
+		}
 	}
 	return added
 }
