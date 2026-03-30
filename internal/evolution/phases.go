@@ -2,9 +2,11 @@ package evolution
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -407,10 +409,51 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	// CRITICAL: Parse and apply unified diffs (like git diff)
 	diffs := ParseUnifiedDiffs(taskOutput)
 
+	// FALLBACK: If no unified diffs, try to parse tool_call JSON output
 	if len(diffs) == 0 {
-		e.logger.Error("AGENT FAILED: No unified diffs found", "number", task.Number, "output_length", len(taskOutput))
-		_ = e.revert(ctx)
-		return false, "CRITICAL FAILURE: Agent did not output unified diffs. Must use format:\n\n--- a/path/to/file.go\n+++ b/path/to/file.go\n@@ ... @@\n-old code\n+new code"
+		e.logger.Info("No unified diffs found, trying tool_call JSON fallback", "number", task.Number)
+		modifiedFiles, toolErr := e.applyToolCallChanges(ctx, taskOutput)
+		if toolErr != nil {
+			e.logger.Error("Tool call fallback also failed", "number", task.Number, "err", toolErr)
+			_ = e.revert(ctx)
+			return false, fmt.Sprintf("CRITICAL FAILURE: Neither unified diffs nor tool calls found.\n\nUnified diffs format:\n--- a/path/to/file.go\n+++ b/path/to/file.go\n@@ ... @@\n-old code\n+new code\n\nOr use write_file tool calls in JSON format.")
+		}
+
+		// Verify the tool call changes worked
+		if len(modifiedFiles) == 0 {
+			e.logger.Error("No files modified via tool calls", "number", task.Number)
+			_ = e.revert(ctx)
+			return false, "CRITICAL FAILURE: Agent did not produce any file changes."
+		}
+
+		e.logger.Info("Applied changes via tool call fallback", "number", task.Number, "files", len(modifiedFiles), "modified", modifiedFiles)
+
+		// Verify build/tests pass
+		v := e.verify(ctx)
+		if !v.BuildPassed || !v.TestPassed {
+			errCtx := fmt.Sprintf("Build passed: %v, Test passed: %v.\n\nOutput:\n%s", v.BuildPassed, v.TestPassed, v.Output)
+			e.logger.Warn("verification failed, reverting", "number", task.Number, "build", v.BuildPassed, "test", v.TestPassed)
+			_ = e.revert(ctx)
+			return false, errCtx
+		}
+
+		// Verify actual code changes
+		if !e.hasCodeChanges(ctx) {
+			e.logger.Error("no code changes detected", "number", task.Number)
+			_ = e.revert(ctx)
+			return false, "FAILURE: Only updated documentation/stats. You MUST modify .go source files."
+		}
+
+		if !e.hasTestChanges(ctx) {
+			e.logger.Error("code changes without tests", "number", task.Number)
+			_ = e.revert(ctx)
+			return false, "FAILURE: Code changes MUST include tests. Write *_test.go files for your changes."
+		}
+
+		if err := e.appendLearningJSONL("tool_call_fallback", "evolution", task.Description, ""); err != nil {
+			e.logger.Warn("failed to record task learning", "task", task.Title, "err", err)
+		}
+		return true, ""
 	}
 
 	// Validate diffs
@@ -476,4 +519,162 @@ func (e *Engine) loadImplementContext() (string, []iteragent.Tool, *iteragent.Sk
 	}
 	systemPrompt := buildSystemPrompt(e.repoPath, string(identity))
 	return systemPrompt, e.tools, e.skills
+}
+
+// applyToolCallChanges parses tool_call JSON output and applies file changes
+func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]string, error) {
+	var modifiedFiles []string
+
+	// Strategy 1: Parse JSON tool calls like {"tool":"write_file","args":{"path":"...","content":"..."}}
+	// Also handles: tool_call, tool_calls, or assistant messages with tool calls
+
+	// Find all JSON objects in the output
+	jsonRe := regexp.MustCompile(`\{[^{}]*"tool"[^{}]*\}`)
+	matches := jsonRe.FindAllString(output, -1)
+
+	for _, match := range matches {
+		var toolCall struct {
+			Tool  string                 `json:"tool"`
+			Args  map[string]interface{} `json:"args"`
+			Name  string                 `json:"name"`
+			Input map[string]interface{} `json:"input"`
+		}
+
+		if err := json.Unmarshal([]byte(match), &toolCall); err != nil {
+			continue
+		}
+
+		// Get the tool name
+		toolName := toolCall.Tool
+		if toolName == "" {
+			toolName = toolCall.Name
+		}
+
+		// Get the args/input
+		args := toolCall.Args
+		if args == nil {
+			args = toolCall.Input
+		}
+
+		if args == nil {
+			continue
+		}
+
+		// Handle write_file tool
+		if toolName == "write_file" || toolName == "Write" || toolName == "write" {
+			path, ok := args["path"].(string)
+			if !ok {
+				continue
+			}
+			content, ok := args["content"].(string)
+			if !ok {
+				continue
+			}
+
+			// Apply the file write
+			fullPath := filepath.Join(e.repoPath, path)
+			if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+				e.logger.Warn("failed to create directory", "path", fullPath, "err", err)
+				continue
+			}
+
+			if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+				e.logger.Warn("failed to write file", "path", fullPath, "err", err)
+				continue
+			}
+
+			modifiedFiles = append(modifiedFiles, path)
+			e.logger.Info("Applied write_file via tool call", "file", path)
+		}
+
+		// Handle edit_file tool - create a diff from the edit
+		if toolName == "edit_file" || toolName == "Edit" || toolName == "edit" {
+			path, ok := args["path"].(string)
+			if !ok {
+				continue
+			}
+
+			// Try to extract old/new content
+			oldContent, hasOld := args["old_string"].(string)
+			newContent, hasNew := args["new_string"].(string)
+			if !hasOld || !hasNew {
+				// Try alternative field names
+				if old, ok := args["old"].(string); ok {
+					oldContent = old
+				}
+				if nw, ok := args["new"].(string); ok {
+					newContent = nw
+				}
+				if old, ok := args["before"].(string); ok {
+					oldContent = old
+				}
+				if nw, ok := args["after"].(string); ok {
+					newContent = nw
+				}
+			}
+
+			if oldContent == "" || newContent == "" {
+				continue
+			}
+
+			// Apply the edit
+			fullPath := filepath.Join(e.repoPath, path)
+			existing, err := os.ReadFile(fullPath)
+			if err != nil {
+				e.logger.Warn("failed to read file for edit", "path", fullPath, "err", err)
+				continue
+			}
+
+			// Simple string replace
+			replacedContent := strings.Replace(string(existing), oldContent, newContent, 1)
+			if string(existing) == replacedContent {
+				e.logger.Warn("edit_file: content unchanged", "path", fullPath)
+				continue
+			}
+
+			if err := os.WriteFile(fullPath, []byte(replacedContent), 0644); err != nil {
+				e.logger.Warn("failed to write file after edit", "path", fullPath, "err", err)
+				continue
+			}
+
+			modifiedFiles = append(modifiedFiles, path)
+			e.logger.Info("Applied edit_file via tool call", "file", path)
+		}
+	}
+
+	// Strategy 2: Look for file paths with content after them (markdown style)
+	fileContentRe := regexp.MustCompile("(?s)([a-zA-Z0-9_/.-]+\\.go)\\n```(?:diff)?\\n(.*?)```")
+	contentMatches := fileContentRe.FindAllStringSubmatch(output, -1)
+	for _, match := range contentMatches {
+		if len(match) > 2 {
+			path := match[1]
+			content := match[2]
+
+			// Skip if already modified
+			alreadyModified := false
+			for _, f := range modifiedFiles {
+				if f == path {
+					alreadyModified = true
+					break
+				}
+			}
+			if alreadyModified {
+				continue
+			}
+
+			fullPath := filepath.Join(e.repoPath, path)
+			if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+				continue
+			}
+
+			if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+				continue
+			}
+
+			modifiedFiles = append(modifiedFiles, path)
+			e.logger.Info("Applied file from code block", "file", path)
+		}
+	}
+
+	return modifiedFiles, nil
 }
