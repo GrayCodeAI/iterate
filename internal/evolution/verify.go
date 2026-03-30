@@ -84,3 +84,16 @@ func (e *Engine) verifyProtected(ctx context.Context) ([]string, error) {
 	}
 	return violations, nil
 }
+
+// hasCodeChanges checks if any actual code files (.go) were modified
+// Returns false if only docs/stats/dashboard files were changed
+func (e *Engine) hasCodeChanges(ctx context.Context) bool {
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": "git diff --name-only HEAD | grep \"\\.go$\" || true",
+	})
+	if err != nil {
+		e.logger.Warn("failed to check for code changes", "err", err)
+		return false
+	}
+	return strings.TrimSpace(out) != ""
+}

@@ -430,6 +430,13 @@ Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Descriptio
 		return false, errCtx
 	}
 
+	// CRITICAL: Verify actual code changes were made (not just docs/stats)
+	if !e.hasCodeChanges(ctx) {
+		e.logger.Error("no code changes detected - only docs/stats updated", "number", task.Number)
+		_ = e.revert(ctx)
+		return false, "FAILURE: Only updated documentation/stats. You MUST modify .go source files."
+	}
+
 	if err := e.appendLearningJSONL(firstLine(extractCommitMessage(taskOutput)), "evolution", task.Description, ""); err != nil {
 		e.logger.Warn("failed to record task learning", "task", task.Title, "err", err)
 	}
