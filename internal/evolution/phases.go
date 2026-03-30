@@ -354,57 +354,30 @@ func (e *Engine) executeTask(ctx context.Context, p iteragent.Provider, task pla
 }
 
 // runTaskAttempt executes one attempt at a task. Returns (success, errorContext).
-// errorContext is populated on failure with build/test output captured before reverting.
+// Uses Aider-style SEARCH/REPLACE format for better reliability.
 func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task planTask, systemPrompt string, tools []iteragent.Tool, skills *iteragent.SkillSet, protectedWarning, extraContext string) (bool, string) {
-	userMsg := fmt.Sprintf(`CRITICAL: You MUST make ACTUAL CODE CHANGES to complete this task.
+	// Use Aider-style aggressive prompt
+	userMsg := BuildUserMessageAider(e.repoPath, "", "", "CODE")
 
-Task %d: %s
-
-%s
-
-REQUIREMENTS:
-1. Read the source files mentioned in the task
-2. Identify concrete issues (bugs, missing tests, UX problems, performance issues)
-3. MAKE ACTUAL CODE CHANGES using edit_file or write_file tools
-4. DO NOT just update metrics or documentation - change real code
-5. After code changes, run: go build ./... && go test ./...
-6. Commit with: git add -A && git commit -m "type: description"
-
-IMPORTANT:
-- If you don't make code changes, the task fails
-- Just updating docs/stats/dashboard does NOT count
-- You MUST modify .go files in cmd/iterate/ or internal/ directories
-- If tests fail after your changes, fix them
-
-%s
-
-Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Description, protectedWarning, extraContext)
+	// Add task-specific context
+	userMsg += fmt.Sprintf("\n\n## YOUR TASK\n\nTask %d: %s\n\n%s\n\n%s\n\n",
+		task.Number, task.Description, protectedWarning, extraContext)
 
 	if extraContext == "" {
 		userMsg = strings.Replace(userMsg, "\n\n\n", "\n\n", 1)
 	}
-
-	// Track tool usage to ensure edit_file is actually used
-	toolUsage := make(map[string]int)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var outputBuilder strings.Builder
 	var taskOutput string
 	var taskErr error
 
-	// Monitor events for tool calls
 	for ev := range a.Prompt(ctx, userMsg) {
 		if e.eventSink != nil {
 			select {
 			case e.eventSink <- ev:
 			default:
 			}
-		}
-
-		// Track tool usage from tool execution events
-		if ev.Type == "tool_execution" && ev.ToolName != "" {
-			toolUsage[ev.ToolName]++
-			e.logger.Info("tool executed", "tool", ev.ToolName, "task", task.Number)
 		}
 
 		if ev.Type == string(iteragent.EventMessageUpdate) {
@@ -431,12 +404,32 @@ Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Descriptio
 		return false, fmt.Sprintf("Agent error: %s", taskErr)
 	}
 
-	// CRITICAL: Verify edit_file was actually used
-	if toolUsage["edit_file"] == 0 {
-		e.logger.Error("AGENT FAILED: Did not use edit_file tool", "number", task.Number, "tools_used", toolUsage)
+	// CRITICAL: Parse and apply SEARCH/REPLACE blocks
+	blocks := ParseSearchReplaceBlocks(taskOutput)
+
+	if len(blocks) == 0 {
+		e.logger.Error("AGENT FAILED: No SEARCH/REPLACE blocks found", "number", task.Number, "output_length", len(taskOutput))
 		_ = e.revert(ctx)
-		return false, "CRITICAL FAILURE: Agent did not use edit_file tool. Must use edit_file to fix bugs."
+		return false, "CRITICAL FAILURE: Agent did not output SEARCH/REPLACE blocks. Must use format:\n\nFILE: path/to/file.go\n<<<<<<< SEARCH\nold code\n=======\nnew code\n>>>>>>>"
 	}
+
+	// Validate blocks
+	validationErrors := ValidateSearchReplaceBlocks(blocks)
+	if len(validationErrors) > 0 {
+		e.logger.Error("Invalid SEARCH/REPLACE blocks", "number", task.Number, "errors", validationErrors)
+		_ = e.revert(ctx)
+		return false, fmt.Sprintf("SEARCH/REPLACE validation failed:\n%s", strings.Join(validationErrors, "\n"))
+	}
+
+	// Apply the blocks
+	modifiedFiles, applyErr := e.ApplySearchReplaceBlocks(blocks)
+	if applyErr != nil {
+		e.logger.Error("Failed to apply SEARCH/REPLACE blocks", "number", task.Number, "err", applyErr)
+		_ = e.revert(ctx)
+		return false, fmt.Sprintf("Failed to apply changes: %v", applyErr)
+	}
+
+	e.logger.Info("Applied SEARCH/REPLACE blocks", "number", task.Number, "files", len(modifiedFiles), "modified", modifiedFiles)
 
 	if violations, err := e.verifyProtected(ctx); err != nil {
 		e.logger.Warn("verifyProtected check failed", "err", err)
