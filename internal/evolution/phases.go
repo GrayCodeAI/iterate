@@ -404,32 +404,32 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 		return false, fmt.Sprintf("Agent error: %s", taskErr)
 	}
 
-	// CRITICAL: Parse and apply SEARCH/REPLACE blocks
-	blocks := ParseSearchReplaceBlocks(taskOutput)
+	// CRITICAL: Parse and apply unified diffs (like git diff)
+	diffs := ParseUnifiedDiffs(taskOutput)
 
-	if len(blocks) == 0 {
-		e.logger.Error("AGENT FAILED: No SEARCH/REPLACE blocks found", "number", task.Number, "output_length", len(taskOutput))
+	if len(diffs) == 0 {
+		e.logger.Error("AGENT FAILED: No unified diffs found", "number", task.Number, "output_length", len(taskOutput))
 		_ = e.revert(ctx)
-		return false, "CRITICAL FAILURE: Agent did not output SEARCH/REPLACE blocks. Must use format:\n\nFILE: path/to/file.go\n<<<<<<< SEARCH\nold code\n=======\nnew code\n>>>>>>>"
+		return false, "CRITICAL FAILURE: Agent did not output unified diffs. Must use format:\n\n--- a/path/to/file.go\n+++ b/path/to/file.go\n@@ ... @@\n-old code\n+new code"
 	}
 
-	// Validate blocks
-	validationErrors := ValidateSearchReplaceBlocks(blocks)
+	// Validate diffs
+	validationErrors := ValidateUnifiedDiffs(diffs)
 	if len(validationErrors) > 0 {
-		e.logger.Error("Invalid SEARCH/REPLACE blocks", "number", task.Number, "errors", validationErrors)
+		e.logger.Error("Invalid unified diffs", "number", task.Number, "errors", validationErrors)
 		_ = e.revert(ctx)
-		return false, fmt.Sprintf("SEARCH/REPLACE validation failed:\n%s", strings.Join(validationErrors, "\n"))
+		return false, fmt.Sprintf("Unified diff validation failed:\n%s", strings.Join(validationErrors, "\n"))
 	}
 
-	// Apply the blocks
-	modifiedFiles, applyErr := e.ApplySearchReplaceBlocks(blocks)
+	// Apply the diffs
+	modifiedFiles, applyErr := e.ApplyUnifiedDiffs(diffs)
 	if applyErr != nil {
-		e.logger.Error("Failed to apply SEARCH/REPLACE blocks", "number", task.Number, "err", applyErr)
+		e.logger.Error("Failed to apply unified diffs", "number", task.Number, "err", applyErr)
 		_ = e.revert(ctx)
 		return false, fmt.Sprintf("Failed to apply changes: %v", applyErr)
 	}
 
-	e.logger.Info("Applied SEARCH/REPLACE blocks", "number", task.Number, "files", len(modifiedFiles), "modified", modifiedFiles)
+	e.logger.Info("Applied unified diffs", "number", task.Number, "files", len(modifiedFiles), "modified", modifiedFiles)
 
 	if violations, err := e.verifyProtected(ctx); err != nil {
 		e.logger.Warn("verifyProtected check failed", "err", err)
