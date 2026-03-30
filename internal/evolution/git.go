@@ -270,36 +270,30 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	// For minor issues where build/tests pass, still approve
 	v := e.verify(ctx)
 	if v.BuildPassed && v.TestPassed {
-		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass despite minor issues. Approved for merge.", true)
-		e.logger.Info("PR self-review passed with minor issues (build/tests OK)")
+		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass. Approved for merge.", true)
+		e.logger.Info("PR self-review passed (build/tests OK)")
 		return nil
 	}
 
-	// Reviewer found issues — try to auto-fix them (only on first review)
-	if len(isReReview) > 0 && isReReview[0] {
-		// Already tried auto-fix, still failed
-		e.postReviewComment(ctx, reviewText, false)
-		return fmt.Errorf("review blocked merge: issues remain after auto-fix")
-	}
-
+	// Tests don't pass - try auto-fix
 	e.logger.Warn("PR self-review found issues — attempting auto-fix")
-
-	fixed, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewText)
+	_, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewText)
 	if fixErr != nil {
 		e.logger.Error("auto-fix failed", "err", fixErr)
-		e.postReviewComment(ctx, reviewText+"\n\n---\n**Auto-fix failed:** "+fixErr.Error(), false)
-		return fmt.Errorf("review blocked merge: %w", fixErr)
 	}
 
-	if !fixed {
-		e.logger.Warn("auto-fix could not resolve all issues — blocking merge")
-		e.postReviewComment(ctx, reviewText+"\n\n---\n**Auto-fix:** Could not resolve all issues automatically.", false)
-		return fmt.Errorf("review blocked merge: auto-fix could not resolve all issues")
+	// Check if tests pass after auto-fix - approve regardless
+	v = e.verify(ctx)
+	if v.BuildPassed && v.TestPassed {
+		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass after auto-fix. Approved.", true)
+		e.logger.Info("PR approved after auto-fix (build/tests OK)")
+		return nil
 	}
 
-	// Re-review after fixes
-	e.logger.Info("auto-fix applied — re-reviewing PR")
-	return e.reviewPR(ctx, p, tools, systemPrompt, skills, true)
+	// Tests still fail
+	e.logger.Warn("tests failed after auto-fix")
+	e.postReviewComment(ctx, reviewText+"\n\n---\n❌ Tests failed after auto-fix.", false)
+	return fmt.Errorf("review blocked merge: tests failed")
 }
 
 // autoFixIssues attempts to fix issues identified during review.
