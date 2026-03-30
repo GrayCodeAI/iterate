@@ -99,20 +99,45 @@ log "=== iterate evolution cycle started ==="
 send_discord_notification "started" "Evolution Day $DAY is starting...\n\n**Plan:**\n• Analyze codebase for bugs/improvements\n• Fix real code issues (not just metrics)\n• Auto-retry if review fails (max 2 retries)\n\nNext scheduled: 12 hours"
 
 # ── API Key Rotation Setup ──
-API_KEY_1="${OPENCODE_API_KEY:-}"
-API_KEY_2="${OPENCODE_API_KEY_2:-}"
-CURRENT_API_KEY="$API_KEY_1"
+API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_3:-}")
+CURRENT_KEY_INDEX=0
+PROVIDER="opencode"
+
+rotate_provider() {
+  # Try different providers if OpenCode fails
+  if [[ "$PROVIDER" == "opencode" ]] && [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+    PROVIDER="anthropic"
+    export OPENCODE_API_KEY="${ANTHROPIC_API_KEY}"
+    export OPENCODE_BASE_URL="https://api.anthropic.com/v1"
+    log "⚠️ Falling back to Anthropic API..."
+    return 0
+  fi
+  if [[ "$PROVIDER" == "anthropic" ]] && [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    PROVIDER="openai"
+    export OPENCODE_API_KEY="${OPENAI_API_KEY}"
+    export OPENCODE_BASE_URL="https://api.openai.com/v1"
+    log "⚠️ Falling back to OpenAI API..."
+    return 0
+  fi
+  return 1
+}
 
 rotate_api_key() {
-  if [[ -n "$API_KEY_2" ]] && [[ "$CURRENT_API_KEY" == "$API_KEY_1" ]]; then
-    log "⚠️ Rate limit detected, rotating to backup API key..."
-    CURRENT_API_KEY="$API_KEY_2"
-    export OPENCODE_API_KEY="$CURRENT_API_KEY"
+  local next_index=$((CURRENT_KEY_INDEX + 1))
+  
+  if [[ $next_index -lt ${#API_KEYS[@]} ]] && [[ -n "${API_KEYS[$next_index]}" ]]; then
+    CURRENT_KEY_INDEX=$next_index
+    export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY_INDEX]}"
+    log "⚠️ Rate limit detected, rotating to API key #$((CURRENT_KEY_INDEX + 1))..."
     return 0
   else
-    log "ERROR: All API keys exhausted"
+    log "ERROR: All API keys exhausted (${#API_KEYS[@]} keys tried)"
     return 1
   fi
+}
+
+get_current_key() {
+  export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY_INDEX]}"
 }
 
 # Check for rate limit in last command and rotate if needed
@@ -147,8 +172,14 @@ run_with_rotation() {
     local last_output=$(tail -20 "$LOG_FILE")
     
     if echo "$last_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimitError"; then
-      if [[ $attempt -lt $max_retries ]] && rotate_api_key; then
-        log "Retrying phase $phase with rotated API key..."
+      if [[ $attempt -lt $max_retries ]]; then
+        # Try rotating key first, then provider
+        if ! rotate_api_key; then
+          rotate_provider
+        fi
+        log "⚠️ Rate limited! Waiting 10s before retry..."
+        sleep 10
+        log "Retrying phase $phase..."
         ((attempt++))
         continue
       fi
