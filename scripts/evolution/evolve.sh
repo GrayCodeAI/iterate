@@ -102,76 +102,14 @@ log "=== iterate evolution cycle started ==="
 
 acquire_lock
 
-# ── API Key Rotation Setup ──
-API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_3:-}")
-CURRENT_KEY_INDEX=0
-PROVIDER="opencode"
-
-# Model rotation - try different models (OPENCODE Go supports: glm-5, minimax-m2.5, kimi-k2.5)
-MODEL_INDEX=0
-MODELS=("glm-5" "minimax-m2.5" "kimi-k2.5")
-
-rotate_model() {
-  local next_model=$((MODEL_INDEX + 1))
-  if [[ $next_model -lt ${#MODELS[@]} ]]; then
-    MODEL_INDEX=$next_model
-    export ITERATE_MODEL="${MODELS[$MODEL_INDEX]}"
-    log "⚠️ Rotating to model: $ITERATE_MODEL"
-    return 0
-  fi
-  return 1
-}
-
-rotate_provider() {
-  # Try different providers - try harder with available keys
-  if [[ "$PROVIDER" != "anthropic" ]] && [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-    PROVIDER="anthropic"
-    export OPENCODE_API_KEY="${ANTHROPIC_API_KEY}"
-    export OPENCODE_BASE_URL="https://api.anthropic.com/v1"
-    export ITERATE_PROVIDER="anthropic"
-    log "⚠️ Falling back to Anthropic API..."
-    return 0
-  fi
-  if [[ "$PROVIDER" != "openai" ]] && [[ -n "${OPENAI_API_KEY:-}" ]]; then
-    PROVIDER="openai"
-    export OPENCODE_API_KEY="${OPENAI_API_KEY}"
-    export OPENCODE_BASE_URL="https://api.openai.com/v1"
-    export ITERATE_PROVIDER="openai"
-    log "⚠️ Falling back to OpenAI API..."
-    return 0
-  fi
-  # Try different OpenCode models if available
-  if [[ "$PROVIDER" == "opencode" ]]; then
-    if rotate_model; then
-      return 0
-    fi
-  fi
-  return 1
-}
-
-rotate_api_key() {
-  local next_index=$((CURRENT_KEY_INDEX + 1))
-  
-  if [[ $next_index -lt ${#API_KEYS[@]} ]] && [[ -n "${API_KEYS[$next_index]}" ]]; then
-    CURRENT_KEY_INDEX=$next_index
-    export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY_INDEX]}"
-    log "⚠️ Rate limit detected, rotating to API key #$((CURRENT_KEY_INDEX + 1))..."
-    return 0
-  else
-    log "ERROR: All API keys exhausted (${#API_KEYS[@]} keys tried)"
-    return 1
-  fi
-}
-
-get_current_key() {
-  export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY_INDEX]}"
-}
+# ── API Key Setup ──
+PROVIDER="${ITERATE_PROVIDER:-openrouter}"
 
 # Check for rate limit in last command and rotate if needed
 check_rate_limit() {
   if echo "$1" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
-    rotate_api_key
-    return $?
+    log "Rate limit detected"
+    return 0
   fi
   return 1
 }
@@ -229,12 +167,12 @@ preflight_checks() {
 }
 
 # ── Guards ──
-if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
-  log "ERROR: OPENCODE_API_KEY not set"
+if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
+  log "ERROR: OPENROUTER_API_KEY not set"
   exit 1
 fi
 
-log "API keys available: $(for k in "${API_KEYS[@]}"; do [[ -n "$k" ]] && echo -n "1 "; done | wc -w)"
+log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
 run_with_rotation() {
   local phase="$1"
@@ -246,12 +184,17 @@ run_with_rotation() {
     model_arg="--model $ITERATE_MODEL"
   fi
 
+  local provider_arg=""
+  if [[ -n "$ITERATE_PROVIDER" ]]; then
+    provider_arg="--provider $ITERATE_PROVIDER"
+  fi
+
   while [[ $attempt -le $max_retries ]]; do
     log "Running phase $phase (attempt $attempt/$max_retries)..."
-    log "Using model: ${ITERATE_MODEL:-default}, provider: ${PROVIDER:-opencode}"
+    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-openrouter}"
 
     local phase_output
-    phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg 2>&1)
+    phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
     local phase_exit=$?
 
     # Always log phase output for debugging
@@ -267,14 +210,10 @@ run_with_rotation() {
     log "Phase $phase failed (exit $attempt/$max_retries)"
 
     # Check if it's a rate limit error
-    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimitError"; then
+    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
       if [[ $attempt -lt $max_retries ]]; then
-        if ! rotate_api_key; then
-          rotate_provider
-        fi
-        log "Rate limited — rotating and waiting 15s before retry..."
+        log "Rate limited — waiting 15s before retry..."
         sleep 15
-        # Don't increment attempt on rotation — we get a fresh attempt with new key
         continue
       fi
     fi

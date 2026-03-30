@@ -44,14 +44,11 @@ jobs:
           git config user.name "iterate-evolve[bot]"
           git config user.email "iterate-evolve[bot]@users.noreply.github.com"
 
-      - name: Run evolution with API key rotation
+      - name: Run evolution with OpenRouter
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
-          OPENCODE_API_KEY_3: ${{ secrets.OPENCODE_API_KEY_3 }}
-          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/go/v1' }}
-          ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: glm-5
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ITERATE_PROVIDER: openrouter
+          ITERATE_MODEL: qwen/qwen3.6-plus-preview:free
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
