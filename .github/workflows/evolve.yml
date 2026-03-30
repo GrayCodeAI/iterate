@@ -49,12 +49,12 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
           OPENCODE_API_KEY_3: ${{ secrets.OPENCODE_API_KEY_3 }}
-          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/go/v1' }}
+          OPENCODE_BASE_URL: ${{ secrets.OPENCODE_BASE_URL || 'https://opencode.ai/zen/v1' }}
           ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: ${{ secrets.ITERATE_MODEL || 'default' }}
+          ITERATE_MODEL: MiniMax2.7
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           bash scripts/evolution/evolve.sh
 

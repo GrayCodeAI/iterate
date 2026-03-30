@@ -103,9 +103,9 @@ API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}" "${OPENCODE_API_KEY_
 CURRENT_KEY_INDEX=0
 PROVIDER="opencode"
 
-# Model rotation - try different models
+# Model rotation - try different models (OPENCODE supports: GML5, Kimi2.5, MiniMax2.7)
 MODEL_INDEX=0
-MODELS=("default" "kimi-k2.5" "glm-4")
+MODELS=("MiniMax2.7" "Kimi2.5" "GML5")
 
 rotate_model() {
   local next_model=$((MODEL_INDEX + 1))
@@ -119,20 +119,28 @@ rotate_model() {
 }
 
 rotate_provider() {
-  # Try different providers if OpenCode fails
-  if [[ "$PROVIDER" == "opencode" ]] && [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+  # Try different providers - try harder with available keys
+  if [[ "$PROVIDER" != "anthropic" ]] && [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
     PROVIDER="anthropic"
     export OPENCODE_API_KEY="${ANTHROPIC_API_KEY}"
     export OPENCODE_BASE_URL="https://api.anthropic.com/v1"
+    export ITERATE_PROVIDER="anthropic"
     log "⚠️ Falling back to Anthropic API..."
     return 0
   fi
-  if [[ "$PROVIDER" == "anthropic" ]] && [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  if [[ "$PROVIDER" != "openai" ]] && [[ -n "${OPENAI_API_KEY:-}" ]]; then
     PROVIDER="openai"
     export OPENCODE_API_KEY="${OPENAI_API_KEY}"
     export OPENCODE_BASE_URL="https://api.openai.com/v1"
+    export ITERATE_PROVIDER="openai"
     log "⚠️ Falling back to OpenAI API..."
     return 0
+  fi
+  # Try different OpenCode models if available
+  if [[ "$PROVIDER" == "opencode" ]]; then
+    if rotate_model; then
+      return 0
+    fi
   fi
   return 1
 }
@@ -177,10 +185,17 @@ run_with_rotation() {
   local max_retries=2
   local attempt=1
   
+  # Get current model from ITERATE_MODEL env or use default
+  local model_arg=""
+  if [[ -n "$ITERATE_MODEL" ]]; then
+    model_arg="--model $ITERATE_MODEL"
+  fi
+  
   while [[ $attempt -le $max_retries ]]; do
     log "Running phase $phase (attempt $attempt/$max_retries)..."
+    log "Using model: ${ITERATE_MODEL:-default}"
     
-    if ./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+    if ./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg 2>>"$LOG_FILE"; then
       return 0
     fi
     
