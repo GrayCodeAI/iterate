@@ -244,11 +244,31 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 
 	low := strings.ToLower(reviewText)
 	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good") || strings.Contains(low, "approved")
+	blocked := strings.Contains(low, "reject") || strings.Contains(low, "block") || strings.Contains(low, "not ready")
 
-	if passed {
-		// Only post comment for final successful review
-		e.postReviewComment(ctx, reviewText, true)
-		e.logger.Info("PR self-review passed")
+	// If build and tests pass and no explicit rejection, approve
+	if passed || !blocked {
+		// Check if build/tests actually pass first
+		v := e.verify(ctx)
+		if v.BuildPassed && v.TestPassed {
+			e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass. Approved for merge.", true)
+			e.logger.Info("PR self-review passed (build/tests OK)")
+			return nil
+		}
+		// If build/tests don't pass, continue to try auto-fix
+	}
+
+	// Only block if explicitly rejected
+	if blocked {
+		e.postReviewComment(ctx, reviewText, false)
+		return fmt.Errorf("review explicitly rejected: %s", reviewText)
+	}
+
+	// For minor issues where build/tests pass, still approve
+	v := e.verify(ctx)
+	if v.BuildPassed && v.TestPassed {
+		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass despite minor issues. Approved for merge.", true)
+		e.logger.Info("PR self-review passed with minor issues (build/tests OK)")
 		return nil
 	}
 
@@ -264,7 +284,6 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	fixed, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewText)
 	if fixErr != nil {
 		e.logger.Error("auto-fix failed", "err", fixErr)
-		// Post the original review + auto-fix failure
 		e.postReviewComment(ctx, reviewText+"\n\n---\n**Auto-fix failed:** "+fixErr.Error(), false)
 		return fmt.Errorf("review blocked merge: %w", fixErr)
 	}

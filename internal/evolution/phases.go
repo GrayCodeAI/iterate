@@ -528,46 +528,80 @@ func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]str
 	// Strategy 1: Parse JSON tool calls like {"tool":"write_file","args":{"path":"...","content":"..."}}
 	// Also handles: tool_call, tool_calls, or assistant messages with tool calls
 
-	// Find all JSON objects in the output
-	jsonRe := regexp.MustCompile(`\{[^{}]*"tool"[^{}]*\}`)
+	// Find all JSON objects in the output - more flexible regex
+	jsonRe := regexp.MustCompile(`\{[^{}]*"(?:tool|function_call|action|name)"[^{}]*\}`)
 	matches := jsonRe.FindAllString(output, -1)
 
 	for _, match := range matches {
-		var toolCall struct {
-			Tool  string                 `json:"tool"`
-			Args  map[string]interface{} `json:"args"`
-			Name  string                 `json:"name"`
-			Input map[string]interface{} `json:"input"`
-		}
-
+		// Try to parse as tool call
+		var toolCall map[string]interface{}
 		if err := json.Unmarshal([]byte(match), &toolCall); err != nil {
 			continue
 		}
 
-		// Get the tool name
-		toolName := toolCall.Tool
-		if toolName == "" {
-			toolName = toolCall.Name
+		// Get tool name from various possible fields
+		toolName := ""
+		for _, key := range []string{"tool", "name", "function", "action", "type"} {
+			if v, ok := toolCall[key]; ok {
+				if s, ok := v.(string); ok {
+					toolName = strings.ToLower(s)
+					break
+				}
+			}
 		}
 
-		// Get the args/input
-		args := toolCall.Args
-		if args == nil {
-			args = toolCall.Input
+		if toolName == "" {
+			continue
+		}
+
+		// Get args from various possible fields
+		var args map[string]interface{}
+		for _, key := range []string{"args", "arguments", "input", "parameters"} {
+			if v, ok := toolCall[key]; ok {
+				if m, ok := v.(map[string]interface{}); ok {
+					args = m
+					break
+				}
+				// Handle string args
+				if s, ok := v.(string); ok {
+					var parsed map[string]interface{}
+					if json.Unmarshal([]byte(s), &parsed) == nil {
+						args = parsed
+						break
+					}
+				}
+			}
 		}
 
 		if args == nil {
 			continue
 		}
 
-		// Handle write_file tool
-		if toolName == "write_file" || toolName == "Write" || toolName == "write" {
+		// Handle write_file tool (various name formats)
+		if toolName == "write_file" || toolName == "write" || toolName == "writefile" || toolName == "file_write" {
 			path, ok := args["path"].(string)
 			if !ok {
+				// Try file or filename
+				if p, ok := args["file"].(string); ok {
+					path = p
+				} else if p, ok := args["filename"].(string); ok {
+					path = p
+				}
+			}
+			if path == "" {
 				continue
 			}
+
 			content, ok := args["content"].(string)
 			if !ok {
+				// Try body or text
+				if c, ok := args["body"].(string); ok {
+					content = c
+				} else if c, ok := args["text"].(string); ok {
+					content = c
+				}
+			}
+			if content == "" {
 				continue
 			}
 
@@ -587,29 +621,34 @@ func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]str
 			e.logger.Info("Applied write_file via tool call", "file", path)
 		}
 
-		// Handle edit_file tool - create a diff from the edit
-		if toolName == "edit_file" || toolName == "Edit" || toolName == "edit" {
+		// Handle edit_file tool
+		if toolName == "edit_file" || toolName == "edit" || toolName == "editfile" || toolName == "file_edit" || toolName == "str_replace_editor" {
 			path, ok := args["path"].(string)
 			if !ok {
+				if p, ok := args["file"].(string); ok {
+					path = p
+				}
+			}
+			if path == "" {
 				continue
 			}
 
 			// Try to extract old/new content
-			oldContent, hasOld := args["old_string"].(string)
-			newContent, hasNew := args["new_string"].(string)
-			if !hasOld || !hasNew {
-				// Try alternative field names
-				if old, ok := args["old"].(string); ok {
-					oldContent = old
+			var oldContent, newContent string
+			for _, oldKey := range []string{"old_string", "old", "before", "search"} {
+				if v, ok := args[oldKey]; ok {
+					if s, ok := v.(string); ok {
+						oldContent = s
+						break
+					}
 				}
-				if nw, ok := args["new"].(string); ok {
-					newContent = nw
-				}
-				if old, ok := args["before"].(string); ok {
-					oldContent = old
-				}
-				if nw, ok := args["after"].(string); ok {
-					newContent = nw
+			}
+			for _, newKey := range []string{"new_string", "new", "after", "replace"} {
+				if v, ok := args[newKey]; ok {
+					if s, ok := v.(string); ok {
+						newContent = s
+						break
+					}
 				}
 			}
 
