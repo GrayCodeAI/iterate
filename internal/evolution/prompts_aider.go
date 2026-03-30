@@ -136,19 +136,28 @@ func BuildUserMessageAider(repoPath, journal, issues string, mode string) string
 		sb.WriteString("After analysis, say: 'Ready to implement. Switching to CODE mode.'\n")
 	} else {
 		sb.WriteString("MODE: CODE (Implementation Phase)\n\n")
-		sb.WriteString("⚠️  CRITICAL: You MUST output UNIFIED DIFFS ⚠️\n\n")
-		sb.WriteString("Your job: Fix the bugs by outputting unified diffs.\n")
-		sb.WriteString("NO descriptions. NO explanations. JUST UNIFIED DIFFS.\n\n")
-		sb.WriteString("REQUIRED OUTPUT FORMAT:\n")
+		sb.WriteString("⚠️  CRITICAL: YOU MUST MAKE ACTUAL CODE CHANGES ⚠️\n\n")
+		sb.WriteString("Your job: Fix the bugs by making ACTUAL changes to files.\n")
+		sb.WriteString("You MUST use write_file tool to create/modify files.\n\n")
+
+		sb.WriteString("CHOOSE ONE:\n")
+		sb.WriteString("OPTION 1 - Unified diffs:\n")
 		sb.WriteString("--- a/path/to/file.go\n")
 		sb.WriteString("+++ b/path/to/file.go\n")
 		sb.WriteString("@@ ... @@\n")
 		sb.WriteString("- old code\n")
 		sb.WriteString("+ new code\n\n")
-		sb.WriteString("REMEMBER:\n")
-		sb.WriteString("- Every code fix MUST have a corresponding test\n")
-		sb.WriteString("- Output test file diff FIRST, then code fix diff\n")
-		sb.WriteString("- If you don't output unified diffs, you FAIL\n\n")
+
+		sb.WriteString("OPTION 2 - write_file tool (RECOMMENDED):\n")
+		sb.WriteString("```tool\n")
+		sb.WriteString("{\"tool\":\"write_file\",\"args\":{\"path\":\"internal/pkg/file.go\",\"content\":\"package pkg\\n\\nfunc Foo() {}\\n\"}}\n")
+		sb.WriteString("```\n\n")
+
+		sb.WriteString("CRITICAL:\n")
+		sb.WriteString("- You MUST call write_file tool to actually modify files\n")
+		sb.WriteString("- Reading files is NOT enough - you must WRITE\n")
+		sb.WriteString("- If you only read files, you FAIL\n")
+		sb.WriteString("- Every code fix MUST have a corresponding test file\n\n")
 	}
 
 	if len(learnings) > 0 {
