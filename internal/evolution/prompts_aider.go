@@ -106,11 +106,15 @@ Your response:
 
 ❌ Any format other than unified diff → WILL FAIL
 
-## FINAL INSTRUCTION
+## FINAL INSTRUCTION - VERY IMPORTANT
 
 You have ONE job: output unified diffs that fix bugs.
 No analysis. No descriptions. No explanations.
 Just working code and tests in unified diff format.
+
+⚠️  ABSOLUTELY NEVER output JSON tool calls. Only output unified diffs.
+⚠️  If you use write_file or edit tools WITHOUT also outputting unified diffs, you FAIL.
+⚠️  Your FINAL response must contain only unified diffs - nothing else.
 `
 }
 
@@ -290,7 +294,84 @@ func ParseUnifiedDiffs(output string) []UnifiedDiff {
 		}
 	}
 
+	// Strategy 4: Code blocks with diff content
+	re4 := regexp.MustCompile("(?s)```diff\n(.*?)```")
+	matches = re4.FindAllStringSubmatch(output, -1)
+	for _, match := range matches {
+		diff := parseDiffFromCodeBlock(match[1])
+		if diff.OldFile != "" || diff.NewFile != "" {
+			diffs = append(diffs, diff)
+		}
+	}
+
+	// Strategy 5: Look for any file path followed by diff-like content
+	// Pattern: filename.go followed by +/- lines
+	re5 := regexp.MustCompile(`([a-zA-Z0-9_/.-]+\.go)\n((?:[+-].*\n?)+)`)
+	matches = re5.FindAllStringSubmatch(output, -1)
+	for _, match := range matches {
+		if len(match) > 2 {
+			diff := parseDiffFromPlusMinus(match[1], match[2])
+			if len(diff.Hunks) > 0 {
+				diffs = append(diffs, diff)
+			}
+		}
+	}
+
 	return diffs
+}
+
+func parseDiffFromCodeBlock(content string) UnifiedDiff {
+	diff := UnifiedDiff{}
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "--- ") {
+			diff.OldFile = strings.TrimPrefix(line, "--- ")
+		} else if strings.HasPrefix(line, "+++ ") {
+			diff.NewFile = strings.TrimPrefix(line, "+++ ")
+		}
+	}
+
+	// Parse the diff content
+	var added, removed []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
+			added = append(added, strings.TrimPrefix(line, "+"))
+		} else if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---") {
+			removed = append(removed, strings.TrimPrefix(line, "-"))
+		}
+	}
+
+	if len(added) > 0 || len(removed) > 0 {
+		diff.Hunks = append(diff.Hunks, DiffHunk{Added: added, Removed: removed})
+	}
+
+	return diff
+}
+
+func parseDiffFromPlusMinus(filename, content string) UnifiedDiff {
+	diff := UnifiedDiff{
+		OldFile: filename,
+		NewFile: filename,
+	}
+
+	lines := strings.Split(content, "\n")
+	var added, removed []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "+") {
+			added = append(added, strings.TrimPrefix(trimmed, "+"))
+		} else if strings.HasPrefix(trimmed, "-") {
+			removed = append(removed, strings.TrimPrefix(trimmed, "-"))
+		}
+	}
+
+	if len(added) > 0 || len(removed) > 0 {
+		diff.Hunks = append(diff.Hunks, DiffHunk{Added: added, Removed: removed})
+	}
+
+	return diff
 }
 
 func parseSingleDiffBlock(block string) UnifiedDiff {
