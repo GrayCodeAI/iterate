@@ -438,7 +438,7 @@ func handleCommand(ctx context.Context, line string, a *iteragent.Agent, p itera
 	}
 
 	slog.Debug("unknown command", "command", cmd, "line", line)
-	fmt.Printf("Unknown command: %s (try /help)\n", cmd)
+	fmt.Printf("%sUnknown command: %s%s (try %s/help%s)\n", colorRed, cmd, colorReset, colorYellow, colorReset)
 	return false
 }
 
