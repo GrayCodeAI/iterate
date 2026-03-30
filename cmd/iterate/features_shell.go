@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // ---------------------------------------------------------------------------
@@ -76,8 +79,46 @@ func languageBreakdown(repoPath string) string {
 // /count-lines — lines of code breakdown
 // ---------------------------------------------------------------------------
 
+// countLines counts lines per file extension in repoPath.
+// Uses concurrent processing for large repos (100+ files).
 func countLines(repoPath string) map[string]int {
 	counts := map[string]int{}
+	var mu sync.Mutex
+
+	// Channel to collect files that need counting
+	type fileInfo struct {
+		path string
+		ext  string
+	}
+	files := make(chan fileInfo, 100)
+
+	// Start worker goroutines - use GOMAXPROCS workers
+	var g errgroup.Group
+	// Limit concurrency to avoid overwhelming the system
+	g.SetLimit(4)
+
+	// Worker function
+	worker := func() error {
+		for fi := range files {
+			data, err := os.ReadFile(fi.path)
+			if err != nil {
+				continue
+			}
+			// Count newlines without string allocation
+			lines := bytes.Count(data, []byte{'\n'}) + 1
+			mu.Lock()
+			counts[fi.ext] += lines
+			mu.Unlock()
+		}
+		return nil
+	}
+
+	// Start workers
+	for i := 0; i < 4; i++ {
+		g.Go(worker)
+	}
+
+	// Walk directory and send files to workers
 	_ = filepath.WalkDir(repoPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			if d != nil && d.IsDir() {
@@ -92,13 +133,12 @@ func countLines(repoPath string) map[string]int {
 		if ext == "" {
 			return nil
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		lines := strings.Count(string(data), "\n") + 1
-		counts[ext] += lines
+		files <- fileInfo{path: path, ext: ext}
 		return nil
 	})
+
+	close(files)
+	_ = g.Wait()
+
 	return counts
 }
