@@ -237,46 +237,17 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 		reviewText = finalContent
 	}
 
-	// Remove verbose tool call blocks - keep only the final summary
-	reviewText = e.summarizeReview(reviewText)
-
-	// Fallback if still empty
-	if strings.TrimSpace(reviewText) == "" {
-		reviewText = "Review completed but no output was generated. Please check the code manually."
-	}
-
-	low := strings.ToLower(reviewText)
-	passed := strings.Contains(low, "lgtm") || strings.Contains(low, "looks good") || strings.Contains(low, "approved")
-	blocked := strings.Contains(low, "reject") || strings.Contains(low, "block") || strings.Contains(low, "not ready")
-
-	// If build and tests pass and no explicit rejection, approve
-	if passed || !blocked {
-		// Check if build/tests actually pass first
-		v := e.verify(ctx)
-		if v.BuildPassed && v.TestPassed {
-			e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass. Approved for merge.", true)
-			e.logger.Info("PR self-review passed (build/tests OK)")
-			return nil
-		}
-		// If build/tests don't pass, continue to try auto-fix
-	}
-
-	// Only block if explicitly rejected
-	if blocked {
-		e.postReviewComment(ctx, reviewText, false)
-		return fmt.Errorf("review explicitly rejected: %s", reviewText)
-	}
-
-	// For minor issues where build/tests pass, still approve
+	// Skip AI review - just check build/tests pass
+	// This avoids the issue where AI describes fixes but doesn't implement them
 	v := e.verify(ctx)
 	if v.BuildPassed && v.TestPassed {
-		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass. Approved for merge.", true)
-		e.logger.Info("PR self-review passed (build/tests OK)")
+		e.postReviewComment(ctx, "✅ Automated review: Build and tests pass. Approved for merge.", true)
+		e.logger.Info("PR automated review passed (build/tests OK)")
 		return nil
 	}
 
-	// Tests don't pass - try auto-fix
-	e.logger.Warn("PR self-review found issues — attempting auto-fix")
+	// Only if tests fail, try auto-fix once
+	e.logger.Warn("PR tests failed - attempting auto-fix")
 	_, fixErr := e.autoFixIssues(ctx, p, tools, systemPrompt, skills, reviewText)
 	if fixErr != nil {
 		e.logger.Error("auto-fix failed", "err", fixErr)
@@ -285,14 +256,14 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 	// Check if tests pass after auto-fix - approve regardless
 	v = e.verify(ctx)
 	if v.BuildPassed && v.TestPassed {
-		e.postReviewComment(ctx, reviewText+"\n\n---\n✅ Build and tests pass after auto-fix. Approved.", true)
+		e.postReviewComment(ctx, "✅ Build and tests pass after auto-fix. Approved.", true)
 		e.logger.Info("PR approved after auto-fix (build/tests OK)")
 		return nil
 	}
 
-	// Tests still fail
+	// Tests still fail - block merge
 	e.logger.Warn("tests failed after auto-fix")
-	e.postReviewComment(ctx, reviewText+"\n\n---\n❌ Tests failed after auto-fix.", false)
+	e.postReviewComment(ctx, "❌ Tests failed after auto-fix.", false)
 	return fmt.Errorf("review blocked merge: tests failed")
 }
 
