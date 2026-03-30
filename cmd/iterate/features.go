@@ -68,7 +68,7 @@ func findTodos(repoPath string) []string {
 		if err != nil {
 			return nil
 		}
-		defer f.Close()
+		f.Close() // explicit close — defer in loop would leak file descriptors
 		rel, _ := filepath.Rel(repoPath, path)
 		lineNum := 0
 		sc := bufio.NewScanner(f)
@@ -136,7 +136,7 @@ func appendLearning(repoPath, fact string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	f.Close() // explicit close — defer in loop would leak file descriptors
 	entry := map[string]string{
 		"fact":       fact,
 		"created_at": time.Now().Format(time.RFC3339),
@@ -157,7 +157,7 @@ func appendMemo(repoPath, text string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	f.Close() // explicit close — defer in loop would leak file descriptors
 	_, err = fmt.Fprintf(f, "\n## Memo — %s\n\n%s\n", time.Now().Format("2006-01-02 15:04"), text)
 	return err
 }
