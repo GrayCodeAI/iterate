@@ -49,6 +49,7 @@ const (
 
 // QueuedTask represents a task in the queue.
 type QueuedTask struct {
+	mu           sync.RWMutex
 	ID           string         `json:"id"`
 	Name         string         `json:"name"`
 	Description  string         `json:"description"`
@@ -64,6 +65,20 @@ type QueuedTask struct {
 	MaxRetries   int            `json:"max_retries"`
 	Timeout      time.Duration  `json:"timeout"`
 	Metadata     map[string]any `json:"metadata,omitempty"`
+}
+
+// GetStatus returns the current task status with proper locking.
+func (t *QueuedTask) GetStatus() TaskStatus {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.Status
+}
+
+// SetStatus sets the task status with proper locking.
+func (t *QueuedTask) SetStatus(status TaskStatus) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Status = status
 }
 
 // TaskExecutor is a function that executes a task.
@@ -281,15 +296,15 @@ func (tq *TaskQueue) executeTask(ctx context.Context, task *QueuedTask) {
 		task.RetryCount++
 
 		if task.RetryCount <= task.MaxRetries {
-			task.Status = TaskStatusRetrying
+			task.SetStatus(TaskStatusRetrying)
 			tq.pending = append(tq.pending, task)
 			tq.sortPending()
 		} else {
-			task.Status = TaskStatusFailed
+			task.SetStatus(TaskStatusFailed)
 			tq.completed = append(tq.completed, task)
 		}
 	} else {
-		task.Status = TaskStatusCompleted
+		task.SetStatus(TaskStatusCompleted)
 		task.Result = result
 		tq.completed = append(tq.completed, task)
 	}
@@ -347,7 +362,7 @@ func (tq *TaskQueue) GetStats() QueueStats {
 
 	var failed, success int
 	for _, task := range tq.completed {
-		if task.Status == TaskStatusFailed {
+		if task.GetStatus() == TaskStatusFailed {
 			failed++
 		} else {
 			success++
@@ -459,7 +474,7 @@ func (tq *TaskQueue) WaitForTask(ctx context.Context, taskID string) (*QueuedTas
 				return nil, fmt.Errorf("task %s not found", taskID)
 			}
 
-			switch task.Status {
+			switch task.GetStatus() {
 			case TaskStatusCompleted:
 				return task, nil
 			case TaskStatusFailed:
