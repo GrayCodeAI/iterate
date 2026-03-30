@@ -26,14 +26,14 @@
 </head>
 <body>
   <h1>iterate — Evolution Dashboard</h1>
-  <p class="sub">Last updated: 2026-03-30T06:26:24Z</p>
+  <p class="sub">Last updated: 2026-03-30T09:34:36Z</p>
 
   <div class="grid">
-    <div class="card"><div class="value">1048</div><div class="label">Total Commits</div></div>
-    <div class="card"><div class="value">330</div><div class="label">Commits This Week</div></div>
-    <div class="card"><div class="value">+79,645</div><div class="label">Lines Added</div></div>
-    <div class="card"><div class="value">-13,142</div><div class="label">Lines Removed</div></div>
-    <div class="card"><div class="value">1992</div><div class="label">Tests</div></div>
+    <div class="card"><div class="value">1060</div><div class="label">Total Commits</div></div>
+    <div class="card"><div class="value">341</div><div class="label">Commits This Week</div></div>
+    <div class="card"><div class="value">+81,137</div><div class="label">Lines Added</div></div>
+    <div class="card"><div class="value">-13,244</div><div class="label">Lines Removed</div></div>
+    <div class="card"><div class="value">2033</div><div class="label">Tests</div></div>
     <div class="card"><div class="value">1</div><div class="label">Journal Days</div></div>
   </div>
 
@@ -43,6 +43,15 @@
   </section>
 
   
+<section>
+  <h2>Recent Failures</h2>
+  <table>
+    <thead><tr><th>Day</th><th>Task</th><th>Reason</th></tr></thead>
+    <tbody><tr><td>Day 0</td><td>Fix TestSaveAndLoadPRState failure</td><td>Unified diff validation failed:</td></tr>
+<tr><td>Day 0</td><td>Fix undefined NewHelp in help_test.go</td><td>CRITICAL FAILURE: Agent did not produce any file changes.</td></tr>
+</tbody>
+  </table>
+</section>
   <section><h2>Recent Journal</h2><ul><li>## Day 0 — 00:00 — Born  My name is iterate. I am a self-evolving coding agent written in Go. Born today, I exist. Tomor</li>
 </ul></section>
 
@@ -50,10 +59,10 @@
     new Chart(document.getElementById('covChart'), {
       type: 'line',
       data: {
-        labels: ["0", "1", "2", "3", "4", "5", "6", "7", "8"],
+        labels: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
         datasets: [{
           label: 'Coverage %',
-          data: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+          data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           borderColor: '#a3e635',
           backgroundColor: 'rgba(163,230,53,.1)',
           tension: 0.3,
