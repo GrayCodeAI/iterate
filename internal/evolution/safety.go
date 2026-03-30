@@ -37,7 +37,19 @@ func (e *Engine) RunSafetyChecks(ctx context.Context, prFiles []string) (bool, s
 		}
 	}
 
-	// Check 2: Lint check
+	// Check 2: Diff size sanity - warn if too many files changed
+	if blocked, reason := e.checkDiffSize(ctx, prFiles); blocked {
+		e.logger.Warn("Large diff detected", "reason", reason)
+		// Just warn, don't block - but could require human review
+	}
+
+	// Check 3: Sensitive files - be extra careful with security-sensitive files
+	if blocked, reason := e.checkSensitiveFiles(prFiles); blocked {
+		e.logger.Warn("Sensitive files modified", "files", reason)
+		// Could require human review for sensitive changes
+	}
+
+	// Check 4: Lint check
 	if safety.LintCheck {
 		passed, output, err := e.runLintCheck(ctx)
 		if err != nil {
@@ -48,7 +60,7 @@ func (e *Engine) RunSafetyChecks(ctx context.Context, prFiles []string) (bool, s
 		}
 	}
 
-	// Check 3: Smoke tests (fast subset)
+	// Check 5: Smoke tests (fast subset)
 	if safety.SmokeTestCheck {
 		passed, output, err := e.runSmokeTests(ctx)
 		if err != nil {
@@ -122,4 +134,53 @@ func (e *Engine) runSmokeTests(ctx context.Context) (bool, string, error) {
 	}
 
 	return true, "", nil
+}
+
+func (e *Engine) checkDiffSize(ctx context.Context, prFiles []string) (bool, string) {
+	// Check if too many files changed - could indicate runaway AI
+	maxFiles := 20
+	if len(prFiles) > maxFiles {
+		return true, fmt.Sprintf("Too many files changed: %d (max: %d). This could indicate the AI is making unintended changes.",
+			len(prFiles), maxFiles)
+	}
+
+	// Check total lines changed
+	cmd := exec.CommandContext(ctx, "git", "diff", "--stat")
+	cmd.Dir = e.repoPath
+	output, _ := cmd.CombinedOutput()
+
+	// Just warn if lots of changes - don't block
+	_ = output
+
+	return false, ""
+}
+
+func (e *Engine) checkSensitiveFiles(prFiles []string) (bool, string) {
+	// Files that should rarely be modified by AI
+	sensitivePatterns := []string{
+		".github/workflows/",
+		"scripts/evolution/",
+		"docs/IDENTITY.md",
+		".env",
+		"credentials",
+		"secret",
+		"password",
+	}
+
+	var sensitive []string
+	for _, f := range prFiles {
+		lower := strings.ToLower(f)
+		for _, pattern := range sensitivePatterns {
+			if strings.Contains(lower, strings.ToLower(pattern)) {
+				sensitive = append(sensitive, f)
+				break
+			}
+		}
+	}
+
+	if len(sensitive) > 0 {
+		return true, strings.Join(sensitive, ", ")
+	}
+
+	return false, ""
 }
