@@ -152,6 +152,7 @@ func cmdHelp(ctx Context) Result {
 			return Result{Handled: true}
 		}
 		fmt.Printf("\n%s%s%s — %s\n", ColorBold, cmd.Name, ColorReset, cmd.Description)
+		fmt.Printf("  %scategory:%s %s\n", ColorDim, ColorReset, cmd.Category)
 		if len(cmd.Aliases) > 0 {
 			fmt.Printf("  %saliases:%s %s\n", ColorDim, ColorReset, strings.Join(cmd.Aliases, ", "))
 		}
