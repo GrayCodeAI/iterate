@@ -98,11 +98,68 @@ log "=== iterate evolution cycle started ==="
 # ── Send Started Notification ──
 send_discord_notification "started" "Evolution Day $DAY is starting...\n\n**Plan:**\n• Analyze codebase for bugs/improvements\n• Fix real code issues (not just metrics)\n• Auto-retry if review fails (max 2 retries)\n\nNext scheduled: 12 hours"
 
+# ── API Key Rotation Setup ──
+API_KEY_1="${OPENCODE_API_KEY:-}"
+API_KEY_2="${OPENCODE_API_KEY_2:-}"
+CURRENT_API_KEY="$API_KEY_1"
+
+rotate_api_key() {
+  if [[ -n "$API_KEY_2" ]] && [[ "$CURRENT_API_KEY" == "$API_KEY_1" ]]; then
+    log "⚠️ Rate limit detected, rotating to backup API key..."
+    CURRENT_API_KEY="$API_KEY_2"
+    export OPENCODE_API_KEY="$CURRENT_API_KEY"
+    return 0
+  else
+    log "ERROR: All API keys exhausted"
+    return 1
+  fi
+}
+
+# Check for rate limit in last command and rotate if needed
+check_rate_limit() {
+  if echo "$1" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
+    rotate_api_key
+    return $?
+  fi
+  return 1
+}
+
 # ── Guards ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   log "ERROR: OPENCODE_API_KEY not set"
   exit 1
 fi
+
+log "API key rotation enabled: $([ -n "$API_KEY_2" ] && echo "2 keys available" || echo "1 key")"
+
+run_with_rotation() {
+  local phase="$1"
+  local max_retries=2
+  local attempt=1
+  
+  while [[ $attempt -le $max_retries ]]; do
+    log "Running phase $phase (attempt $attempt/$max_retries)..."
+    
+    if ./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+      return 0
+    fi
+    
+    local last_output=$(tail -20 "$LOG_FILE")
+    
+    if echo "$last_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimitError"; then
+      if [[ $attempt -lt $max_retries ]] && rotate_api_key; then
+        log "Retrying phase $phase with rotated API key..."
+        ((attempt++))
+        continue
+      fi
+    fi
+    
+    log "Phase $phase failed"
+    return 1
+  done
+  
+  return 1
+}
 
 # ── Validate GitHub authentication ──
 if command -v gh &>/dev/null; then
@@ -167,7 +224,7 @@ else
 
   # ── Phase 1: Planning ──
   log "Phase 1: Planning..."
-  if ! ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  if ! run_with_rotation "plan"; then
     log "WARNING: plan phase exited with error — checking for fallback"
   fi
 
@@ -231,7 +288,7 @@ EOF
   # ── Phase 2: Implementation ──
   log "Phase 2: Implementation..."
   sleep 5  # Brief pause between phases
-  if ! ./iterate --phase implement --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  if ! run_with_rotation "implement"; then
     log "WARNING: implement phase exited with error — continuing"
   fi
 
@@ -259,7 +316,7 @@ EOF
   # ── Phase 3: Pull Request ──
   log "Phase 3: Pull Request..."
   sleep 5
-  if ! ./iterate --phase pr --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  if ! run_with_rotation "pr"; then
     log "WARNING: PR phase exited with error — continuing"
   fi
 fi
@@ -276,7 +333,7 @@ MAX_REVIEW_RETRIES=2
 REVIEW_PASSED=false
 
 while [[ $REVIEW_RETRIES -lt $MAX_REVIEW_RETRIES ]] && [[ "$REVIEW_PASSED" == "false" ]]; do
-  if ./iterate --phase review --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+  if run_with_rotation "review"; then
     REVIEW_PASSED=true
     log "Review passed (attempt $((REVIEW_RETRIES + 1)))"
   else
@@ -297,7 +354,7 @@ done
 # ── Phase 5: Merge ──
 log "Phase 5: Merge..."
 sleep 5
-if ! ./iterate --phase merge --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+if ! run_with_rotation "merge"; then
   log "ERROR: merge phase failed"
   exit 1
 fi
@@ -305,7 +362,7 @@ fi
 # ── Phase 6: Communication ──
 log "Phase 6: Communication..."
 sleep 5
-if ! ./iterate --phase communicate --gh-owner GrayCodeAI --gh-repo iterate 2>>"$LOG_FILE"; then
+if ! run_with_rotation "communicate"; then
   log "WARNING: communicate phase exited with error"
 fi
 
