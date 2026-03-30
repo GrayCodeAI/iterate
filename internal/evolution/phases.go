@@ -439,6 +439,17 @@ func (e *Engine) runTaskAttempt(ctx context.Context, p iteragent.Provider, task 
 	// CRITICAL: Parse and apply unified diffs (like git diff)
 	diffs := ParseUnifiedDiffs(taskOutput)
 
+	// Debug: log what we received
+	sampleLen := 500
+	if len(taskOutput) < sampleLen {
+		sampleLen = len(taskOutput)
+	}
+	e.logger.Info("Agent output analysis", "number", task.Number,
+		"output_length", len(taskOutput),
+		"diffs_found", len(diffs),
+		"has_tool_calls", strings.Contains(taskOutput, "tool"),
+		"sample_output", strings.ReplaceAll(taskOutput[:sampleLen], "\n", "\\n"))
+
 	// FALLBACK: If no unified diffs, try to parse tool_call JSON output
 	if len(diffs) == 0 {
 		e.logger.Info("No unified diffs found, trying tool_call JSON fallback", "number", task.Number)
