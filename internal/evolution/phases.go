@@ -321,9 +321,39 @@ func (e *Engine) runTaskInWorktree(ctx context.Context, p iteragent.Provider, ta
 	out, err := subEngine.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": fmt.Sprintf("git log %s..HEAD --format=%%H --reverse", baseHash),
 	})
+
+	// If no commits, check if there are uncommitted changes and commit them
 	if err != nil || strings.TrimSpace(out) == "" {
-		e.logger.Warn("no new commits from task", "number", task.Number)
-		return nil, false
+		e.logger.Info("no commits found, checking for uncommitted changes", "number", task.Number)
+
+		// Check for any changes
+		statusOut, _ := subEngine.runTool(ctx, "bash", map[string]interface{}{
+			"cmd": "git status --short",
+		})
+
+		if strings.TrimSpace(statusOut) != "" {
+			// There are changes - commit them
+			e.logger.Info("found uncommitted changes, auto-committing", "number", task.Number, "status", statusOut)
+			commitOut, commitErr := subEngine.runTool(ctx, "bash", map[string]interface{}{
+				"cmd": "git add -A && git commit -m 'task: auto-commit changes from agent'",
+			})
+			if commitErr != nil {
+				e.logger.Warn("auto-commit failed", "number", task.Number, "err", commitErr, "output", commitOut)
+				return nil, false
+			}
+
+			// Now get the commit
+			out, err = subEngine.runTool(ctx, "bash", map[string]interface{}{
+				"cmd": fmt.Sprintf("git log %s..HEAD --format=%%H --reverse", baseHash),
+			})
+			if err != nil || strings.TrimSpace(out) == "" {
+				e.logger.Warn("still no commits after auto-commit", "number", task.Number)
+				return nil, false
+			}
+		} else {
+			e.logger.Warn("no new commits from task", "number", task.Number)
+			return nil, false
+		}
 	}
 
 	var commits []string
