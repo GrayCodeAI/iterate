@@ -307,15 +307,28 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 func (e *Engine) autoFixIssues(ctx context.Context, p iteragent.Provider, tools []iteragent.Tool, systemPrompt string, skills *iteragent.SkillSet, reviewOutput string) (bool, error) {
 	e.logger.Info("starting auto-fix based on review feedback")
 
-	// Build fix prompt with review feedback
+	// Build fix prompt with review feedback - emphasize unified diffs
 	fixPrompt := fmt.Sprintf(`The code review identified issues:
 
 %s
 
-Fix these issues in the codebase. Run tests to verify the fixes work.
-If you cannot fix an issue, explain why. Only commit if tests pass.`, reviewOutput)
+## CRITICAL: You MUST output UNIFIED DIFFS or use write_file/edit_file tools to fix these issues.
+Do NOT just describe what you'll do - actually make the changes.
+
+Output unified diffs like:
+--- a/path/to/file.go
++++ b/path/to/file.go
+@@ ... @@
+-old code
++new code
+
+Or use JSON tool calls like:
+{"tool":"write_file","args":{"path":"file.go","content":"..."}}
+
+Make the fixes now!`, reviewOutput)
 
 	a := e.newAgent(p, tools, systemPrompt, skills)
+	var outputBuilder strings.Builder
 	for ev := range a.Prompt(ctx, fixPrompt) {
 		if e.eventSink != nil {
 			select {
@@ -323,9 +336,31 @@ If you cannot fix an issue, explain why. Only commit if tests pass.`, reviewOutp
 			default:
 			}
 		}
-
+		if ev.Type == string(iteragent.EventMessageUpdate) {
+			outputBuilder.WriteString(ev.Content)
+		}
 	}
 	a.Finish()
+
+	// Try to parse and apply tool calls / unified diffs from output
+	output := outputBuilder.String()
+
+	// First try unified diffs
+	diffs := ParseUnifiedDiffs(output)
+	if len(diffs) > 0 {
+		e.logger.Info("found unified diffs in auto-fix output", "count", len(diffs))
+		modifiedFiles, err := e.ApplyUnifiedDiffs(diffs)
+		if err != nil {
+			e.logger.Warn("failed to apply diffs from auto-fix", "err", err)
+		} else if len(modifiedFiles) > 0 {
+			e.logger.Info("applied diffs from auto-fix", "files", modifiedFiles)
+		}
+	}
+
+	// Also try tool_call JSON parsing (like in executeTask)
+	if modified, err := e.applyToolCallChanges(ctx, output); err == nil && len(modified) > 0 {
+		e.logger.Info("applied tool calls from auto-fix", "files", modified)
+	}
 
 	// Check if any changes were made
 	status, err := e.runTool(ctx, "bash", map[string]interface{}{
