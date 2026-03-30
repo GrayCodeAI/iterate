@@ -237,12 +237,34 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 		reviewText = finalContent
 	}
 
+	// Get PR files for safety checks
+	prFiles, _ := e.runTool(ctx, "bash", map[string]interface{}{
+		"cmd": fmt.Sprintf("gh pr view %d --json files --jq '.files[].path'", e.prNumber),
+	})
+	var files []string
+	for _, f := range strings.Split(strings.TrimSpace(prFiles), "\n") {
+		if f != "" {
+			files = append(files, f)
+		}
+	}
+
+	// Run safety checks
+	safe, safetyMsg, safetyErr := e.RunSafetyChecks(ctx, files)
+	if safetyErr != nil {
+		e.logger.Error("safety checks failed", "err", safetyErr)
+	}
+	if !safe {
+		e.postReviewComment(ctx, "⚠️ Safety checks failed:\n"+safetyMsg+"\n\nBlocked from merge.", false)
+		e.logger.Warn("safety checks blocked merge", "reason", safetyMsg)
+		return fmt.Errorf("safety checks blocked: %s", safetyMsg)
+	}
+
 	// Skip AI review - just check build/tests pass
 	// This avoids the issue where AI describes fixes but doesn't implement them
 	v := e.verify(ctx)
 	if v.BuildPassed && v.TestPassed {
-		e.postReviewComment(ctx, "✅ Automated review: Build and tests pass. Approved for merge.", true)
-		e.logger.Info("PR automated review passed (build/tests OK)")
+		e.postReviewComment(ctx, "✅ Automated review: Build and tests pass. Safety checks passed. Approved for merge.", true)
+		e.logger.Info("PR automated review passed (build/tests/safety OK)")
 		return nil
 	}
 
@@ -253,11 +275,17 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 		e.logger.Error("auto-fix failed", "err", fixErr)
 	}
 
-	// Check if tests pass after auto-fix - approve regardless
+	// Check if tests pass after auto-fix - approve if they do
 	v = e.verify(ctx)
 	if v.BuildPassed && v.TestPassed {
-		e.postReviewComment(ctx, "✅ Build and tests pass after auto-fix. Approved.", true)
-		e.logger.Info("PR approved after auto-fix (build/tests OK)")
+		// Run safety checks after auto-fix too
+		safe, safetyMsg, _ := e.RunSafetyChecks(ctx, files)
+		if !safe {
+			e.postReviewComment(ctx, "⚠️ Safety checks failed after auto-fix:\n"+safetyMsg+"\n\nBlocked from merge.", false)
+			return fmt.Errorf("safety checks blocked: %s", safetyMsg)
+		}
+		e.postReviewComment(ctx, "✅ Build and tests pass after auto-fix. Safety checks passed. Approved.", true)
+		e.logger.Info("PR approved after auto-fix (build/tests/safety OK)")
 		return nil
 	}
 
