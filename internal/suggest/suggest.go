@@ -92,6 +92,10 @@ func listGoFiles(repoPath string) ([]string, error) {
 			return err
 		}
 		if !info.IsDir() && strings.HasSuffix(path, ".go") {
+			// Skip test files
+			if strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
 			// Skip vendor and hidden dirs
 			if strings.Contains(path, "/vendor/") || strings.Contains(path, "/.") {
 				return nil
