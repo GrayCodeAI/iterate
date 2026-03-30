@@ -191,7 +191,7 @@ log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
 run_with_rotation() {
   local phase="$1"
-  local max_retries=4
+  local max_retries=3
   local attempt=1
 
   local model_arg=""
@@ -224,12 +224,11 @@ run_with_rotation() {
 
     log "Phase $phase failed (attempt $attempt/$max_retries)"
 
-    # Check if it's a rate limit error — use exponential backoff
+    # Check if it's a rate limit error — wait 30s to clear per-minute window
     if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
       if [[ $attempt -lt $max_retries ]]; then
-        local wait_time=$((30 * attempt))
-        log "Rate limited — waiting ${wait_time}s before retry..."
-        sleep "$wait_time"
+        log "Rate limited — waiting 30s before retry..."
+        sleep 30
         continue
       fi
     fi
