@@ -237,6 +237,9 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 		reviewText = finalContent
 	}
 
+	// Remove verbose tool call blocks - keep only the final summary
+	reviewText = e.summarizeReview(reviewText)
+
 	// Fallback if still empty
 	if strings.TrimSpace(reviewText) == "" {
 		reviewText = "Review completed but no output was generated. Please check the code manually."
@@ -492,4 +495,62 @@ func (e *Engine) revert(ctx context.Context) error {
 func (e *Engine) commit(ctx context.Context, msg string) error {
 	_, err := e.toolMap["git_commit"].Execute(ctx, map[string]interface{}{"message": msg})
 	return err
+}
+
+// summarizeReview makes the review comment concise by removing verbose tool call blocks
+func (e *Engine) summarizeReview(text string) string {
+	// Remove tool call blocks like ```tool {"tool":"...",...} ```
+	// Keep only the final verdict (LGTM, APPROVED, issues found, etc.)
+
+	lines := strings.Split(text, "\n")
+	var result []string
+	var inToolBlock bool
+	var hasVerdict bool
+
+	for _, line := range lines {
+		// Track if we're in a tool block
+		if strings.HasPrefix(strings.TrimSpace(line), "```tool") {
+			inToolBlock = true
+			continue
+		}
+		if inToolBlock && strings.TrimSpace(line) == "```" {
+			inToolBlock = false
+			continue
+		}
+		if inToolBlock {
+			continue
+		}
+
+		// Keep the line
+		result = append(result, line)
+
+		// Check for verdict keywords
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "lgtm") ||
+			strings.Contains(lower, "approved") ||
+			strings.Contains(lower, "looks good") ||
+			strings.Contains(lower, "verdict:") ||
+			strings.Contains(lower, "issues found") ||
+			strings.Contains(lower, "critical issue") ||
+			strings.Contains(lower, "fixes applied") ||
+			strings.Contains(lower, "rejected") {
+			hasVerdict = true
+		}
+	}
+
+	// If no clear verdict found, extract just the summary
+	if !hasVerdict {
+		// Take only the first 15 and last 10 lines
+		if len(result) > 30 {
+			result = append(result[:15], append([]string{"..."}, result[len(result)-10:]...)...)
+		}
+	}
+
+	// Truncate if still too long
+	output := strings.Join(result, "\n")
+	if len(output) > 3000 {
+		output = output[:3000] + "\n...(truncated)"
+	}
+
+	return output
 }
