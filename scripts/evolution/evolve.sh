@@ -105,6 +105,21 @@ acquire_lock
 # ── API Key Setup ──
 PROVIDER="${ITERATE_PROVIDER:-openrouter}"
 
+# Wire API key for iteragent's custom provider path (uses ITERATE_API_KEY)
+if [[ -n "${OPENROUTER_API_KEY:-}" ]] && [[ -z "${ITERATE_API_KEY:-}" ]]; then
+  export ITERATE_API_KEY="$OPENROUTER_API_KEY"
+fi
+
+# Wire API key for iteragent's custom provider path (uses ITERATE_API_KEY)
+if [[ -n "${OPENROUTER_API_KEY:-}" ]] && [[ -z "${ITERATE_API_KEY:-}" ]]; then
+  export ITERATE_API_KEY="$OPENROUTER_API_KEY"
+fi
+
+# Wire API key for iteragent's custom provider path (uses ITERATE_API_KEY)
+if [[ -n "${OPENROUTER_API_KEY:-}" ]] && [[ -z "${ITERATE_API_KEY:-}" ]]; then
+  export ITERATE_API_KEY="$OPENROUTER_API_KEY"
+fi
+
 # Check for rate limit in last command and rotate if needed
 check_rate_limit() {
   if echo "$1" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
@@ -176,7 +191,7 @@ log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
 run_with_rotation() {
   local phase="$1"
-  local max_retries=3
+  local max_retries=4
   local attempt=1
 
   local model_arg=""
@@ -207,21 +222,22 @@ run_with_rotation() {
       return 0
     fi
 
-    log "Phase $phase failed (exit $attempt/$max_retries)"
+    log "Phase $phase failed (attempt $attempt/$max_retries)"
 
-    # Check if it's a rate limit error
+    # Check if it's a rate limit error — use exponential backoff
     if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
       if [[ $attempt -lt $max_retries ]]; then
-        log "Rate limited — waiting 15s before retry..."
-        sleep 15
+        local wait_time=$((30 * attempt))
+        log "Rate limited — waiting ${wait_time}s before retry..."
+        sleep "$wait_time"
         continue
       fi
     fi
 
     # Non-rate-limit failure — still retry
     if [[ $attempt -lt $max_retries ]]; then
-      log "Retrying phase $phase in 5s..."
-      sleep 5
+      log "Retrying phase $phase in 10s..."
+      sleep 10
     fi
     ((attempt++))
   done
