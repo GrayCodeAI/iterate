@@ -4,6 +4,7 @@ package autonomous
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -150,7 +151,7 @@ func TestTaskQueueDependencies(t *testing.T) {
 
 func TestParallelExecution(t *testing.T) {
 	var executionCount atomic.Int32
-	
+
 	executor := func(ctx context.Context, task *QueuedTask) (*Result, error) {
 		executionCount.Add(1)
 		time.Sleep(100 * time.Millisecond)
@@ -405,9 +406,12 @@ func TestQueueStats(t *testing.T) {
 
 func TestTask8FullIntegration(t *testing.T) {
 	var taskOrder []string
+	var mu sync.Mutex
 
 	executor := func(ctx context.Context, task *QueuedTask) (*Result, error) {
+		mu.Lock()
 		taskOrder = append(taskOrder, task.Name)
+		mu.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		return &Result{Status: "success", FinalMessage: task.Name + " completed"}, nil
 	}
