@@ -46,7 +46,7 @@ type Suggestion struct {
 // GetSuggestions returns completions for the given context
 func (s *Suggester) GetSuggestions(ctx context.Context, c Context) ([]Suggestion, error) {
 	// Simple pattern matching for now
-	var suggestions []Suggestion
+	suggestions := []Suggestion{}
 
 	// Check for common patterns
 	if strings.HasSuffix(c.Prefix, "func ") {
