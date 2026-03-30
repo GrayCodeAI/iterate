@@ -42,33 +42,33 @@ const (
 
 // Status represents the current state of an autonomous run.
 type Status struct {
-	Phase          string        // current phase: "planning", "executing", "verifying", "retrying", "completed", "failed"
-	Iteration      int           // current iteration number
-	Task           string        // current task description
-	FilesModified  []string      // files modified so far
-	CommandsRun    []string      // commands run so far
-	SuccessRate    float64       // success rate of iterations
-	StartTime      time.Time     // when the run started
-	ElapsedTime    time.Duration // time elapsed since start
-	EstimatedCost  float64       // estimated cost so far
-	LastError      string        // last error encountered
-	Confidence     float64       // agent confidence score (0-1)
-	PendingAction  string        // next action to be taken (for approval)
-	NeedsApproval  bool          // whether approval is needed for next action
+	Phase         string        // current phase: "planning", "executing", "verifying", "retrying", "completed", "failed"
+	Iteration     int           // current iteration number
+	Task          string        // current task description
+	FilesModified []string      // files modified so far
+	CommandsRun   []string      // commands run so far
+	SuccessRate   float64       // success rate of iterations
+	StartTime     time.Time     // when the run started
+	ElapsedTime   time.Duration // time elapsed since start
+	EstimatedCost float64       // estimated cost so far
+	LastError     string        // last error encountered
+	Confidence    float64       // agent confidence score (0-1)
+	PendingAction string        // next action to be taken (for approval)
+	NeedsApproval bool          // whether approval is needed for next action
 }
 
 // Result holds the final result of an autonomous run.
 type Result struct {
-	Success         bool
-	Status          string
-	Iterations      int
-	FilesModified   []string
-	CommandsRun     []string
-	TotalCost       float64
-	Duration        time.Duration
-	FinalMessage    string
-	Learnings       []string // lessons learned during execution
-	Error           error
+	Success       bool
+	Status        string
+	Iterations    int
+	FilesModified []string
+	CommandsRun   []string
+	TotalCost     float64
+	Duration      time.Duration
+	FinalMessage  string
+	Learnings     []string // lessons learned during execution
+	Error         error
 }
 
 // Engine represents the autonomous agent engine.
@@ -91,11 +91,11 @@ type Engine struct {
 
 // RollbackOp represents an operation that can be rolled back.
 type RollbackOp struct {
-	Type      string    // "file_edit", "file_create", "file_delete", "git_commit"
-	Path      string    // file path affected
-	Original  string    // original content (for edits/creates)
-	Timestamp time.Time // when the operation occurred
-	CommitHash string   // for git commits
+	Type       string    // "file_edit", "file_create", "file_delete", "git_commit"
+	Path       string    // file path affected
+	Original   string    // original content (for edits/creates)
+	Timestamp  time.Time // when the operation occurred
+	CommitHash string    // for git commits
 }
 
 // NewEngine creates a new autonomous engine.
@@ -112,22 +112,22 @@ func NewEngine(repoPath string, agent *iteragent.Agent, tools []iteragent.Tool, 
 	if config.VerificationRetry == 0 {
 		config.VerificationRetry = 3
 	}
-	
+
 	// Use default logger if none provided
 	if logger == nil {
 		logger = slog.Default()
 	}
 
 	return &Engine{
-		config:    config,
-		agent:     agent,
-		tools:     tools,
-		toolMap:   iteragent.ToolMap(tools),
-		repoPath:  repoPath,
-		logger:    logger.With("component", "autonomous"),
-		status:    Status{Phase: "initialized"},
-		result:    &Result{},
-		stopChan:  make(chan struct{}),
+		config:   config,
+		agent:    agent,
+		tools:    tools,
+		toolMap:  iteragent.ToolMap(tools),
+		repoPath: repoPath,
+		logger:   logger.With("component", "autonomous"),
+		status:   Status{Phase: "initialized"},
+		result:   &Result{},
+		stopChan: make(chan struct{}),
 	}
 }
 
@@ -141,7 +141,7 @@ func (e *Engine) WithEventSink(sink chan<- iteragent.Event) *Engine {
 func (e *Engine) Stop() {
 	e.interruptMu.Lock()
 	defer e.interruptMu.Unlock()
-	
+
 	if !e.interrupted {
 		e.interrupted = true
 		close(e.stopChan)
@@ -237,7 +237,7 @@ func (e *Engine) Run(ctx context.Context, task string) *Result {
 // planPhase generates a plan for the current iteration.
 func (e *Engine) planPhase(ctx context.Context, task string, iteration int) (*Plan, error) {
 	prompt := e.buildPlanPrompt(task, iteration)
-	
+
 	var planContent string
 	for ev := range e.agent.Prompt(ctx, prompt) {
 		if e.eventSink != nil {
@@ -257,7 +257,7 @@ func (e *Engine) planPhase(ctx context.Context, task string, iteration int) (*Pl
 // executePhase executes the plan and returns the results.
 func (e *Engine) executePhase(ctx context.Context, plan *Plan) (*ExecutionResult, error) {
 	result := &ExecutionResult{
-		Actions:     []Action{},
+		Actions:      []Action{},
 		FilesTouched: []string{},
 	}
 
@@ -282,7 +282,7 @@ func (e *Engine) executePhase(ctx context.Context, plan *Plan) (*ExecutionResult
 
 		// Record rollback point before executing
 		rollback := e.createRollbackPoint(step)
-		
+
 		// Execute the step
 		action, err := e.executeStep(ctx, step)
 		if err != nil {
@@ -354,7 +354,7 @@ type PlanStep struct {
 }
 
 type ExecutionResult struct {
-	Actions     []Action
+	Actions      []Action
 	FilesTouched []string
 }
 
@@ -367,12 +367,12 @@ type Action struct {
 }
 
 type VerificationResult struct {
-	Success    bool
+	Success     bool
 	BuildPassed bool
 	TestPassed  bool
 	VetPassed   bool
-	Message    string
-	Error      string
+	Message     string
+	Error       string
 }
 
 // Helper methods
@@ -390,12 +390,12 @@ func (e *Engine) buildPlanPrompt(task string, iteration int) string {
 	sb.WriteString("You are in autonomous mode. Create a detailed plan to accomplish the task.\n\n")
 	sb.WriteString(fmt.Sprintf("Task: %s\n\n", task))
 	sb.WriteString(fmt.Sprintf("Iteration: %d\n\n", iteration))
-	
+
 	if iteration > 1 {
 		sb.WriteString("Previous attempts failed. Learn from the errors and try a different approach.\n\n")
 		sb.WriteString(fmt.Sprintf("Last error: %s\n\n", e.status.LastError))
 	}
-	
+
 	sb.WriteString("Create a step-by-step plan with specific actions.\n")
 	sb.WriteString("Format each step as:\n")
 	sb.WriteString("- STEP: <action_type> <target>\n")
@@ -493,7 +493,7 @@ func (e *Engine) createRollbackPoint(step PlanStep) RollbackOp {
 
 func (e *Engine) rollback(ctx context.Context, op RollbackOp) error {
 	e.logger.Info("Rolling back operation", "type", op.Type, "path", op.Path)
-	
+
 	switch op.Type {
 	case "edit_file", "create_file":
 		if op.Original != "" {
@@ -545,7 +545,7 @@ func parsePlan(content string) (*Plan, error) {
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if strings.HasPrefix(line, "STEP:") {
 			if currentStep != nil {
 				plan.Steps = append(plan.Steps, *currentStep)

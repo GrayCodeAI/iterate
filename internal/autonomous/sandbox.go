@@ -16,32 +16,32 @@ import (
 
 // Sandbox provides isolated execution environment for commands.
 type Sandbox struct {
-	mu              sync.RWMutex
-	config          SandboxConfig
-	containerID     string
-	image           string
-	running         bool
-	workDir         string
-	volumeMounts    []VolumeMount
-	envVars         map[string]string
-	networkEnabled  bool
-	resourceLimits  SandboxResourceLimits
-	execTimeout     time.Duration
-	outputCallback  func(string)
+	mu             sync.RWMutex
+	config         SandboxConfig
+	containerID    string
+	image          string
+	running        bool
+	workDir        string
+	volumeMounts   []VolumeMount
+	envVars        map[string]string
+	networkEnabled bool
+	resourceLimits SandboxResourceLimits
+	execTimeout    time.Duration
+	outputCallback func(string)
 }
 
 // SandboxConfig configures the sandbox environment.
 type SandboxConfig struct {
-	Image           string            `json:"image"`
-	WorkDir         string            `json:"work_dir"`
-	VolumeMounts    []VolumeMount     `json:"volume_mounts"`
-	EnvVars         map[string]string `json:"env_vars"`
-	NetworkEnabled  bool              `json:"network_enabled"`
-	ResourceLimits  SandboxResourceLimits `json:"resource_limits"`
-	ExecTimeout     time.Duration     `json:"exec_timeout"`
-	OutputCallback  func(string)      `json:"-"`
-	CleanupOnExit   bool              `json:"cleanup_on_exit"`
-	PullImage       bool              `json:"pull_image"`
+	Image          string                `json:"image"`
+	WorkDir        string                `json:"work_dir"`
+	VolumeMounts   []VolumeMount         `json:"volume_mounts"`
+	EnvVars        map[string]string     `json:"env_vars"`
+	NetworkEnabled bool                  `json:"network_enabled"`
+	ResourceLimits SandboxResourceLimits `json:"resource_limits"`
+	ExecTimeout    time.Duration         `json:"exec_timeout"`
+	OutputCallback func(string)          `json:"-"`
+	CleanupOnExit  bool                  `json:"cleanup_on_exit"`
+	PullImage      bool                  `json:"pull_image"`
 }
 
 // VolumeMount represents a volume mount in the container.
@@ -64,14 +64,14 @@ type SandboxResourceLimits struct {
 
 // SandboxResult contains the result of a sandboxed execution.
 type SandboxResult struct {
-	Success   bool              `json:"success"`
-	ExitCode  int               `json:"exit_code"`
-	Output    string            `json:"output"`
-	Error     string            `json:"error,omitempty"`
-	Duration  time.Duration     `json:"duration"`
-	Command   string            `json:"command"`
-	TimedOut  bool              `json:"timed_out"`
-	Metadata  map[string]any    `json:"metadata,omitempty"`
+	Success  bool           `json:"success"`
+	ExitCode int            `json:"exit_code"`
+	Output   string         `json:"output"`
+	Error    string         `json:"error,omitempty"`
+	Duration time.Duration  `json:"duration"`
+	Command  string         `json:"command"`
+	TimedOut bool           `json:"timed_out"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // DefaultSandboxConfig returns default sandbox configuration.
@@ -83,10 +83,10 @@ func DefaultSandboxConfig() SandboxConfig {
 		EnvVars:        make(map[string]string),
 		NetworkEnabled: false,
 		ResourceLimits: SandboxResourceLimits{
-			CPUShares:  512,
-			MemoryMB:   512,
-			PidsLimit:  100,
-			Timeout:    5 * time.Minute,
+			CPUShares: 512,
+			MemoryMB:  512,
+			PidsLimit: 100,
+			Timeout:   5 * time.Minute,
 		},
 		ExecTimeout:   5 * time.Minute,
 		CleanupOnExit: true,
@@ -108,7 +108,7 @@ func NewSandbox(config SandboxConfig) *Sandbox {
 	if config.EnvVars == nil {
 		config.EnvVars = make(map[string]string)
 	}
-	
+
 	return &Sandbox{
 		config:         config,
 		image:          config.Image,
@@ -126,37 +126,37 @@ func NewSandbox(config SandboxConfig) *Sandbox {
 func (s *Sandbox) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.running {
 		return fmt.Errorf("sandbox already running")
 	}
-	
+
 	// Check if Docker is available
 	if !s.isDockerAvailable() {
 		return fmt.Errorf("docker is not available")
 	}
-	
+
 	// Pull image if needed
 	if s.config.PullImage {
 		if err := s.pullImage(ctx); err != nil {
 			return fmt.Errorf("failed to pull image: %w", err)
 		}
 	}
-	
+
 	// Create container
 	containerID, err := s.createContainer(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create container: %w", err)
 	}
-	
+
 	s.containerID = containerID
-	
+
 	// Start container
 	if err := s.startContainer(ctx); err != nil {
 		s.cleanupContainer(ctx)
 		return fmt.Errorf("failed to start container: %w", err)
 	}
-	
+
 	s.running = true
 	return nil
 }
@@ -165,20 +165,20 @@ func (s *Sandbox) Start(ctx context.Context) error {
 func (s *Sandbox) Stop(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if !s.running || s.containerID == "" {
 		return nil
 	}
-	
+
 	// Stop container
 	stopCmd := exec.CommandContext(ctx, "docker", "stop", s.containerID)
 	stopCmd.Run() // Ignore error, container may already be stopped
-	
+
 	// Remove container if cleanup enabled
 	if s.config.CleanupOnExit {
 		s.cleanupContainer(ctx)
 	}
-	
+
 	s.running = false
 	s.containerID = ""
 	return nil
@@ -190,47 +190,47 @@ func (s *Sandbox) Execute(ctx context.Context, command string, args ...string) *
 	containerID := s.containerID
 	running := s.running
 	s.mu.RUnlock()
-	
+
 	result := &SandboxResult{
 		Command:  strings.Join(append([]string{command}, args...), " "),
 		Metadata: make(map[string]any),
 	}
-	
+
 	if !running || containerID == "" {
 		result.Error = "sandbox not running"
 		return result
 	}
-	
+
 	start := time.Now()
 	defer func() {
 		result.Duration = time.Since(start)
 	}()
-	
+
 	// Build docker exec command
 	execArgs := s.buildExecArgs(command, args...)
-	
+
 	// Set timeout
 	timeout := s.execTimeout
 	if s.resourceLimits.Timeout > 0 && s.resourceLimits.Timeout < timeout {
 		timeout = s.resourceLimits.Timeout
 	}
-	
+
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(execCtx, "docker", execArgs...)
-	
+
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	result.Output = string(output)
-	
+
 	if execCtx.Err() == context.DeadlineExceeded {
 		result.TimedOut = true
 		result.Error = "command timed out"
 		result.ExitCode = -1
 		return result
 	}
-	
+
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
@@ -240,7 +240,7 @@ func (s *Sandbox) Execute(ctx context.Context, command string, args ...string) *
 		}
 		return result
 	}
-	
+
 	result.Success = true
 	result.ExitCode = 0
 	return result
@@ -252,34 +252,34 @@ func (s *Sandbox) ExecuteWithOutput(ctx context.Context, command string, args ..
 	containerID := s.containerID
 	running := s.running
 	s.mu.RUnlock()
-	
+
 	result := &SandboxResult{
 		Command:  strings.Join(append([]string{command}, args...), " "),
 		Metadata: make(map[string]any),
 	}
-	
+
 	if !running || containerID == "" {
 		result.Error = "sandbox not running"
 		return result
 	}
-	
+
 	start := time.Now()
 	defer func() {
 		result.Duration = time.Since(start)
 	}()
-	
+
 	execArgs := s.buildExecArgs(command, args...)
-	
+
 	timeout := s.execTimeout
 	if s.resourceLimits.Timeout > 0 && s.resourceLimits.Timeout < timeout {
 		timeout = s.resourceLimits.Timeout
 	}
-	
+
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(execCtx, "docker", execArgs...)
-	
+
 	// Get pipes
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -291,19 +291,19 @@ func (s *Sandbox) ExecuteWithOutput(ctx context.Context, command string, args ..
 		result.Error = err.Error()
 		return result
 	}
-	
+
 	if err := cmd.Start(); err != nil {
 		result.Error = err.Error()
 		return result
 	}
-	
+
 	// Stream output
 	var outputBuilder strings.Builder
 	outputChan := make(chan string, 100)
-	
+
 	go s.streamOutput(stdout, outputChan)
 	go s.streamOutput(stderr, outputChan)
-	
+
 	go func() {
 		for line := range outputChan {
 			outputBuilder.WriteString(line)
@@ -312,17 +312,17 @@ func (s *Sandbox) ExecuteWithOutput(ctx context.Context, command string, args ..
 			}
 		}
 	}()
-	
+
 	err = cmd.Wait()
 	result.Output = outputBuilder.String()
-	
+
 	if execCtx.Err() == context.DeadlineExceeded {
 		result.TimedOut = true
 		result.Error = "command timed out"
 		result.ExitCode = -1
 		return result
 	}
-	
+
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
@@ -332,7 +332,7 @@ func (s *Sandbox) ExecuteWithOutput(ctx context.Context, command string, args ..
 		}
 		return result
 	}
-	
+
 	result.Success = true
 	result.ExitCode = 0
 	return result
@@ -343,18 +343,18 @@ func (s *Sandbox) CopyTo(ctx context.Context, hostPath, containerPath string) er
 	s.mu.RLock()
 	containerID := s.containerID
 	s.mu.RUnlock()
-	
+
 	if containerID == "" {
 		return fmt.Errorf("sandbox not running")
 	}
-	
+
 	// Use docker cp
 	cmd := exec.CommandContext(ctx, "docker", "cp", hostPath, containerID+":"+containerPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("docker cp failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return nil
 }
 
@@ -363,23 +363,23 @@ func (s *Sandbox) CopyFrom(ctx context.Context, containerPath, hostPath string) 
 	s.mu.RLock()
 	containerID := s.containerID
 	s.mu.RUnlock()
-	
+
 	if containerID == "" {
 		return fmt.Errorf("sandbox not running")
 	}
-	
+
 	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(hostPath), 0755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	
+
 	// Use docker cp
 	cmd := exec.CommandContext(ctx, "docker", "cp", containerID+":"+containerPath, hostPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("docker cp failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return nil
 }
 
@@ -418,22 +418,22 @@ func (s *Sandbox) AddVolumeMount(hostPath, containerPath string, readOnly bool) 
 // buildExecArgs builds arguments for docker exec.
 func (s *Sandbox) buildExecArgs(command string, args ...string) []string {
 	execArgs := []string{"exec"}
-	
+
 	// Add environment variables
 	for k, v := range s.envVars {
 		execArgs = append(execArgs, "-e", k+"="+v)
 	}
-	
+
 	// Set working directory
 	execArgs = append(execArgs, "-w", s.workDir)
-	
+
 	// Add container ID
 	execArgs = append(execArgs, s.containerID)
-	
+
 	// Add command and args
 	execArgs = append(execArgs, command)
 	execArgs = append(execArgs, args...)
-	
+
 	return execArgs
 }
 
@@ -456,7 +456,7 @@ func (s *Sandbox) pullImage(ctx context.Context) error {
 // createContainer creates a new container.
 func (s *Sandbox) createContainer(ctx context.Context) (string, error) {
 	args := []string{"create"}
-	
+
 	// Add volume mounts
 	for _, vm := range s.volumeMounts {
 		mount := vm.HostPath + ":" + vm.ContainerPath
@@ -465,15 +465,15 @@ func (s *Sandbox) createContainer(ctx context.Context) (string, error) {
 		}
 		args = append(args, "-v", mount)
 	}
-	
+
 	// Set working directory
 	args = append(args, "-w", s.workDir)
-	
+
 	// Network settings
 	if !s.networkEnabled {
 		args = append(args, "--network", "none")
 	}
-	
+
 	// Resource limits
 	if s.resourceLimits.MemoryMB > 0 {
 		args = append(args, "--memory", fmt.Sprintf("%dm", s.resourceLimits.MemoryMB))
@@ -484,24 +484,24 @@ func (s *Sandbox) createContainer(ctx context.Context) (string, error) {
 	if s.resourceLimits.PidsLimit > 0 {
 		args = append(args, "--pids-limit", fmt.Sprintf("%d", s.resourceLimits.PidsLimit))
 	}
-	
+
 	// Add environment variables
 	for k, v := range s.envVars {
 		args = append(args, "-e", k+"="+v)
 	}
-	
+
 	// Image
 	args = append(args, s.image)
-	
+
 	// Keep container running
 	args = append(args, "tail", "-f", "/dev/null")
-	
+
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("docker create failed: %w", err)
 	}
-	
+
 	return strings.TrimSpace(string(output)), nil
 }
 
@@ -520,7 +520,7 @@ func (s *Sandbox) cleanupContainer(ctx context.Context) {
 	if s.containerID == "" {
 		return
 	}
-	
+
 	cmd := exec.CommandContext(ctx, "docker", "rm", "-f", s.containerID)
 	cmd.Run() // Ignore errors
 }
@@ -643,7 +643,7 @@ func ListImages(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var images []string
 	for _, line := range strings.Split(string(output), "\n") {
 		if line = strings.TrimSpace(line); line != "" {
@@ -658,20 +658,20 @@ func (s *Sandbox) GetContainerStats(ctx context.Context) (map[string]any, error)
 	s.mu.RLock()
 	containerID := s.containerID
 	s.mu.RUnlock()
-	
+
 	if containerID == "" {
 		return nil, fmt.Errorf("no container running")
 	}
-	
-	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format", 
+
+	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format",
 		`{"cpu":"{{.CPUPerc}}","memory":"{{.MemUsage}}","net_io":"{{.NetIO}}"}`, containerID)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return map[string]any{
-		"raw":    string(output),
+		"raw":          string(output),
 		"container_id": containerID,
 	}, nil
 }

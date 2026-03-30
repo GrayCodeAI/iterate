@@ -21,41 +21,41 @@ import (
 // RepoMapConfig holds configuration for the repo map generator.
 type RepoMapConfig struct {
 	// Enabled languages
-	GoEnabled       bool
+	GoEnabled         bool
 	TypeScriptEnabled bool
-	PythonEnabled   bool
-	RustEnabled     bool
-	
+	PythonEnabled     bool
+	RustEnabled       bool
+
 	// Extraction options
-	IncludePrivate   bool   // Include private functions/methods
-	IncludeImports   bool   // Include import statements
-	IncludeComments  bool   // Include doc comments
-	MaxFileSize      int64  // Max file size to process (bytes)
-	MaxFiles         int    // Max files to process
-	ExcludePatterns  []string // Glob patterns to exclude
-	
+	IncludePrivate  bool     // Include private functions/methods
+	IncludeImports  bool     // Include import statements
+	IncludeComments bool     // Include doc comments
+	MaxFileSize     int64    // Max file size to process (bytes)
+	MaxFiles        int      // Max files to process
+	ExcludePatterns []string // Glob patterns to exclude
+
 	// Output options
-	CompactMode      bool   // Use compact output format
-	MaxSignatureLen  int    // Max signature length (truncate if longer)
-	IncludeLineNums  bool   // Include line numbers in output
+	CompactMode     bool // Use compact output format
+	MaxSignatureLen int  // Max signature length (truncate if longer)
+	IncludeLineNums bool // Include line numbers in output
 }
 
 // DefaultRepoMapConfig returns the default configuration.
 func DefaultRepoMapConfig() RepoMapConfig {
 	return RepoMapConfig{
-		GoEnabled:        true,
+		GoEnabled:         true,
 		TypeScriptEnabled: true,
-		PythonEnabled:    true,
-		RustEnabled:      true,
-		IncludePrivate:   false,
-		IncludeImports:   true,
-		IncludeComments:  true,
-		MaxFileSize:      500 * 1024, // 500KB
-		MaxFiles:         1000,
-		ExcludePatterns:  []string{"vendor/*", "node_modules/*", ".git/*", "dist/*", "build/*"},
-		CompactMode:      false,
-		MaxSignatureLen:  100,
-		IncludeLineNums:  true,
+		PythonEnabled:     true,
+		RustEnabled:       true,
+		IncludePrivate:    false,
+		IncludeImports:    true,
+		IncludeComments:   true,
+		MaxFileSize:       500 * 1024, // 500KB
+		MaxFiles:          1000,
+		ExcludePatterns:   []string{"vendor/*", "node_modules/*", ".git/*", "dist/*", "build/*"},
+		CompactMode:       false,
+		MaxSignatureLen:   100,
+		IncludeLineNums:   true,
 	}
 }
 
@@ -94,9 +94,9 @@ type Symbol struct {
 	File       string           `json:"file"`
 	Line       int              `json:"line"`
 	EndLine    int              `json:"end_line,omitempty"`
-	Receiver   string           `json:"receiver,omitempty"`    // For methods
-	Parent     string           `json:"parent,omitempty"`      // Parent type for nested symbols
-	Children   []Symbol         `json:"children,omitempty"`    // Nested symbols
+	Receiver   string           `json:"receiver,omitempty"` // For methods
+	Parent     string           `json:"parent,omitempty"`   // Parent type for nested symbols
+	Children   []Symbol         `json:"children,omitempty"` // Nested symbols
 	Exported   bool             `json:"exported"`
 }
 
@@ -111,9 +111,9 @@ type FileMap struct {
 
 // Import represents an import statement.
 type Import struct {
-	Path    string `json:"path"`
-	Alias   string `json:"alias,omitempty"`
-	Line    int    `json:"line"`
+	Path  string `json:"path"`
+	Alias string `json:"alias,omitempty"`
+	Line  int    `json:"line"`
 }
 
 // PackageMap represents the symbols in a package/directory.
@@ -127,13 +127,13 @@ type PackageMap struct {
 
 // RepoMap represents the complete map of a repository.
 type RepoMap struct {
-	RootPath  string                 `json:"root_path"`
-	Packages  map[string]*PackageMap `json:"packages"`
-	TotalFiles int                   `json:"total_files"`
-	TotalSymbols int                 `json:"total_symbols"`
-	Timestamp  time.Time             `json:"timestamp"`
-	Duration   time.Duration         `json:"duration"`
-	
+	RootPath     string                 `json:"root_path"`
+	Packages     map[string]*PackageMap `json:"packages"`
+	TotalFiles   int                    `json:"total_files"`
+	TotalSymbols int                    `json:"total_symbols"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Duration     time.Duration          `json:"duration"`
+
 	// Index for quick lookups
 	symbolIndex map[string][]*Symbol // name -> symbols
 	mu          sync.RWMutex
@@ -151,7 +151,7 @@ func NewRepoMapGenerator(config RepoMapConfig, logger *slog.Logger) *RepoMapGene
 	if logger == nil {
 		logger = slog.Default()
 	}
-	
+
 	return &RepoMapGenerator{
 		config: config,
 		logger: logger.With("component", "repo_map"),
@@ -162,19 +162,19 @@ func NewRepoMapGenerator(config RepoMapConfig, logger *slog.Logger) *RepoMapGene
 // Generate generates a complete repository map.
 func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*RepoMap, error) {
 	startTime := time.Now()
-	
+
 	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 	}
-	
+
 	g.logger.Info("Generating repo map", "path", rootPath)
-	
+
 	// Clean the path
 	rootPath = filepath.Clean(rootPath)
-	
+
 	// Check if path exists
 	info, err := os.Stat(rootPath)
 	if err != nil {
@@ -183,34 +183,34 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 	if !info.IsDir() {
 		return nil, fmt.Errorf("path is not a directory: %s", rootPath)
 	}
-	
+
 	repoMap := &RepoMap{
 		RootPath:    rootPath,
 		Packages:    make(map[string]*PackageMap),
 		symbolIndex: make(map[string][]*Symbol),
 	}
-	
+
 	// Find all source files
 	files, err := g.findSourceFiles(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find source files: %w", err)
 	}
-	
+
 	g.logger.Info("Found source files", "count", len(files))
-	
+
 	// Limit files if needed
 	if len(files) > g.config.MaxFiles {
 		files = files[:g.config.MaxFiles]
 		g.logger.Warn("Limited files to max", "max", g.config.MaxFiles)
 	}
-	
+
 	// Process files in parallel with worker pool
 	const maxWorkers = 10
 	fileChan := make(chan string, len(files))
 	resultChan := make(chan *fileResult, len(files))
-	
+
 	var wg sync.WaitGroup
-	
+
 	// Start workers
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
@@ -223,25 +223,25 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 					return
 				default:
 				}
-				
+
 				fileMap, err := g.parseFile(path)
 				resultChan <- &fileResult{path: path, fileMap: fileMap, err: err}
 			}
 		}()
 	}
-	
+
 	// Send files to workers
 	for _, f := range files {
 		fileChan <- f
 	}
 	close(fileChan)
-	
+
 	// Wait for workers
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
-	
+
 	// Collect results
 	var ctxErr error
 	for result := range resultChan {
@@ -253,18 +253,18 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 			}
 			continue
 		}
-		
+
 		if result.fileMap == nil {
 			continue
 		}
-		
+
 		// Add to package map
 		pkgPath := filepath.Dir(result.path)
 		relPath, _ := filepath.Rel(rootPath, pkgPath)
 		if relPath == "." {
 			relPath = ""
 		}
-		
+
 		pkg, exists := repoMap.Packages[relPath]
 		if !exists {
 			pkg = &PackageMap{
@@ -275,52 +275,52 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 			}
 			repoMap.Packages[relPath] = pkg
 		}
-		
+
 		relFilePath, _ := filepath.Rel(rootPath, result.path)
 		pkg.Files[relFilePath] = result.fileMap
-		
+
 		// Add exports
 		for _, sym := range result.fileMap.Symbols {
 			if sym.Exported {
 				pkg.Exports = append(pkg.Exports, sym)
 			}
-			
+
 			// Build symbol index
 			repoMap.symbolIndex[sym.Name] = append(repoMap.symbolIndex[sym.Name], &sym)
 		}
-		
+
 		repoMap.TotalFiles++
 		repoMap.TotalSymbols += len(result.fileMap.Symbols)
 	}
-	
+
 	repoMap.Timestamp = time.Now()
 	repoMap.Duration = time.Since(startTime)
-	
+
 	g.logger.Info("Repo map generated",
 		"packages", len(repoMap.Packages),
 		"files", repoMap.TotalFiles,
 		"symbols", repoMap.TotalSymbols,
 		"duration", repoMap.Duration,
 	)
-	
+
 	// Return context error if cancellation occurred
 	if ctxErr != nil {
 		return repoMap, ctxErr
 	}
-	
+
 	return repoMap, nil
 }
 
 type fileResult struct {
-	path     string
-	fileMap  *FileMap
-	err      error
+	path    string
+	fileMap *FileMap
+	err     error
 }
 
 // findSourceFiles finds all source files in the repository.
 func (g *RepoMapGenerator) findSourceFiles(rootPath string) ([]string, error) {
 	var files []string
-	
+
 	extensions := map[string]bool{}
 	if g.config.GoEnabled {
 		extensions[".go"] = true
@@ -337,12 +337,12 @@ func (g *RepoMapGenerator) findSourceFiles(rootPath string) ([]string, error) {
 	if g.config.RustEnabled {
 		extensions[".rs"] = true
 	}
-	
+
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip files we can't access
 		}
-		
+
 		// Skip directories
 		if info.IsDir() {
 			name := info.Name()
@@ -354,18 +354,18 @@ func (g *RepoMapGenerator) findSourceFiles(rootPath string) ([]string, error) {
 			}
 			return nil
 		}
-		
+
 		// Check file size
 		if info.Size() > g.config.MaxFileSize {
 			return nil
 		}
-		
+
 		// Check extension
 		ext := strings.ToLower(filepath.Ext(path))
 		if !extensions[ext] {
 			return nil
 		}
-		
+
 		// Check exclude patterns
 		relPath, _ := filepath.Rel(rootPath, path)
 		for _, pattern := range g.config.ExcludePatterns {
@@ -374,18 +374,18 @@ func (g *RepoMapGenerator) findSourceFiles(rootPath string) ([]string, error) {
 				return nil
 			}
 		}
-		
+
 		files = append(files, path)
 		return nil
 	})
-	
+
 	return files, err
 }
 
 // parseFile parses a single source file and extracts symbols.
 func (g *RepoMapGenerator) parseFile(path string) (*FileMap, error) {
 	ext := strings.ToLower(filepath.Ext(path))
-	
+
 	switch ext {
 	case ".go":
 		return g.parseGoFile(path)
@@ -407,13 +407,13 @@ func (g *RepoMapGenerator) parseGoFile(path string) (*FileMap, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
-	
+
 	// Parse the file
 	f, err := parser.ParseFile(g.fset, path, content, parser.ParseComments|parser.AllErrors)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Go file: %w", err)
 	}
-	
+
 	fileMap := &FileMap{
 		Path:     path,
 		Language: "go",
@@ -421,7 +421,7 @@ func (g *RepoMapGenerator) parseGoFile(path string) (*FileMap, error) {
 		Imports:  make([]Import, 0),
 		Symbols:  make([]Symbol, 0),
 	}
-	
+
 	// Extract imports
 	if g.config.IncludeImports {
 		for _, imp := range f.Imports {
@@ -437,33 +437,33 @@ func (g *RepoMapGenerator) parseGoFile(path string) (*FileMap, error) {
 			})
 		}
 	}
-	
+
 	// Extract declarations
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			sym := g.extractFuncDecl(d)
 			fileMap.Symbols = append(fileMap.Symbols, sym)
-			
+
 		case *ast.GenDecl:
 			symbols := g.extractGenDecl(d)
 			fileMap.Symbols = append(fileMap.Symbols, symbols...)
 		}
 	}
-	
+
 	return fileMap, nil
 }
 
 // extractFuncDecl extracts a function or method symbol.
 func (g *RepoMapGenerator) extractFuncDecl(fn *ast.FuncDecl) Symbol {
 	sym := Symbol{
-		Name: fn.Name.Name,
-		Kind: SymbolFunction,
-		File: g.fset.Position(fn.Pos()).Filename,
-		Line: g.fset.Position(fn.Pos()).Line,
+		Name:    fn.Name.Name,
+		Kind:    SymbolFunction,
+		File:    g.fset.Position(fn.Pos()).Filename,
+		Line:    g.fset.Position(fn.Pos()).Line,
 		EndLine: g.fset.Position(fn.End()).Line,
 	}
-	
+
 	// Check if it's a method
 	if fn.Recv != nil && len(fn.Recv.List) > 0 {
 		sym.Kind = SymbolMethod
@@ -479,7 +479,7 @@ func (g *RepoMapGenerator) extractFuncDecl(fn *ast.FuncDecl) Symbol {
 			}
 		}
 	}
-	
+
 	// Check visibility
 	sym.Exported = ast.IsExported(fn.Name.Name)
 	if sym.Exported {
@@ -487,27 +487,27 @@ func (g *RepoMapGenerator) extractFuncDecl(fn *ast.FuncDecl) Symbol {
 	} else {
 		sym.Visibility = VisibilityPrivate
 	}
-	
+
 	// Build signature
 	sym.Signature = g.buildFuncSignature(fn)
-	
+
 	// Extract doc comment
 	if g.config.IncludeComments && fn.Doc != nil {
 		sym.DocComment = strings.TrimSpace(fn.Doc.Text())
 	}
-	
+
 	// Skip private symbols if configured
 	if !g.config.IncludePrivate && !sym.Exported {
 		return Symbol{}
 	}
-	
+
 	return sym
 }
 
 // buildFuncSignature builds a function signature string.
 func (g *RepoMapGenerator) buildFuncSignature(fn *ast.FuncDecl) string {
 	var sb strings.Builder
-	
+
 	if fn.Recv != nil && len(fn.Recv.List) > 0 {
 		sb.WriteString("(")
 		for i, field := range fn.Recv.List {
@@ -518,10 +518,10 @@ func (g *RepoMapGenerator) buildFuncSignature(fn *ast.FuncDecl) string {
 		}
 		sb.WriteString(") ")
 	}
-	
+
 	sb.WriteString(fn.Name.Name)
 	sb.WriteString("(")
-	
+
 	// Parameters
 	for i, param := range fn.Type.Params.List {
 		if i > 0 {
@@ -538,9 +538,9 @@ func (g *RepoMapGenerator) buildFuncSignature(fn *ast.FuncDecl) string {
 		}
 		sb.WriteString(g.typeToString(param.Type))
 	}
-	
+
 	sb.WriteString(")")
-	
+
 	// Return types
 	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
 		if len(fn.Type.Results.List) == 1 && len(fn.Type.Results.List[0].Names) == 0 {
@@ -564,12 +564,12 @@ func (g *RepoMapGenerator) buildFuncSignature(fn *ast.FuncDecl) string {
 			sb.WriteString(")")
 		}
 	}
-	
+
 	sig := sb.String()
 	if g.config.MaxSignatureLen > 0 && len(sig) > g.config.MaxSignatureLen {
 		sig = sig[:g.config.MaxSignatureLen-3] + "..."
 	}
-	
+
 	return sig
 }
 
@@ -611,17 +611,17 @@ func (g *RepoMapGenerator) typeToString(t ast.Expr) string {
 // extractGenDecl extracts type, const, or var declarations.
 func (g *RepoMapGenerator) extractGenDecl(decl *ast.GenDecl) []Symbol {
 	var symbols []Symbol
-	
+
 	for _, spec := range decl.Specs {
 		switch s := spec.(type) {
 		case *ast.TypeSpec:
 			sym := Symbol{
-				Name: s.Name.Name,
-				File: g.fset.Position(decl.Pos()).Filename,
-				Line: g.fset.Position(decl.Pos()).Line,
+				Name:    s.Name.Name,
+				File:    g.fset.Position(decl.Pos()).Filename,
+				Line:    g.fset.Position(decl.Pos()).Line,
 				EndLine: g.fset.Position(decl.End()).Line,
 			}
-			
+
 			// Determine type kind
 			switch s.Type.(type) {
 			case *ast.StructType:
@@ -631,22 +631,22 @@ func (g *RepoMapGenerator) extractGenDecl(decl *ast.GenDecl) []Symbol {
 			default:
 				sym.Kind = SymbolType
 			}
-			
+
 			sym.Exported = ast.IsExported(s.Name.Name)
 			if sym.Exported {
 				sym.Visibility = VisibilityPublic
 			} else {
 				sym.Visibility = VisibilityPrivate
 			}
-			
+
 			// Build signature
 			sym.Signature = g.buildTypeSignature(s)
-			
+
 			// Extract doc comment
 			if g.config.IncludeComments && decl.Doc != nil {
 				sym.DocComment = strings.TrimSpace(decl.Doc.Text())
 			}
-			
+
 			// Extract nested symbols (struct fields)
 			if st, ok := s.Type.(*ast.StructType); ok && st.Fields != nil {
 				for _, field := range st.Fields.List {
@@ -668,20 +668,20 @@ func (g *RepoMapGenerator) extractGenDecl(decl *ast.GenDecl) []Symbol {
 					}
 				}
 			}
-			
+
 			// Skip private if configured
 			if !g.config.IncludePrivate && !sym.Exported {
 				continue
 			}
-			
+
 			symbols = append(symbols, sym)
-			
+
 		case *ast.ValueSpec:
 			kind := SymbolConst
 			if decl.Tok == token.VAR {
 				kind = SymbolVar
 			}
-			
+
 			for _, name := range s.Names {
 				sym := Symbol{
 					Name: name.Name,
@@ -689,43 +689,43 @@ func (g *RepoMapGenerator) extractGenDecl(decl *ast.GenDecl) []Symbol {
 					File: g.fset.Position(decl.Pos()).Filename,
 					Line: g.fset.Position(decl.Pos()).Line,
 				}
-				
+
 				sym.Exported = ast.IsExported(name.Name)
 				if sym.Exported {
 					sym.Visibility = VisibilityPublic
 				} else {
 					sym.Visibility = VisibilityPrivate
 				}
-				
+
 				if s.Type != nil {
 					sym.Signature = g.typeToString(s.Type)
 				} else if s.Values != nil {
 					sym.Signature = "= ..."
 				}
-				
+
 				if g.config.IncludeComments && decl.Doc != nil {
 					sym.DocComment = strings.TrimSpace(decl.Doc.Text())
 				}
-				
+
 				if !g.config.IncludePrivate && !sym.Exported {
 					continue
 				}
-				
+
 				symbols = append(symbols, sym)
 			}
 		}
 	}
-	
+
 	return symbols
 }
 
 // buildTypeSignature builds a type signature string.
 func (g *RepoMapGenerator) buildTypeSignature(spec *ast.TypeSpec) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("type ")
 	sb.WriteString(spec.Name.Name)
-	
+
 	switch t := spec.Type.(type) {
 	case *ast.StructType:
 		sb.WriteString(" struct")
@@ -741,7 +741,7 @@ func (g *RepoMapGenerator) buildTypeSignature(spec *ast.TypeSpec) string {
 		sb.WriteString(" ")
 		sb.WriteString(g.typeToString(t))
 	}
-	
+
 	return sb.String()
 }
 
@@ -751,20 +751,20 @@ func (g *RepoMapGenerator) parseTypeScriptFile(path string) (*FileMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	fileMap := &FileMap{
 		Path:     path,
 		Language: "typescript",
 		Symbols:  make([]Symbol, 0),
 	}
-	
+
 	// Simple regex-based extraction for TypeScript
 	// In a full implementation, we'd use a proper TypeScript parser
 	lines := strings.Split(string(content), "\n")
-	
+
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Match function declarations
 		if strings.HasPrefix(line, "function ") || strings.HasPrefix(line, "export function ") {
 			name := extractName(line, "function")
@@ -780,7 +780,7 @@ func (g *RepoMapGenerator) parseTypeScriptFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match const/let/var function assignments
 		if strings.Contains(line, "=>") && strings.Contains(line, "function") == false {
 			name := extractArrowFunctionName(line)
@@ -796,7 +796,7 @@ func (g *RepoMapGenerator) parseTypeScriptFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match class declarations
 		if strings.HasPrefix(line, "class ") || strings.HasPrefix(line, "export class ") {
 			name := extractName(line, "class")
@@ -812,7 +812,7 @@ func (g *RepoMapGenerator) parseTypeScriptFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match interface declarations
 		if strings.HasPrefix(line, "interface ") || strings.HasPrefix(line, "export interface ") {
 			name := extractName(line, "interface")
@@ -829,7 +829,7 @@ func (g *RepoMapGenerator) parseTypeScriptFile(path string) (*FileMap, error) {
 			}
 		}
 	}
-	
+
 	return fileMap, nil
 }
 
@@ -839,18 +839,18 @@ func (g *RepoMapGenerator) parsePythonFile(path string) (*FileMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	fileMap := &FileMap{
 		Path:     path,
 		Language: "python",
 		Symbols:  make([]Symbol, 0),
 	}
-	
+
 	lines := strings.Split(string(content), "\n")
-	
+
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Match function definitions
 		if strings.HasPrefix(line, "def ") {
 			name := extractName(line, "def")
@@ -870,7 +870,7 @@ func (g *RepoMapGenerator) parsePythonFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match class definitions
 		if strings.HasPrefix(line, "class ") {
 			name := extractName(line, "class")
@@ -886,7 +886,7 @@ func (g *RepoMapGenerator) parsePythonFile(path string) (*FileMap, error) {
 			}
 		}
 	}
-	
+
 	return fileMap, nil
 }
 
@@ -896,18 +896,18 @@ func (g *RepoMapGenerator) parseRustFile(path string) (*FileMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	fileMap := &FileMap{
 		Path:     path,
 		Language: "rust",
 		Symbols:  make([]Symbol, 0),
 	}
-	
+
 	lines := strings.Split(string(content), "\n")
-	
+
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Match function definitions
 		if strings.HasPrefix(line, "pub fn ") || strings.HasPrefix(line, "fn ") {
 			name := extractName(line, "fn")
@@ -925,7 +925,7 @@ func (g *RepoMapGenerator) parseRustFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match struct definitions
 		if strings.HasPrefix(line, "pub struct ") || strings.HasPrefix(line, "struct ") {
 			name := extractName(line, "struct")
@@ -943,7 +943,7 @@ func (g *RepoMapGenerator) parseRustFile(path string) (*FileMap, error) {
 				fileMap.Symbols = append(fileMap.Symbols, sym)
 			}
 		}
-		
+
 		// Match trait definitions
 		if strings.HasPrefix(line, "pub trait ") || strings.HasPrefix(line, "trait ") {
 			name := extractName(line, "trait")
@@ -962,7 +962,7 @@ func (g *RepoMapGenerator) parseRustFile(path string) (*FileMap, error) {
 			}
 		}
 	}
-	
+
 	return fileMap, nil
 }
 
@@ -976,22 +976,22 @@ func extractName(line, keyword string) string {
 	if strings.HasPrefix(line, "pub ") {
 		prefix = "pub " + prefix
 	}
-	
+
 	if !strings.HasPrefix(line, prefix) {
 		return ""
 	}
-	
+
 	rest := strings.TrimPrefix(line, prefix)
-	
+
 	// Find the end of the name
 	nameEnd := strings.IndexFunc(rest, func(r rune) bool {
 		return r == '(' || r == ' ' || r == '{' || r == ':' || r == '<' || r == '['
 	})
-	
+
 	if nameEnd == -1 {
 		return rest
 	}
-	
+
 	return rest[:nameEnd]
 }
 
@@ -1044,7 +1044,7 @@ func (rm *RepoMap) GetFile(path string) *FileMap {
 // ToMarkdown generates a markdown representation of the repo map.
 func (rm *RepoMap) ToMarkdown() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("# Repository Map\n\n")
 	sb.WriteString(fmt.Sprintf("- **Root**: `%s`\n", rm.RootPath))
 	sb.WriteString(fmt.Sprintf("- **Packages**: %d\n", len(rm.Packages)))
@@ -1052,34 +1052,34 @@ func (rm *RepoMap) ToMarkdown() string {
 	sb.WriteString(fmt.Sprintf("- **Symbols**: %d\n", rm.TotalSymbols))
 	sb.WriteString(fmt.Sprintf("- **Generated**: %s\n", rm.Timestamp.Format(time.RFC3339)))
 	sb.WriteString("\n---\n\n")
-	
+
 	// Sort packages by path
 	var pkgPaths []string
 	for path := range rm.Packages {
 		pkgPaths = append(pkgPaths, path)
 	}
 	sort.Strings(pkgPaths)
-	
+
 	for _, pkgPath := range pkgPaths {
 		pkg := rm.Packages[pkgPath]
-		
+
 		if pkgPath == "" {
 			sb.WriteString("## . (root)\n\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("## %s\n\n", pkgPath))
 		}
-		
+
 		// Sort files
 		var filePaths []string
 		for path := range pkg.Files {
 			filePaths = append(filePaths, path)
 		}
 		sort.Strings(filePaths)
-		
+
 		for _, filePath := range filePaths {
 			f := pkg.Files[filePath]
 			sb.WriteString(fmt.Sprintf("### `%s`\n\n", filepath.Base(filePath)))
-			
+
 			if len(f.Imports) > 0 {
 				sb.WriteString("**Imports:**\n")
 				for _, imp := range f.Imports {
@@ -1091,12 +1091,12 @@ func (rm *RepoMap) ToMarkdown() string {
 				}
 				sb.WriteString("\n")
 			}
-			
+
 			if len(f.Symbols) > 0 {
 				sb.WriteString("**Symbols:**\n\n")
 				sb.WriteString("| Line | Kind | Name | Signature |\n")
 				sb.WriteString("|------|------|------|----------|\n")
-				
+
 				for _, sym := range f.Symbols {
 					visibility := ""
 					if sym.Visibility == VisibilityPrivate {
@@ -1109,46 +1109,46 @@ func (rm *RepoMap) ToMarkdown() string {
 			}
 		}
 	}
-	
+
 	return sb.String()
 }
 
 // ToCompactString generates a compact string representation (Aider-style).
 func (rm *RepoMap) ToCompactString() string {
 	var sb strings.Builder
-	
+
 	// Sort packages
 	var pkgPaths []string
 	for path := range rm.Packages {
 		pkgPaths = append(pkgPaths, path)
 	}
 	sort.Strings(pkgPaths)
-	
+
 	for _, pkgPath := range pkgPaths {
 		pkg := rm.Packages[pkgPath]
-		
+
 		if pkgPath == "" {
 			sb.WriteString("root:\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("%s:\n", pkgPath))
 		}
-		
+
 		// Sort files
 		var filePaths []string
 		for path := range pkg.Files {
 			filePaths = append(filePaths, path)
 		}
 		sort.Strings(filePaths)
-		
+
 		for _, filePath := range filePaths {
 			f := pkg.Files[filePath]
 			sb.WriteString(fmt.Sprintf("  %s:\n", filepath.Base(filePath)))
-			
+
 			// Group symbols by kind
 			functions := make([]Symbol, 0)
 			types := make([]Symbol, 0)
 			others := make([]Symbol, 0)
-			
+
 			for _, sym := range f.Symbols {
 				switch sym.Kind {
 				case SymbolFunction, SymbolMethod:
@@ -1159,12 +1159,12 @@ func (rm *RepoMap) ToCompactString() string {
 					others = append(others, sym)
 				}
 			}
-			
+
 			// Output types first
 			for _, sym := range types {
 				sb.WriteString(fmt.Sprintf("    %s %s\n", sym.Kind, sym.Name))
 			}
-			
+
 			// Then functions
 			for _, sym := range functions {
 				if sym.Kind == SymbolMethod {
@@ -1174,9 +1174,9 @@ func (rm *RepoMap) ToCompactString() string {
 				}
 			}
 		}
-		
+
 		sb.WriteString("\n")
 	}
-	
+
 	return sb.String()
 }

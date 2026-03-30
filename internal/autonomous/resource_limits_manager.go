@@ -19,16 +19,16 @@ type SandboxLimitsProfile string
 const (
 	// SandboxLimitsProfileLow - Low resource limits (suitable for simple tasks)
 	SandboxLimitsProfileLow SandboxLimitsProfile = "low"
-	
+
 	// SandboxLimitsProfileMedium - Medium resource limits (balanced)
 	SandboxLimitsProfileMedium SandboxLimitsProfile = "medium"
-	
+
 	// SandboxLimitsProfileHigh - High resource limits (for complex builds/tests)
 	SandboxLimitsProfileHigh SandboxLimitsProfile = "high"
-	
+
 	// SandboxLimitsProfileUnlimited - No resource limits (use with caution)
 	SandboxLimitsProfileUnlimited SandboxLimitsProfile = "unlimited"
-	
+
 	// SandboxLimitsProfileCustom - Custom resource limits
 	SandboxLimitsProfileCustom SandboxLimitsProfile = "custom"
 )
@@ -37,53 +37,53 @@ const (
 type SandboxLimits struct {
 	// ID is the unique identifier
 	ID string `json:"id"`
-	
+
 	// Name is a human-readable name
 	Name string `json:"name"`
-	
+
 	// Profile is the resource profile type
 	Profile SandboxLimitsProfile `json:"profile"`
-	
+
 	// CPU limits
-	CPUShares    int64   `json:"cpu_shares"`     // Relative CPU weight (1-1024)
-	CPUPercent   int     `json:"cpu_percent"`    // CPU percentage (0-100)
-	CPUs         float64 `json:"cpus"`           // Number of CPUs (e.g., 1.5)
-	CPUQuota     int64   `json:"cpu_quota"`      // CPU quota in microseconds
-	CPUPeriod    int64   `json:"cpu_period"`     // CPU period in microseconds
-	
+	CPUShares  int64   `json:"cpu_shares"`  // Relative CPU weight (1-1024)
+	CPUPercent int     `json:"cpu_percent"` // CPU percentage (0-100)
+	CPUs       float64 `json:"cpus"`        // Number of CPUs (e.g., 1.5)
+	CPUQuota   int64   `json:"cpu_quota"`   // CPU quota in microseconds
+	CPUPeriod  int64   `json:"cpu_period"`  // CPU period in microseconds
+
 	// Memory limits
-	MemoryMB        int64 `json:"memory_mb"`         // Memory limit in MB
-	MemorySwapMB    int64 `json:"memory_swap_mb"`    // Memory + swap limit in MB
-	MemorySwapiness int   `json:"memory_swappiness"` // Swappiness (0-100)
+	MemoryMB          int64 `json:"memory_mb"`          // Memory limit in MB
+	MemorySwapMB      int64 `json:"memory_swap_mb"`     // Memory + swap limit in MB
+	MemorySwapiness   int   `json:"memory_swappiness"`  // Swappiness (0-100)
 	MemoryReservation int64 `json:"memory_reservation"` // Memory soft limit
-	
+
 	// Process limits
-	PidsLimit     int64 `json:"pids_limit"`      // Max number of processes
+	PidsLimit      int64 `json:"pids_limit"`       // Max number of processes
 	OpenFilesLimit int64 `json:"open_files_limit"` // Max open files
-	
+
 	// I/O limits
-	BlkioWeight     uint16 `json:"blkio_weight"`      // Block I/O weight (10-1000)
-	BlkioReadBPS    int64  `json:"blkio_read_bps"`    // Read bytes per second
-	BlkioWriteBPS   int64  `json:"blkio_write_bps"`   // Write bytes per second
-	BlkioReadIOPS   int64  `json:"blkio_read_iops"`   // Read I/O operations per second
-	BlkioWriteIOPS  int64  `json:"blkio_write_iops"`  // Write I/O operations per second
-	
+	BlkioWeight    uint16 `json:"blkio_weight"`     // Block I/O weight (10-1000)
+	BlkioReadBPS   int64  `json:"blkio_read_bps"`   // Read bytes per second
+	BlkioWriteBPS  int64  `json:"blkio_write_bps"`  // Write bytes per second
+	BlkioReadIOPS  int64  `json:"blkio_read_iops"`  // Read I/O operations per second
+	BlkioWriteIOPS int64  `json:"blkio_write_iops"` // Write I/O operations per second
+
 	// Time limits
-	ExecTimeout     time.Duration `json:"exec_timeout"`      // Command execution timeout
-	MaxExecTime     time.Duration `json:"max_exec_time"`     // Maximum execution time
-	IdleTimeout     time.Duration `json:"idle_timeout"`      // Idle timeout before termination
-	
+	ExecTimeout time.Duration `json:"exec_timeout"`  // Command execution timeout
+	MaxExecTime time.Duration `json:"max_exec_time"` // Maximum execution time
+	IdleTimeout time.Duration `json:"idle_timeout"`  // Idle timeout before termination
+
 	// Network limits
-	NetworkIngressBPS  int64 `json:"network_ingress_bps"`  // Network ingress bytes/sec
-	NetworkEgressBPS   int64 `json:"network_egress_bps"`   // Network egress bytes/sec
-	
+	NetworkIngressBPS int64 `json:"network_ingress_bps"` // Network ingress bytes/sec
+	NetworkEgressBPS  int64 `json:"network_egress_bps"`  // Network egress bytes/sec
+
 	// Enforcement settings
 	StrictEnforcement bool `json:"strict_enforcement"` // Kill on violation
 	WarnOnViolation   bool `json:"warn_on_violation"`  // Log warnings
-	
+
 	// CreatedAt timestamp
 	CreatedAt time.Time `json:"created_at"`
-	
+
 	// ModifiedAt timestamp
 	ModifiedAt time.Time `json:"modified_at"`
 }
@@ -92,27 +92,27 @@ type SandboxLimits struct {
 type ContainerUsage struct {
 	// ContainerID is the container identifier
 	ContainerID string `json:"container_id"`
-	
+
 	// CPU usage
 	CPUPercent    float64 `json:"cpu_percent"`
 	CPUUsageNanos int64   `json:"cpu_usage_nanos"`
-	
+
 	// Memory usage
-	MemoryMB     int64 `json:"memory_mb"`
-	MemoryLimitMB int64 `json:"memory_limit_mb"`
+	MemoryMB      int64   `json:"memory_mb"`
+	MemoryLimitMB int64   `json:"memory_limit_mb"`
 	MemoryPercent float64 `json:"memory_percent"`
-	
+
 	// Network I/O
 	NetworkRxBytes int64 `json:"network_rx_bytes"`
 	NetworkTxBytes int64 `json:"network_tx_bytes"`
-	
+
 	// Block I/O
 	BlockReadBytes  int64 `json:"block_read_bytes"`
 	BlockWriteBytes int64 `json:"block_write_bytes"`
-	
+
 	// Process count
 	PidsCurrent int64 `json:"pids_current"`
-	
+
 	// Timestamp
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -121,25 +121,25 @@ type ContainerUsage struct {
 type ContainerViolation struct {
 	// ContainerID is the container identifier
 	ContainerID string `json:"container_id"`
-	
+
 	// Type of violation
 	Type string `json:"type"`
-	
+
 	// Current value
 	Current interface{} `json:"current"`
-	
+
 	// Limit value
 	Limit interface{} `json:"limit"`
-	
+
 	// Severity of violation
 	Severity string `json:"severity"`
-	
+
 	// Message describing the violation
 	Message string `json:"message"`
-	
+
 	// Timestamp
 	Timestamp time.Time `json:"timestamp"`
-	
+
 	// Action taken
 	Action string `json:"action"`
 }
@@ -148,19 +148,19 @@ type ContainerViolation struct {
 type SandboxLimitsConfig struct {
 	// Enabled turns on resource limit enforcement
 	Enabled bool `json:"enabled"`
-	
+
 	// ConfigPath is where to load/save custom profiles
 	ConfigPath string `json:"config_path"`
-	
+
 	// DefaultProfile is the default profile to use
 	DefaultProfile SandboxLimitsProfile `json:"default_profile"`
-	
+
 	// MonitorInterval is how often to check resource usage
 	MonitorInterval time.Duration `json:"monitor_interval"`
-	
+
 	// LogUsage logs resource usage periodically
 	LogUsage bool `json:"log_usage"`
-	
+
 	// KillOnViolation kills containers on violation
 	KillOnViolation bool `json:"kill_on_violation"`
 }
@@ -179,43 +179,43 @@ func DefaultSandboxLimitsConfig() SandboxLimitsConfig {
 // SandboxLimitsManager manages resource limits for sandboxes.
 type SandboxLimitsManager struct {
 	mu sync.RWMutex
-	
+
 	// config is the configuration
 	config SandboxLimitsConfig
-	
+
 	// profiles stores predefined profiles
 	profiles map[SandboxLimitsProfile]*SandboxLimits
-	
+
 	// customProfiles stores custom profiles
 	customProfiles map[string]*SandboxLimits
-	
+
 	// containerLimits maps container ID to limits
 	containerLimits map[string]*SandboxLimits
-	
+
 	// usageHistory stores usage history
 	usageHistory map[string][]ContainerUsage
-	
+
 	// violations stores violations
 	violations []ContainerViolation
-	
+
 	// stats tracks statistics
 	stats SandboxResourceStats
-	
+
 	// timeNow is a function to get current time (for testing)
 	timeNow func() time.Time
 }
 
 // SandboxResourceStats tracks resource statistics.
 type SandboxResourceStats struct {
-	TotalContainers    int            `json:"total_containers"`
-	ActiveContainers   int            `json:"active_containers"`
-	TotalViolations    int            `json:"total_violations"`
-	ViolationsByType   map[string]int `json:"violations_by_type"`
-	KilledContainers   int            `json:"killed_containers"`
-	AvgCPUUsage        float64        `json:"avg_cpu_usage"`
-	AvgMemoryUsage     float64        `json:"avg_memory_usage"`
-	PeakCPUUsage       float64        `json:"peak_cpu_usage"`
-	PeakMemoryUsage    float64        `json:"peak_memory_usage"`
+	TotalContainers  int            `json:"total_containers"`
+	ActiveContainers int            `json:"active_containers"`
+	TotalViolations  int            `json:"total_violations"`
+	ViolationsByType map[string]int `json:"violations_by_type"`
+	KilledContainers int            `json:"killed_containers"`
+	AvgCPUUsage      float64        `json:"avg_cpu_usage"`
+	AvgMemoryUsage   float64        `json:"avg_memory_usage"`
+	PeakCPUUsage     float64        `json:"peak_cpu_usage"`
+	PeakMemoryUsage  float64        `json:"peak_memory_usage"`
 }
 
 // NewSandboxLimitsManager creates a new resource limits manager.
@@ -232,91 +232,91 @@ func NewSandboxLimitsManager(config SandboxLimitsConfig) *SandboxLimitsManager {
 		},
 		timeNow: time.Now,
 	}
-	
+
 	// Initialize default profiles
 	mgr.initDefaultProfiles()
-	
+
 	// Load custom profiles
 	mgr.loadCustomProfiles()
-	
+
 	return mgr
 }
 
 // initDefaultProfiles initializes the default resource profiles.
 func (mgr *SandboxLimitsManager) initDefaultProfiles() {
 	now := mgr.timeNow()
-	
+
 	// Low profile - minimal resources
 	mgr.profiles[SandboxLimitsProfileLow] = &SandboxLimits{
-		ID:              "profile-low",
-		Name:            "Low Resources",
-		Profile:         SandboxLimitsProfileLow,
-		CPUShares:       256,
-		CPUs:            0.5,
-		MemoryMB:        256,
-		MemorySwapMB:    512,
-		PidsLimit:       50,
-		OpenFilesLimit:  1024,
-		ExecTimeout:     1 * time.Minute,
-		MaxExecTime:     5 * time.Minute,
-		IdleTimeout:     30 * time.Second,
+		ID:                "profile-low",
+		Name:              "Low Resources",
+		Profile:           SandboxLimitsProfileLow,
+		CPUShares:         256,
+		CPUs:              0.5,
+		MemoryMB:          256,
+		MemorySwapMB:      512,
+		PidsLimit:         50,
+		OpenFilesLimit:    1024,
+		ExecTimeout:       1 * time.Minute,
+		MaxExecTime:       5 * time.Minute,
+		IdleTimeout:       30 * time.Second,
 		StrictEnforcement: true,
 		WarnOnViolation:   true,
-		CreatedAt: now,
-		ModifiedAt: now,
+		CreatedAt:         now,
+		ModifiedAt:        now,
 	}
-	
+
 	// Medium profile - balanced
 	mgr.profiles[SandboxLimitsProfileMedium] = &SandboxLimits{
-		ID:              "profile-medium",
-		Name:            "Medium Resources",
-		Profile:         SandboxLimitsProfileMedium,
-		CPUShares:       512,
-		CPUs:            1.0,
-		MemoryMB:        512,
-		MemorySwapMB:    1024,
-		PidsLimit:       100,
-		OpenFilesLimit:  2048,
-		ExecTimeout:     5 * time.Minute,
-		MaxExecTime:     30 * time.Minute,
-		IdleTimeout:     1 * time.Minute,
+		ID:                "profile-medium",
+		Name:              "Medium Resources",
+		Profile:           SandboxLimitsProfileMedium,
+		CPUShares:         512,
+		CPUs:              1.0,
+		MemoryMB:          512,
+		MemorySwapMB:      1024,
+		PidsLimit:         100,
+		OpenFilesLimit:    2048,
+		ExecTimeout:       5 * time.Minute,
+		MaxExecTime:       30 * time.Minute,
+		IdleTimeout:       1 * time.Minute,
 		StrictEnforcement: true,
 		WarnOnViolation:   true,
-		CreatedAt: now,
-		ModifiedAt: now,
+		CreatedAt:         now,
+		ModifiedAt:        now,
 	}
-	
+
 	// High profile - for heavy workloads
 	mgr.profiles[SandboxLimitsProfileHigh] = &SandboxLimits{
-		ID:              "profile-high",
-		Name:            "High Resources",
-		Profile:         SandboxLimitsProfileHigh,
-		CPUShares:       1024,
-		CPUs:            2.0,
-		MemoryMB:        2048,
-		MemorySwapMB:    4096,
-		PidsLimit:       500,
-		OpenFilesLimit:  8192,
-		ExecTimeout:     15 * time.Minute,
-		MaxExecTime:     2 * time.Hour,
-		IdleTimeout:     5 * time.Minute,
+		ID:                "profile-high",
+		Name:              "High Resources",
+		Profile:           SandboxLimitsProfileHigh,
+		CPUShares:         1024,
+		CPUs:              2.0,
+		MemoryMB:          2048,
+		MemorySwapMB:      4096,
+		PidsLimit:         500,
+		OpenFilesLimit:    8192,
+		ExecTimeout:       15 * time.Minute,
+		MaxExecTime:       2 * time.Hour,
+		IdleTimeout:       5 * time.Minute,
 		StrictEnforcement: false,
 		WarnOnViolation:   true,
-		CreatedAt: now,
-		ModifiedAt: now,
+		CreatedAt:         now,
+		ModifiedAt:        now,
 	}
-	
+
 	// Unlimited profile - no limits
 	mgr.profiles[SandboxLimitsProfileUnlimited] = &SandboxLimits{
-		ID:              "profile-unlimited",
-		Name:            "Unlimited Resources",
-		Profile:         SandboxLimitsProfileUnlimited,
-		ExecTimeout:     1 * time.Hour,
-		MaxExecTime:     24 * time.Hour,
+		ID:                "profile-unlimited",
+		Name:              "Unlimited Resources",
+		Profile:           SandboxLimitsProfileUnlimited,
+		ExecTimeout:       1 * time.Hour,
+		MaxExecTime:       24 * time.Hour,
 		StrictEnforcement: false,
 		WarnOnViolation:   false,
-		CreatedAt: now,
-		ModifiedAt: now,
+		CreatedAt:         now,
+		ModifiedAt:        now,
 	}
 }
 
@@ -325,17 +325,17 @@ func (mgr *SandboxLimitsManager) loadCustomProfiles() {
 	if mgr.config.ConfigPath == "" {
 		return
 	}
-	
+
 	data, err := os.ReadFile(filepath.Join(mgr.config.ConfigPath, "sandbox_profiles.json"))
 	if err != nil {
 		return
 	}
-	
+
 	var profiles []SandboxLimits
 	if err := json.Unmarshal(data, &profiles); err != nil {
 		return
 	}
-	
+
 	for i := range profiles {
 		profile := &profiles[i]
 		profile.Profile = SandboxLimitsProfileCustom
@@ -347,7 +347,7 @@ func (mgr *SandboxLimitsManager) loadCustomProfiles() {
 func (mgr *SandboxLimitsManager) GetProfile(profile SandboxLimitsProfile) *SandboxLimits {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	if p, exists := mgr.profiles[profile]; exists {
 		return p
 	}
@@ -365,20 +365,20 @@ func (mgr *SandboxLimitsManager) GetCustomProfile(id string) *SandboxLimits {
 func (mgr *SandboxLimitsManager) AddCustomProfile(profile SandboxLimits) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	if profile.ID == "" {
 		profile.ID = fmt.Sprintf("custom-%d", mgr.timeNow().UnixNano())
 	}
-	
+
 	profile.Profile = SandboxLimitsProfileCustom
 	profile.CreatedAt = mgr.timeNow()
 	profile.ModifiedAt = profile.CreatedAt
-	
+
 	mgr.customProfiles[profile.ID] = &profile
-	
+
 	// Save to config
 	mgr.saveCustomProfiles()
-	
+
 	return nil
 }
 
@@ -386,14 +386,14 @@ func (mgr *SandboxLimitsManager) AddCustomProfile(profile SandboxLimits) error {
 func (mgr *SandboxLimitsManager) RemoveCustomProfile(id string) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	if _, exists := mgr.customProfiles[id]; !exists {
 		return fmt.Errorf("profile %s not found", id)
 	}
-	
+
 	delete(mgr.customProfiles, id)
 	mgr.saveCustomProfiles()
-	
+
 	return nil
 }
 
@@ -401,7 +401,7 @@ func (mgr *SandboxLimitsManager) RemoveCustomProfile(id string) error {
 func (mgr *SandboxLimitsManager) AssignLimits(containerID string, limits *SandboxLimits) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.containerLimits[containerID] = limits
 	mgr.usageHistory[containerID] = make([]ContainerUsage, 0)
 	mgr.stats.TotalContainers++
@@ -412,17 +412,17 @@ func (mgr *SandboxLimitsManager) AssignLimits(containerID string, limits *Sandbo
 func (mgr *SandboxLimitsManager) AssignProfile(containerID string, profile SandboxLimitsProfile) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	limits, exists := mgr.profiles[profile]
 	if !exists {
 		return fmt.Errorf("profile %s not found", profile)
 	}
-	
+
 	mgr.containerLimits[containerID] = limits
 	mgr.usageHistory[containerID] = make([]ContainerUsage, 0)
 	mgr.stats.TotalContainers++
 	mgr.stats.ActiveContainers++
-	
+
 	return nil
 }
 
@@ -430,7 +430,7 @@ func (mgr *SandboxLimitsManager) AssignProfile(containerID string, profile Sandb
 func (mgr *SandboxLimitsManager) RemoveContainer(containerID string) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	delete(mgr.containerLimits, containerID)
 	delete(mgr.usageHistory, containerID)
 	if mgr.stats.ActiveContainers > 0 {
@@ -448,7 +448,7 @@ func (mgr *SandboxLimitsManager) GetLimits(containerID string) *SandboxLimits {
 // ToDockerArgs converts SandboxLimits to Docker run arguments.
 func (limits *SandboxLimits) ToDockerArgs() []string {
 	args := make([]string, 0)
-	
+
 	// CPU limits
 	if limits.CPUs > 0 {
 		args = append(args, "--cpus", fmt.Sprintf("%.2f", limits.CPUs))
@@ -460,7 +460,7 @@ func (limits *SandboxLimits) ToDockerArgs() []string {
 		args = append(args, "--cpu-quota", fmt.Sprintf("%d", limits.CPUQuota))
 		args = append(args, "--cpu-period", fmt.Sprintf("%d", limits.CPUPeriod))
 	}
-	
+
 	// Memory limits
 	if limits.MemoryMB > 0 {
 		args = append(args, "--memory", fmt.Sprintf("%dm", limits.MemoryMB))
@@ -474,17 +474,17 @@ func (limits *SandboxLimits) ToDockerArgs() []string {
 	if limits.MemoryReservation > 0 {
 		args = append(args, "--memory-reservation", fmt.Sprintf("%dm", limits.MemoryReservation))
 	}
-	
+
 	// Process limits
 	if limits.PidsLimit > 0 {
 		args = append(args, "--pids-limit", fmt.Sprintf("%d", limits.PidsLimit))
 	}
-	
+
 	// I/O limits
 	if limits.BlkioWeight >= 10 && limits.BlkioWeight <= 1000 {
 		args = append(args, "--blkio-weight", fmt.Sprintf("%d", limits.BlkioWeight))
 	}
-	
+
 	return args
 }
 
@@ -505,7 +505,7 @@ func ParseDockerStats(output string) (*ContainerUsage, error) {
 	usage := &ContainerUsage{
 		Timestamp: time.Now(),
 	}
-	
+
 	// Parse CPU percentage
 	cpuMatch := regexp.MustCompile(`"cpu":"(\d+(?:\.\d+)?%)?"`).FindStringSubmatch(output)
 	if len(cpuMatch) > 1 && cpuMatch[1] != "" {
@@ -514,7 +514,7 @@ func ParseDockerStats(output string) (*ContainerUsage, error) {
 			usage.CPUPercent = cpu
 		}
 	}
-	
+
 	// Parse memory usage (format: "used / limit MiB")
 	memMatch := regexp.MustCompile(`"memory":"(\d+(?:\.\d+)?[A-Za-z]+)\s*/\s*(\d+(?:\.\d+)?[A-Za-z]+)"`).FindStringSubmatch(output)
 	if len(memMatch) > 2 {
@@ -524,14 +524,14 @@ func ParseDockerStats(output string) (*ContainerUsage, error) {
 			usage.MemoryPercent = float64(usage.MemoryMB) / float64(usage.MemoryLimitMB) * 100
 		}
 	}
-	
+
 	// Parse network I/O
 	netMatch := regexp.MustCompile(`"net_io":"(\d+(?:\.\d+)?[A-Za-z]+)\s*/\s*(\d+(?:\.\d+)?[A-Za-z]+)"`).FindStringSubmatch(output)
 	if len(netMatch) > 2 {
 		usage.NetworkRxBytes = parseBytesValue(netMatch[1])
 		usage.NetworkTxBytes = parseBytesValue(netMatch[2])
 	}
-	
+
 	return usage, nil
 }
 
@@ -541,16 +541,16 @@ func parseMemoryValue(s string) int64 {
 	if s == "" || s == "0B" {
 		return 0
 	}
-	
+
 	// Extract number and unit
 	var value float64
 	var unit string
-	
+
 	_, err := fmt.Sscanf(s, "%f%s", &value, &unit)
 	if err != nil {
 		return 0
 	}
-	
+
 	switch strings.ToUpper(unit) {
 	case "B":
 		return int64(value)
@@ -563,7 +563,7 @@ func parseMemoryValue(s string) int64 {
 	case "TIB", "TB":
 		return int64(value * 1024 * 1024)
 	}
-	
+
 	return int64(value)
 }
 
@@ -573,16 +573,16 @@ func parseBytesValue(s string) int64 {
 	if s == "" || s == "0B" {
 		return 0
 	}
-	
+
 	var value float64
 	var unit string
-	
+
 	_, err := fmt.Sscanf(s, "%f%s", &value, &unit)
 	if err != nil {
 		// Try alternate parsing
 		fmt.Sscanf(s, "%f%s", &value, &unit)
 	}
-	
+
 	switch strings.ToUpper(unit) {
 	case "B":
 		return int64(value)
@@ -593,7 +593,7 @@ func parseBytesValue(s string) int64 {
 	case "GB", "GIB":
 		return int64(value * 1024 * 1024 * 1024)
 	}
-	
+
 	return int64(value)
 }
 
@@ -602,13 +602,13 @@ func (mgr *SandboxLimitsManager) CheckViolation(containerID string, usage *Conta
 	mgr.mu.RLock()
 	limits, exists := mgr.containerLimits[containerID]
 	mgr.mu.RUnlock()
-	
+
 	if !exists || limits == nil {
 		return nil
 	}
-	
+
 	var violation *ContainerViolation
-	
+
 	// Check memory limit
 	if limits.MemoryMB > 0 && usage.MemoryMB > limits.MemoryMB {
 		violation = &ContainerViolation{
@@ -622,7 +622,7 @@ func (mgr *SandboxLimitsManager) CheckViolation(containerID string, usage *Conta
 			Action:      "warn",
 		}
 	}
-	
+
 	// Check CPU usage (only warn, don't enforce)
 	if limits.CPUPercent > 0 && usage.CPUPercent > float64(limits.CPUPercent)*1.5 {
 		if violation == nil {
@@ -638,7 +638,7 @@ func (mgr *SandboxLimitsManager) CheckViolation(containerID string, usage *Conta
 			}
 		}
 	}
-	
+
 	// Check process count
 	if limits.PidsLimit > 0 && usage.PidsCurrent > limits.PidsLimit {
 		if violation == nil {
@@ -654,11 +654,11 @@ func (mgr *SandboxLimitsManager) CheckViolation(containerID string, usage *Conta
 			}
 		}
 	}
-	
+
 	if violation != nil {
 		mgr.recordViolation(violation)
 	}
-	
+
 	return violation
 }
 
@@ -666,11 +666,11 @@ func (mgr *SandboxLimitsManager) CheckViolation(containerID string, usage *Conta
 func (mgr *SandboxLimitsManager) recordViolation(violation *ContainerViolation) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.violations = append(mgr.violations, *violation)
 	mgr.stats.TotalViolations++
 	mgr.stats.ViolationsByType[violation.Type]++
-	
+
 	if violation.Action == "kill" {
 		mgr.stats.KilledContainers++
 	}
@@ -680,16 +680,16 @@ func (mgr *SandboxLimitsManager) recordViolation(violation *ContainerViolation) 
 func (mgr *SandboxLimitsManager) RecordUsage(containerID string, usage *ContainerUsage) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	if history, exists := mgr.usageHistory[containerID]; exists {
 		mgr.usageHistory[containerID] = append(history, *usage)
-		
+
 		// Keep only last 100 entries
 		if len(mgr.usageHistory[containerID]) > 100 {
 			mgr.usageHistory[containerID] = mgr.usageHistory[containerID][len(mgr.usageHistory[containerID])-100:]
 		}
 	}
-	
+
 	// Update stats
 	if usage.CPUPercent > mgr.stats.PeakCPUUsage {
 		mgr.stats.PeakCPUUsage = usage.CPUPercent
@@ -703,12 +703,12 @@ func (mgr *SandboxLimitsManager) RecordUsage(containerID string, usage *Containe
 func (mgr *SandboxLimitsManager) GetUsageHistory(containerID string) []ContainerUsage {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	history, exists := mgr.usageHistory[containerID]
 	if !exists {
 		return nil
 	}
-	
+
 	result := make([]ContainerUsage, len(history))
 	copy(result, history)
 	return result
@@ -718,7 +718,7 @@ func (mgr *SandboxLimitsManager) GetUsageHistory(containerID string) []Container
 func (mgr *SandboxLimitsManager) GetViolations() []ContainerViolation {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	result := make([]ContainerViolation, len(mgr.violations))
 	copy(result, mgr.violations)
 	return result
@@ -735,16 +735,16 @@ func (mgr *SandboxLimitsManager) GetStats() SandboxResourceStats {
 func (mgr *SandboxLimitsManager) ListProfiles() []*SandboxLimits {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	result := make([]*SandboxLimits, 0, len(mgr.profiles)+len(mgr.customProfiles))
-	
+
 	for _, p := range mgr.profiles {
 		result = append(result, p)
 	}
 	for _, p := range mgr.customProfiles {
 		result = append(result, p)
 	}
-	
+
 	return result
 }
 
@@ -754,10 +754,10 @@ func (mgr *SandboxLimitsManager) CreateLimitsFromProfile(profile SandboxLimitsPr
 	if base == nil {
 		base = mgr.GetProfile(SandboxLimitsProfileMedium)
 	}
-	
+
 	// Copy base limits
 	limits := *base
-	
+
 	// Apply overrides
 	for key, value := range overrides {
 		switch key {
@@ -791,11 +791,11 @@ func (mgr *SandboxLimitsManager) CreateLimitsFromProfile(profile SandboxLimitsPr
 			}
 		}
 	}
-	
+
 	limits.ID = fmt.Sprintf("custom-%d", mgr.timeNow().UnixNano())
 	limits.Profile = SandboxLimitsProfileCustom
 	limits.ModifiedAt = mgr.timeNow()
-	
+
 	return &limits
 }
 
@@ -803,7 +803,7 @@ func (mgr *SandboxLimitsManager) CreateLimitsFromProfile(profile SandboxLimitsPr
 func (mgr *SandboxLimitsManager) Export() ([]byte, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	data := struct {
 		Profiles       map[string]*SandboxLimits `json:"profiles"`
 		CustomProfiles map[string]*SandboxLimits `json:"custom_profiles"`
@@ -811,12 +811,12 @@ func (mgr *SandboxLimitsManager) Export() ([]byte, error) {
 		Profiles:       make(map[string]*SandboxLimits),
 		CustomProfiles: make(map[string]*SandboxLimits),
 	}
-	
+
 	for k, v := range mgr.profiles {
 		data.Profiles[string(k)] = v
 	}
 	data.CustomProfiles = mgr.customProfiles
-	
+
 	return json.MarshalIndent(data, "", "  ")
 }
 
@@ -825,17 +825,17 @@ func (mgr *SandboxLimitsManager) saveCustomProfiles() {
 	if mgr.config.ConfigPath == "" {
 		return
 	}
-	
+
 	profiles := make([]SandboxLimits, 0, len(mgr.customProfiles))
 	for _, p := range mgr.customProfiles {
 		profiles = append(profiles, *p)
 	}
-	
+
 	data, err := json.MarshalIndent(profiles, "", "  ")
 	if err != nil {
 		return
 	}
-	
+
 	os.MkdirAll(mgr.config.ConfigPath, 0755)
 	os.WriteFile(filepath.Join(mgr.config.ConfigPath, "sandbox_profiles.json"), data, 0644)
 }
@@ -844,7 +844,7 @@ func (mgr *SandboxLimitsManager) saveCustomProfiles() {
 func (mgr *SandboxLimitsManager) Reset() {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.containerLimits = make(map[string]*SandboxLimits)
 	mgr.usageHistory = make(map[string][]ContainerUsage)
 	mgr.violations = make([]ContainerViolation, 0)
@@ -863,46 +863,46 @@ func ValidateSandboxLimits(limits *SandboxLimits) error {
 	if limits == nil {
 		return fmt.Errorf("limits cannot be nil")
 	}
-	
+
 	// Validate CPU shares (1-1024)
 	if limits.CPUShares < 0 || limits.CPUShares > 1024 {
 		return fmt.Errorf("cpu_shares must be between 0 and 1024")
 	}
-	
+
 	// Validate CPU percent (0-100)
 	if limits.CPUPercent < 0 || limits.CPUPercent > 100 {
 		return fmt.Errorf("cpu_percent must be between 0 and 100")
 	}
-	
+
 	// Validate CPUs > 0
 	if limits.CPUs < 0 {
 		return fmt.Errorf("cpus cannot be negative")
 	}
-	
+
 	// Validate memory
 	if limits.MemoryMB < 0 {
 		return fmt.Errorf("memory_mb cannot be negative")
 	}
-	
+
 	// Memory swap must be >= memory
 	if limits.MemorySwapMB > 0 && limits.MemorySwapMB < limits.MemoryMB {
 		return fmt.Errorf("memory_swap_mb must be >= memory_mb")
 	}
-	
+
 	// Validate swappiness (0-100)
 	if limits.MemorySwapiness < 0 || limits.MemorySwapiness > 100 {
 		return fmt.Errorf("memory_swappiness must be between 0 and 100")
 	}
-	
+
 	// Validate PIDs limit
 	if limits.PidsLimit < 0 {
 		return fmt.Errorf("pids_limit cannot be negative")
 	}
-	
+
 	// Validate block I/O weight (10-1000)
 	if limits.BlkioWeight > 0 && (limits.BlkioWeight < 10 || limits.BlkioWeight > 1000) {
 		return fmt.Errorf("blkio_weight must be between 10 and 1000")
 	}
-	
+
 	return nil
 }

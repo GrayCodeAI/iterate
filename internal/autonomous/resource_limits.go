@@ -14,29 +14,29 @@ import (
 // ResourceLimits defines constraints for autonomous operations.
 type ResourceLimits struct {
 	// Time constraints
-	MaxDuration      time.Duration // Maximum total operation time
-	MaxTurnDuration  time.Duration // Maximum time per turn/step
-	MaxIdleTime      time.Duration // Maximum idle time before timeout
-	
+	MaxDuration     time.Duration // Maximum total operation time
+	MaxTurnDuration time.Duration // Maximum time per turn/step
+	MaxIdleTime     time.Duration // Maximum idle time before timeout
+
 	// Operation counts
-	MaxTurns         int           // Maximum number of turns/steps
-	MaxRetries       int           // Maximum retries per operation
-	MaxFileReads     int           // Maximum file reads
-	MaxFileWrites    int           // Maximum file writes
-	MaxCommands      int           // Maximum shell commands
-	MaxAPICalls      int           // Maximum API calls
-	
+	MaxTurns      int // Maximum number of turns/steps
+	MaxRetries    int // Maximum retries per operation
+	MaxFileReads  int // Maximum file reads
+	MaxFileWrites int // Maximum file writes
+	MaxCommands   int // Maximum shell commands
+	MaxAPICalls   int // Maximum API calls
+
 	// Memory constraints
-	MaxMemoryMB      int64         // Maximum memory usage in MB
-	WarnMemoryMB     int64         // Warning threshold for memory
-	
+	MaxMemoryMB  int64 // Maximum memory usage in MB
+	WarnMemoryMB int64 // Warning threshold for memory
+
 	// Token/Cost constraints
-	MaxTokens        int64         // Maximum tokens (input + output)
-	MaxCost          float64       // Maximum cost in dollars
-	
+	MaxTokens int64   // Maximum tokens (input + output)
+	MaxCost   float64 // Maximum cost in dollars
+
 	// Concurrency constraints
-	MaxConcurrentOps int           // Maximum concurrent operations
-	MaxGoroutines    int           // Maximum goroutines
+	MaxConcurrentOps int // Maximum concurrent operations
+	MaxGoroutines    int // Maximum goroutines
 }
 
 // DefaultResourceLimits returns sensible default limits.
@@ -108,37 +108,40 @@ type LimitEnforcer struct {
 	limits       ResourceLimits
 	startTime    time.Time
 	lastActivity atomic.Int64
-	
+
 	// Counters (atomic for thread-safety)
-	turns        atomic.Int64
-	retries      atomic.Int64
-	fileReads    atomic.Int64
-	fileWrites   atomic.Int64
-	commands     atomic.Int64
-	apiCalls     atomic.Int64
-	tokens       atomic.Int64
-	
+	turns      atomic.Int64
+	retries    atomic.Int64
+	fileReads  atomic.Int64
+	fileWrites atomic.Int64
+	commands   atomic.Int64
+	apiCalls   atomic.Int64
+	tokens     atomic.Int64
+
 	// Cost tracking
-	totalCost    atomic.Pointer[float64]
-	
+	totalCost atomic.Pointer[float64]
+
 	// State
-	violated     atomic.Bool
-	violation    atomic.Pointer[LimitViolation]
-	
+	violated  atomic.Bool
+	violation atomic.Pointer[LimitViolation]
+
 	// Callbacks
-	onViolation  func(*LimitViolation)
-	onWarning    func(string)
-	logger       interface{ Info(msg string, args ...any); Warn(msg string, args ...any) }
+	onViolation func(*LimitViolation)
+	onWarning   func(string)
+	logger      interface {
+		Info(msg string, args ...any)
+		Warn(msg string, args ...any)
+	}
 }
 
 // LimitViolation represents a limit breach.
 type LimitViolation struct {
-	Type        string        // "timeout", "turns", "memory", "tokens", "cost", etc.
-	Limit       interface{}   // The limit that was exceeded
-	Actual      interface{}   // The actual value
-	Message     string        // Human-readable message
-	Timestamp   time.Time     // When it occurred
-	Recoverable bool          // Whether operation can continue
+	Type        string      // "timeout", "turns", "memory", "tokens", "cost", etc.
+	Limit       interface{} // The limit that was exceeded
+	Actual      interface{} // The actual value
+	Message     string      // Human-readable message
+	Timestamp   time.Time   // When it occurred
+	Recoverable bool        // Whether operation can continue
 }
 
 // ResourceUsage represents current resource consumption.
@@ -163,19 +166,22 @@ func NewLimitEnforcer(limits ResourceLimits) *LimitEnforcer {
 		limits:    limits,
 		startTime: time.Now(),
 	}
-	
+
 	// Initialize cost pointer
 	cost := 0.0
 	le.totalCost.Store(&cost)
-	
+
 	// Initialize activity time
 	le.lastActivity.Store(time.Now().UnixNano())
-	
+
 	return le
 }
 
 // SetLogger sets the logger for the enforcer.
-func (le *LimitEnforcer) SetLogger(logger interface{ Info(msg string, args ...any); Warn(msg string, args ...any) }) {
+func (le *LimitEnforcer) SetLogger(logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+}) {
 	le.mu.Lock()
 	le.logger = logger
 	le.mu.Unlock()
@@ -221,7 +227,7 @@ func (le *LimitEnforcer) CheckTurnLimit() *LimitViolation {
 	if le.limits.MaxTurns <= 0 {
 		return nil
 	}
-	
+
 	turns := le.turns.Load()
 	if turns >= int64(le.limits.MaxTurns) {
 		violation := &LimitViolation{
@@ -242,7 +248,7 @@ func (le *LimitEnforcer) CheckTurnLimit() *LimitViolation {
 func (le *LimitEnforcer) IncrementTurn() *LimitViolation {
 	le.UpdateActivity()
 	turns := le.turns.Add(1)
-	
+
 	if le.limits.MaxTurns > 0 && turns > int64(le.limits.MaxTurns) {
 		violation := &LimitViolation{
 			Type:        "turns",
@@ -262,7 +268,7 @@ func (le *LimitEnforcer) IncrementTurn() *LimitViolation {
 func (le *LimitEnforcer) IncrementRetry() *LimitViolation {
 	le.UpdateActivity()
 	retries := le.retries.Add(1)
-	
+
 	if le.limits.MaxRetries > 0 && retries > int64(le.limits.MaxRetries) {
 		violation := &LimitViolation{
 			Type:        "retries",
@@ -282,7 +288,7 @@ func (le *LimitEnforcer) IncrementRetry() *LimitViolation {
 func (le *LimitEnforcer) IncrementFileRead() *LimitViolation {
 	le.UpdateActivity()
 	reads := le.fileReads.Add(1)
-	
+
 	if le.limits.MaxFileReads > 0 && reads > int64(le.limits.MaxFileReads) {
 		violation := &LimitViolation{
 			Type:        "file_reads",
@@ -302,7 +308,7 @@ func (le *LimitEnforcer) IncrementFileRead() *LimitViolation {
 func (le *LimitEnforcer) IncrementFileWrite() *LimitViolation {
 	le.UpdateActivity()
 	writes := le.fileWrites.Add(1)
-	
+
 	if le.limits.MaxFileWrites > 0 && writes > int64(le.limits.MaxFileWrites) {
 		violation := &LimitViolation{
 			Type:        "file_writes",
@@ -322,7 +328,7 @@ func (le *LimitEnforcer) IncrementFileWrite() *LimitViolation {
 func (le *LimitEnforcer) IncrementCommand() *LimitViolation {
 	le.UpdateActivity()
 	cmds := le.commands.Add(1)
-	
+
 	if le.limits.MaxCommands > 0 && cmds > int64(le.limits.MaxCommands) {
 		violation := &LimitViolation{
 			Type:        "commands",
@@ -342,7 +348,7 @@ func (le *LimitEnforcer) IncrementCommand() *LimitViolation {
 func (le *LimitEnforcer) IncrementAPICall() *LimitViolation {
 	le.UpdateActivity()
 	calls := le.apiCalls.Add(1)
-	
+
 	if le.limits.MaxAPICalls > 0 && calls > int64(le.limits.MaxAPICalls) {
 		violation := &LimitViolation{
 			Type:        "api_calls",
@@ -362,7 +368,7 @@ func (le *LimitEnforcer) IncrementAPICall() *LimitViolation {
 func (le *LimitEnforcer) AddTokens(count int64) *LimitViolation {
 	le.UpdateActivity()
 	total := le.tokens.Add(count)
-	
+
 	if le.limits.MaxTokens > 0 && total > le.limits.MaxTokens {
 		violation := &LimitViolation{
 			Type:        "tokens",
@@ -381,13 +387,13 @@ func (le *LimitEnforcer) AddTokens(count int64) *LimitViolation {
 // AddCost adds to the total cost.
 func (le *LimitEnforcer) AddCost(cost float64) *LimitViolation {
 	le.UpdateActivity()
-	
+
 	// Thread-safe cost update
 	for {
 		oldPtr := le.totalCost.Load()
 		oldCost := *oldPtr
 		newCost := oldCost + cost
-		
+
 		if le.limits.MaxCost > 0 && newCost > le.limits.MaxCost {
 			violation := &LimitViolation{
 				Type:        "cost",
@@ -400,7 +406,7 @@ func (le *LimitEnforcer) AddCost(cost float64) *LimitViolation {
 			le.recordViolation(violation)
 			return violation
 		}
-		
+
 		newPtr := &newCost
 		if le.totalCost.CompareAndSwap(oldPtr, newPtr) {
 			break
@@ -414,11 +420,11 @@ func (le *LimitEnforcer) CheckMemory() *LimitViolation {
 	if le.limits.MaxMemoryMB <= 0 {
 		return nil
 	}
-	
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	memoryMB := int64(m.Alloc / 1024 / 1024)
-	
+
 	// Check warning threshold
 	if le.limits.WarnMemoryMB > 0 && memoryMB >= le.limits.WarnMemoryMB {
 		msg := fmt.Sprintf("Memory usage warning: %dMB >= %dMB", memoryMB, le.limits.WarnMemoryMB)
@@ -429,7 +435,7 @@ func (le *LimitEnforcer) CheckMemory() *LimitViolation {
 			le.logger.Warn(msg)
 		}
 	}
-	
+
 	// Check hard limit
 	if memoryMB > le.limits.MaxMemoryMB {
 		violation := &LimitViolation{
@@ -451,10 +457,10 @@ func (le *LimitEnforcer) CheckIdle() *LimitViolation {
 	if le.limits.MaxIdleTime <= 0 {
 		return nil
 	}
-	
+
 	lastActivity := time.Unix(0, le.lastActivity.Load())
 	idleTime := time.Since(lastActivity)
-	
+
 	if idleTime > le.limits.MaxIdleTime {
 		violation := &LimitViolation{
 			Type:        "idle",
@@ -475,7 +481,7 @@ func (le *LimitEnforcer) CheckDuration() *LimitViolation {
 	if le.limits.MaxDuration <= 0 {
 		return nil
 	}
-	
+
 	duration := time.Since(le.startTime)
 	if duration > le.limits.MaxDuration {
 		violation := &LimitViolation{
@@ -495,7 +501,7 @@ func (le *LimitEnforcer) CheckDuration() *LimitViolation {
 // CheckAll performs all limit checks.
 func (le *LimitEnforcer) CheckAll() []*LimitViolation {
 	var violations []*LimitViolation
-	
+
 	if v := le.CheckTurnLimit(); v != nil {
 		violations = append(violations, v)
 	}
@@ -508,7 +514,7 @@ func (le *LimitEnforcer) CheckAll() []*LimitViolation {
 	if v := le.CheckDuration(); v != nil {
 		violations = append(violations, v)
 	}
-	
+
 	return violations
 }
 
@@ -526,34 +532,34 @@ func (le *LimitEnforcer) GetViolation() *LimitViolation {
 func (le *LimitEnforcer) GetUsage() ResourceUsage {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	costPtr := le.totalCost.Load()
 	cost := 0.0
 	if costPtr != nil {
 		cost = *costPtr
 	}
-	
+
 	return ResourceUsage{
-		Duration:    time.Since(le.startTime),
-		Turns:       le.turns.Load(),
-		Retries:     le.retries.Load(),
-		FileReads:   le.fileReads.Load(),
-		FileWrites:  le.fileWrites.Load(),
-		Commands:    le.commands.Load(),
-		APICalls:    le.apiCalls.Load(),
-		Tokens:      le.tokens.Load(),
-		MemoryMB:    int64(m.Alloc / 1024 / 1024),
-		Cost:        cost,
-		Goroutines:  runtime.NumGoroutine(),
+		Duration:   time.Since(le.startTime),
+		Turns:      le.turns.Load(),
+		Retries:    le.retries.Load(),
+		FileReads:  le.fileReads.Load(),
+		FileWrites: le.fileWrites.Load(),
+		Commands:   le.commands.Load(),
+		APICalls:   le.apiCalls.Load(),
+		Tokens:     le.tokens.Load(),
+		MemoryMB:   int64(m.Alloc / 1024 / 1024),
+		Cost:       cost,
+		Goroutines: runtime.NumGoroutine(),
 	}
 }
 
 // GetRemaining returns remaining resources.
 func (le *LimitEnforcer) GetRemaining() ResourceLimits {
 	usage := le.GetUsage()
-	
+
 	remaining := ResourceLimits{}
-	
+
 	if le.limits.MaxTurns > 0 {
 		remaining.MaxTurns = le.limits.MaxTurns - int(usage.Turns)
 	}
@@ -584,7 +590,7 @@ func (le *LimitEnforcer) GetRemaining() ResourceLimits {
 	if le.limits.MaxDuration > 0 {
 		remaining.MaxDuration = le.limits.MaxDuration - usage.Duration
 	}
-	
+
 	return remaining
 }
 
@@ -592,11 +598,11 @@ func (le *LimitEnforcer) GetRemaining() ResourceLimits {
 func (le *LimitEnforcer) recordViolation(violation *LimitViolation) {
 	le.violated.Store(true)
 	le.violation.Store(violation)
-	
+
 	if le.onViolation != nil {
 		le.onViolation(violation)
 	}
-	
+
 	if le.logger != nil {
 		le.logger.Warn("Limit violation",
 			"type", violation.Type,
@@ -616,13 +622,13 @@ func (le *LimitEnforcer) Reset() {
 	le.commands.Store(0)
 	le.apiCalls.Store(0)
 	le.tokens.Store(0)
-	
+
 	cost := 0.0
 	le.totalCost.Store(&cost)
-	
+
 	le.violated.Store(false)
 	le.violation.Store(nil)
-	
+
 	le.startTime = time.Now()
 	le.lastActivity.Store(time.Now().UnixNano())
 }
@@ -646,7 +652,7 @@ func (le *LimitEnforcer) CanPerform(opType string) bool {
 	le.mu.RLock()
 	limits := le.limits
 	le.mu.RUnlock()
-	
+
 	switch opType {
 	case "turn":
 		return limits.MaxTurns <= 0 || le.turns.Load() < int64(limits.MaxTurns)
@@ -667,9 +673,9 @@ func (le *LimitEnforcer) CanPerform(opType string) bool {
 func (le *LimitEnforcer) PercentUsed() map[string]float64 {
 	usage := le.GetUsage()
 	limits := le.GetLimits()
-	
+
 	percent := make(map[string]float64)
-	
+
 	if limits.MaxTurns > 0 {
 		percent["turns"] = float64(usage.Turns) / float64(limits.MaxTurns) * 100
 	}
@@ -697,7 +703,7 @@ func (le *LimitEnforcer) PercentUsed() map[string]float64 {
 	if limits.MaxDuration > 0 {
 		percent["duration"] = float64(usage.Duration) / float64(limits.MaxDuration) * 100
 	}
-	
+
 	return percent
 }
 
@@ -706,24 +712,24 @@ func (le *LimitEnforcer) Summary() string {
 	usage := le.GetUsage()
 	limits := le.GetLimits()
 	percent := le.PercentUsed()
-	
+
 	var sb strings.Builder
 	sb.WriteString("Resource Usage Summary:\n")
-	sb.WriteString(fmt.Sprintf("  Duration: %v / %v (%.1f%%)\n", 
+	sb.WriteString(fmt.Sprintf("  Duration: %v / %v (%.1f%%)\n",
 		usage.Duration.Round(time.Second), limits.MaxDuration, percent["duration"]))
-	sb.WriteString(fmt.Sprintf("  Turns: %d / %d (%.1f%%)\n", 
+	sb.WriteString(fmt.Sprintf("  Turns: %d / %d (%.1f%%)\n",
 		usage.Turns, limits.MaxTurns, percent["turns"]))
-	sb.WriteString(fmt.Sprintf("  Tokens: %d / %d (%.1f%%)\n", 
+	sb.WriteString(fmt.Sprintf("  Tokens: %d / %d (%.1f%%)\n",
 		usage.Tokens, limits.MaxTokens, percent["tokens"]))
-	sb.WriteString(fmt.Sprintf("  Cost: $%.2f / $%.2f (%.1f%%)\n", 
+	sb.WriteString(fmt.Sprintf("  Cost: $%.2f / $%.2f (%.1f%%)\n",
 		usage.Cost, limits.MaxCost, percent["cost"]))
-	sb.WriteString(fmt.Sprintf("  Memory: %dMB / %dMB (%.1f%%)\n", 
+	sb.WriteString(fmt.Sprintf("  Memory: %dMB / %dMB (%.1f%%)\n",
 		usage.MemoryMB, limits.MaxMemoryMB, percent["memory"]))
 	sb.WriteString(fmt.Sprintf("  File Reads: %d / %d\n", usage.FileReads, limits.MaxFileReads))
 	sb.WriteString(fmt.Sprintf("  File Writes: %d / %d\n", usage.FileWrites, limits.MaxFileWrites))
 	sb.WriteString(fmt.Sprintf("  Commands: %d / %d\n", usage.Commands, limits.MaxCommands))
 	sb.WriteString(fmt.Sprintf("  API Calls: %d / %d\n", usage.APICalls, limits.MaxAPICalls))
 	sb.WriteString(fmt.Sprintf("  Goroutines: %d\n", usage.Goroutines))
-	
+
 	return sb.String()
 }

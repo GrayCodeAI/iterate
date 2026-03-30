@@ -11,11 +11,11 @@ import (
 // ConfidenceScore represents the agent's confidence in a decision or action.
 // Range: 0.0 (no confidence) to 1.0 (absolute confidence)
 type ConfidenceScore struct {
-	Overall     float64            `json:"overall"`
-	Components  map[string]float64 `json:"components"`
-	Reasoning   string             `json:"reasoning"`
-	ShouldAsk   bool               `json:"should_ask_human"`
-	RiskLevel   RiskLevel          `json:"risk_level"`
+	Overall    float64            `json:"overall"`
+	Components map[string]float64 `json:"components"`
+	Reasoning  string             `json:"reasoning"`
+	ShouldAsk  bool               `json:"should_ask_human"`
+	RiskLevel  RiskLevel          `json:"risk_level"`
 }
 
 // RiskLevel represents the assessed risk of an action.
@@ -30,9 +30,9 @@ const (
 
 // ConfidenceThresholds defines when to ask for human input.
 type ConfidenceThresholds struct {
-	AutoProceed     float64 // Confidence above this = proceed automatically
-	AskHuman        float64 // Confidence below this = ask human
-	RefuseAction    float64 // Confidence below this = refuse action
+	AutoProceed  float64 // Confidence above this = proceed automatically
+	AskHuman     float64 // Confidence below this = ask human
+	RefuseAction float64 // Confidence below this = refuse action
 }
 
 // DefaultConfidenceThresholds returns sensible defaults.
@@ -46,19 +46,19 @@ func DefaultConfidenceThresholds() ConfidenceThresholds {
 
 // ConfidenceEngine calculates and manages confidence scores.
 type ConfidenceEngine struct {
-	mu          sync.RWMutex
-	thresholds  ConfidenceThresholds
-	history     []ConfidenceRecord
-	learnings   map[string]float64 // pattern -> confidence adjustment
-	maxHistory  int
+	mu         sync.RWMutex
+	thresholds ConfidenceThresholds
+	history    []ConfidenceRecord
+	learnings  map[string]float64 // pattern -> confidence adjustment
+	maxHistory int
 }
 
 // ConfidenceRecord tracks past confidence decisions for learning.
 type ConfidenceRecord struct {
-	Action      string
-	Confidence  float64
-	Outcome     string // "success", "failure", "partial"
-	Timestamp   int64
+	Action     string
+	Confidence float64
+	Outcome    string // "success", "failure", "partial"
+	Timestamp  int64
 }
 
 // NewConfidenceEngine creates a new confidence engine.
@@ -119,32 +119,32 @@ func (ce *ConfidenceEngine) CalculateConfidence(action PlanStep, context ActionC
 
 // ActionContext provides context for confidence assessment.
 type ActionContext struct {
-	FileExists        bool
-	HasTests          bool
-	IsGitRepo         bool
+	FileExists            bool
+	HasTests              bool
+	IsGitRepo             bool
 	HasUncommittedChanges bool
-	DependencyCount   int
-	RecentFailures    int
-	RecentSuccesses   int
-	TokensUsed        int
-	MaxTokens         int
-	PreviousActions   []string
-	TargetFiles       []string
+	DependencyCount       int
+	RecentFailures        int
+	RecentSuccesses       int
+	TokensUsed            int
+	MaxTokens             int
+	PreviousActions       []string
+	TargetFiles           []string
 }
 
 // assessActionFamiliarity evaluates how familiar the agent is with this action type.
 func (ce *ConfidenceEngine) assessActionFamiliarity(actionType string) float64 {
 	familiarActions := map[string]float64{
-		"read":         0.95,
-		"write":        0.85,
-		"edit":         0.80,
-		"test":         0.85,
-		"build":        0.80,
-		"git":          0.75,
-		"run_command":  0.70,
-		"create_file":  0.85,
-		"delete_file":  0.60,
-		"refactor":     0.65,
+		"read":        0.95,
+		"write":       0.85,
+		"edit":        0.80,
+		"test":        0.85,
+		"build":       0.80,
+		"git":         0.75,
+		"run_command": 0.70,
+		"create_file": 0.85,
+		"delete_file": 0.60,
+		"refactor":    0.65,
 	}
 
 	if score, ok := familiarActions[strings.ToLower(actionType)]; ok {
@@ -303,7 +303,7 @@ func (ce *ConfidenceEngine) assessDependencyConfidence(ctx ActionContext) float6
 
 	// More dependencies = lower confidence
 	baseConfidence := 1.0 - (float64(ctx.DependencyCount) * 0.05)
-	
+
 	// Recent successes boost confidence
 	if ctx.RecentSuccesses > 0 {
 		baseConfidence += float64(ctx.RecentSuccesses) * 0.03
@@ -422,7 +422,7 @@ func (ce *ConfidenceEngine) updateLearnings(record ConfidenceRecord) {
 	}
 
 	key := "action:" + actionType
-	
+
 	adjustment := 0.0
 	switch record.Outcome {
 	case "success":
@@ -453,7 +453,7 @@ func (ce *ConfidenceEngine) ShouldProceed(score ConfidenceScore) Decision {
 	if score.ShouldAsk {
 		return DecisionAskHuman
 	}
-	
+
 	switch {
 	case score.Overall >= ce.thresholds.AutoProceed:
 		return DecisionProceed
@@ -506,18 +506,18 @@ func (ce *ConfidenceEngine) GetConfidenceStats() ConfidenceStats {
 
 // ConfidenceStats contains statistics about the confidence engine.
 type ConfidenceStats struct {
-	TotalDecisions     int
-	AverageConfidence  float64
-	SuccessRate        float64
-	LearningCount      int
-	LearningsActive    bool
+	TotalDecisions    int
+	AverageConfidence float64
+	SuccessRate       float64
+	LearningCount     int
+	LearningsActive   bool
 }
 
 // SetThresholds allows customizing confidence thresholds.
 func (ce *ConfidenceEngine) SetThresholds(thresholds ConfidenceThresholds) {
 	ce.mu.Lock()
 	defer ce.mu.Unlock()
-	
+
 	ce.thresholds = thresholds
 }
 
@@ -525,7 +525,7 @@ func (ce *ConfidenceEngine) SetThresholds(thresholds ConfidenceThresholds) {
 func (ce *ConfidenceEngine) GetThresholds() ConfidenceThresholds {
 	ce.mu.RLock()
 	defer ce.mu.RUnlock()
-	
+
 	return ce.thresholds
 }
 

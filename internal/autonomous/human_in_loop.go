@@ -12,14 +12,14 @@ import (
 type DecisionType string
 
 const (
-	DecisionTypeAmbiguous      DecisionType = "ambiguous"       // Multiple valid options
-	DecisionTypeDestructive    DecisionType = "destructive"      // Potentially harmful operation
-	DecisionTypeUncertain      DecisionType = "uncertain"        // Low confidence score
-	DecisionTypeConflict       DecisionType = "conflict"         // Conflicting information
-	DecisionTypeSecurity       DecisionType = "security"         // Security-sensitive operation
-	DecisionTypeCost           DecisionType = "cost"             // High cost operation
-	DecisionTypeExternal       DecisionType = "external"         // External service interaction
-	DecisionTypeApproval       DecisionType = "approval"         // Needs explicit approval
+	DecisionTypeAmbiguous   DecisionType = "ambiguous"   // Multiple valid options
+	DecisionTypeDestructive DecisionType = "destructive" // Potentially harmful operation
+	DecisionTypeUncertain   DecisionType = "uncertain"   // Low confidence score
+	DecisionTypeConflict    DecisionType = "conflict"    // Conflicting information
+	DecisionTypeSecurity    DecisionType = "security"    // Security-sensitive operation
+	DecisionTypeCost        DecisionType = "cost"        // High cost operation
+	DecisionTypeExternal    DecisionType = "external"    // External service interaction
+	DecisionTypeApproval    DecisionType = "approval"    // Needs explicit approval
 )
 
 // UrgencyLevel represents how quickly a decision is needed
@@ -34,82 +34,82 @@ const (
 
 // DecisionOption represents a possible choice for the human
 type DecisionOption struct {
-	ID          string            `json:"id"`
-	Label       string            `json:"label"`
-	Description string            `json:"description"`
-	Risk        string            `json:"risk"`         // Risk level: low/medium/high
-	Recommended bool              `json:"recommended"`  // Is this the agent's recommendation?
-	Confidence  float64           `json:"confidence"`   // Agent confidence in this option
-	Metadata    map[string]any    `json:"metadata,omitempty"`
+	ID          string         `json:"id"`
+	Label       string         `json:"label"`
+	Description string         `json:"description"`
+	Risk        string         `json:"risk"`        // Risk level: low/medium/high
+	Recommended bool           `json:"recommended"` // Is this the agent's recommendation?
+	Confidence  float64        `json:"confidence"`  // Agent confidence in this option
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 // DecisionRequest represents a request for human input
 type DecisionRequest struct {
-	ID            string            `json:"id"`
-	Type          DecisionType      `json:"type"`
-	Urgency       UrgencyLevel      `json:"urgency"`
-	Title         string            `json:"title"`
-	Description   string            `json:"description"`
-	Context       string            `json:"context"`        // Additional context
-	Options       []DecisionOption  `json:"options"`
-	Confidence    float64           `json:"confidence"`     // Agent's overall confidence
-	CreatedAt     time.Time         `json:"created_at"`
-	ExpiresAt     *time.Time        `json:"expires_at,omitempty"`
-	SourceStep    string            `json:"source_step"`    // Which step triggered this
-	Metadata      map[string]any    `json:"metadata,omitempty"`
+	ID          string           `json:"id"`
+	Type        DecisionType     `json:"type"`
+	Urgency     UrgencyLevel     `json:"urgency"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	Context     string           `json:"context"` // Additional context
+	Options     []DecisionOption `json:"options"`
+	Confidence  float64          `json:"confidence"` // Agent's overall confidence
+	CreatedAt   time.Time        `json:"created_at"`
+	ExpiresAt   *time.Time       `json:"expires_at,omitempty"`
+	SourceStep  string           `json:"source_step"` // Which step triggered this
+	Metadata    map[string]any   `json:"metadata,omitempty"`
 }
 
 // DecisionResponse represents a human's decision
 type DecisionResponse struct {
-	RequestID    string         `json:"request_id"`
-	SelectedID   string         `json:"selected_id"`    // Which option was chosen
-	CustomInput  string         `json:"custom_input,omitempty"` // Free-form input if allowed
-	Reasoning    string         `json:"reasoning,omitempty"`   // Why this choice
-	RespondedAt  time.Time      `json:"responded_at"`
-	RespondedBy  string         `json:"responded_by"`   // User identifier
+	RequestID   string    `json:"request_id"`
+	SelectedID  string    `json:"selected_id"`            // Which option was chosen
+	CustomInput string    `json:"custom_input,omitempty"` // Free-form input if allowed
+	Reasoning   string    `json:"reasoning,omitempty"`    // Why this choice
+	RespondedAt time.Time `json:"responded_at"`
+	RespondedBy string    `json:"responded_by"` // User identifier
 }
 
 // TriggerCondition defines when a human-in-loop trigger should fire
 type TriggerCondition struct {
-	Type           DecisionType   `json:"type"`
-	MinConfidence  float64        `json:"min_confidence"`  // Fire if confidence below this
-	MaxConfidence  float64        `json:"max_confidence"`  // Or if confidence above this (for risky ops)
-	Patterns       []string       `json:"patterns,omitempty"` // Regex patterns to match
-	Keywords       []string       `json:"keywords,omitempty"` // Keywords to trigger on
-	CostThreshold  float64        `json:"cost_threshold,omitempty"` // Cost in dollars
-	CustomCheck    string         `json:"custom_check,omitempty"` // Named custom check function
+	Type          DecisionType `json:"type"`
+	MinConfidence float64      `json:"min_confidence"`           // Fire if confidence below this
+	MaxConfidence float64      `json:"max_confidence"`           // Or if confidence above this (for risky ops)
+	Patterns      []string     `json:"patterns,omitempty"`       // Regex patterns to match
+	Keywords      []string     `json:"keywords,omitempty"`       // Keywords to trigger on
+	CostThreshold float64      `json:"cost_threshold,omitempty"` // Cost in dollars
+	CustomCheck   string       `json:"custom_check,omitempty"`   // Named custom check function
 }
 
 // TriggerAction defines what happens when a trigger fires
 type TriggerAction struct {
-	AutoEscalate   bool           `json:"auto_escalate"`   // Automatically escalate urgency
-	Timeout        time.Duration  `json:"timeout"`         // Time before auto-decision
-	AutoDecision   string         `json:"auto_decision"`   // Default choice on timeout
-	NotifyChannels []string       `json:"notify_channels"` // Where to notify (slack, email, etc.)
-	BlockExecution bool           `json:"block_execution"` // Block until response
+	AutoEscalate   bool          `json:"auto_escalate"`   // Automatically escalate urgency
+	Timeout        time.Duration `json:"timeout"`         // Time before auto-decision
+	AutoDecision   string        `json:"auto_decision"`   // Default choice on timeout
+	NotifyChannels []string      `json:"notify_channels"` // Where to notify (slack, email, etc.)
+	BlockExecution bool          `json:"block_execution"` // Block until response
 }
 
 // HumanInLoopTrigger represents a configured trigger
 type HumanInLoopTrigger struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Enabled     bool              `json:"enabled"`
-	Condition   TriggerCondition  `json:"condition"`
-	Action      TriggerAction     `json:"action"`
-	Priority    int               `json:"priority"`    // Higher = checked first
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID        string           `json:"id"`
+	Name      string           `json:"name"`
+	Enabled   bool             `json:"enabled"`
+	Condition TriggerCondition `json:"condition"`
+	Action    TriggerAction    `json:"action"`
+	Priority  int              `json:"priority"` // Higher = checked first
+	CreatedAt time.Time        `json:"created_at"`
+	UpdatedAt time.Time        `json:"updated_at"`
 }
 
 // HumanInLoopConfig holds configuration for the human-in-loop system
 type HumanInLoopConfig struct {
-	Enabled             bool              `json:"enabled"`
-	DefaultTimeout      time.Duration     `json:"default_timeout"`
-	MaxPendingRequests  int               `json:"max_pending_requests"`
-	AutoApproveLowRisk  bool              `json:"auto_approve_low_risk"`
-	LowRiskThreshold    float64           `json:"low_risk_threshold"`
-	NotifyOnRequest     bool              `json:"notify_on_request"`
-	NotificationChannels []string         `json:"notification_channels"`
+	Enabled              bool          `json:"enabled"`
+	DefaultTimeout       time.Duration `json:"default_timeout"`
+	MaxPendingRequests   int           `json:"max_pending_requests"`
+	AutoApproveLowRisk   bool          `json:"auto_approve_low_risk"`
+	LowRiskThreshold     float64       `json:"low_risk_threshold"`
+	NotifyOnRequest      bool          `json:"notify_on_request"`
+	NotificationChannels []string      `json:"notification_channels"`
 }
 
 // DefaultHumanInLoopConfig returns default configuration
@@ -145,10 +145,10 @@ func NewHumanInLoopManager(config HumanInLoopConfig) *HumanInLoopManager {
 		responseChan:    make(chan *DecisionResponse, 100),
 		history:         make([]*DecisionResponse, 0),
 	}
-	
+
 	// Add default triggers
 	m.addDefaultTriggers()
-	
+
 	return m
 }
 
@@ -156,10 +156,10 @@ func NewHumanInLoopManager(config HumanInLoopConfig) *HumanInLoopManager {
 func (m *HumanInLoopManager) addDefaultTriggers() {
 	// Low confidence trigger
 	m.AddTrigger(&HumanInLoopTrigger{
-		ID:        "low-confidence",
-		Name:      "Low Confidence Decision",
-		Enabled:   true,
-		Priority:  100,
+		ID:       "low-confidence",
+		Name:     "Low Confidence Decision",
+		Enabled:  true,
+		Priority: 100,
 		Condition: TriggerCondition{
 			Type:          DecisionTypeUncertain,
 			MinConfidence: 0.0,
@@ -170,13 +170,13 @@ func (m *HumanInLoopManager) addDefaultTriggers() {
 			Timeout:        m.config.DefaultTimeout,
 		},
 	})
-	
+
 	// Destructive operation trigger
 	m.AddTrigger(&HumanInLoopTrigger{
-		ID:        "destructive-op",
-		Name:      "Destructive Operation Approval",
-		Enabled:   true,
-		Priority:  90,
+		ID:       "destructive-op",
+		Name:     "Destructive Operation Approval",
+		Enabled:  true,
+		Priority: 90,
 		Condition: TriggerCondition{
 			Type: DecisionTypeDestructive,
 		},
@@ -185,13 +185,13 @@ func (m *HumanInLoopManager) addDefaultTriggers() {
 			Timeout:        m.config.DefaultTimeout,
 		},
 	})
-	
+
 	// Security-sensitive trigger
 	m.AddTrigger(&HumanInLoopTrigger{
-		ID:        "security-sensitive",
-		Name:      "Security Sensitive Operation",
-		Enabled:   true,
-		Priority:  95,
+		ID:       "security-sensitive",
+		Name:     "Security Sensitive Operation",
+		Enabled:  true,
+		Priority: 95,
 		Condition: TriggerCondition{
 			Type: DecisionTypeSecurity,
 		},
@@ -200,13 +200,13 @@ func (m *HumanInLoopManager) addDefaultTriggers() {
 			Timeout:        m.config.DefaultTimeout,
 		},
 	})
-	
+
 	// High cost trigger
 	m.AddTrigger(&HumanInLoopTrigger{
-		ID:        "high-cost",
-		Name:      "High Cost Operation",
-		Enabled:   true,
-		Priority:  80,
+		ID:       "high-cost",
+		Name:     "High Cost Operation",
+		Enabled:  true,
+		Priority: 80,
 		Condition: TriggerCondition{
 			Type:          DecisionTypeCost,
 			CostThreshold: 1.0, // $1 threshold
@@ -222,10 +222,10 @@ func (m *HumanInLoopManager) addDefaultTriggers() {
 func (m *HumanInLoopManager) AddTrigger(trigger *HumanInLoopTrigger) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	trigger.CreatedAt = time.Now()
 	trigger.UpdatedAt = time.Now()
-	
+
 	// Insert in priority order
 	inserted := false
 	for i, t := range m.triggers {
@@ -244,7 +244,7 @@ func (m *HumanInLoopManager) AddTrigger(trigger *HumanInLoopTrigger) {
 func (m *HumanInLoopManager) RemoveTrigger(id string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for i, t := range m.triggers {
 		if t.ID == id {
 			m.triggers = append(m.triggers[:i], m.triggers[i+1:]...)
@@ -265,38 +265,38 @@ func (m *HumanInLoopManager) SetConfidenceCheck(fn func(confidence float64, cont
 func (m *HumanInLoopManager) ShouldTrigger(decisionType DecisionType, confidence float64, context map[string]any) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if !m.config.Enabled {
 		return false
 	}
-	
+
 	// Check custom confidence function first
 	if m.confidenceCheck != nil {
 		if m.confidenceCheck(confidence, context) {
 			return true
 		}
 	}
-	
+
 	// Check triggers in priority order
 	for _, trigger := range m.triggers {
 		if !trigger.Enabled {
 			continue
 		}
-		
+
 		cond := trigger.Condition
-		
+
 		// Check type match
 		if cond.Type != decisionType {
 			continue
 		}
-		
+
 		// Check confidence range (0,0 means any confidence is valid)
 		if cond.MinConfidence != 0 || cond.MaxConfidence != 0 {
 			if confidence < cond.MinConfidence || confidence > cond.MaxConfidence {
 				continue
 			}
 		}
-		
+
 		// Check patterns if specified
 		if len(cond.Patterns) > 0 {
 			if desc, ok := context["description"].(string); ok {
@@ -313,7 +313,7 @@ func (m *HumanInLoopManager) ShouldTrigger(decisionType DecisionType, confidence
 				}
 			}
 		}
-		
+
 		// Check keywords if specified
 		if len(cond.Keywords) > 0 {
 			if desc, ok := context["description"].(string); ok {
@@ -329,7 +329,7 @@ func (m *HumanInLoopManager) ShouldTrigger(decisionType DecisionType, confidence
 				}
 			}
 		}
-		
+
 		// Check cost threshold
 		if cond.CostThreshold > 0 {
 			if cost, ok := context["cost"].(float64); ok {
@@ -338,28 +338,28 @@ func (m *HumanInLoopManager) ShouldTrigger(decisionType DecisionType, confidence
 				}
 			}
 		}
-		
+
 		// All conditions met
 		return true
 	}
-	
+
 	return false
 }
 
 // RequestDecision creates a new decision request and waits for response
 func (m *HumanInLoopManager) RequestDecision(ctx context.Context, request *DecisionRequest) (*DecisionResponse, error) {
 	m.mu.Lock()
-	
+
 	// Check max pending requests
 	if len(m.pendingRequests) >= m.config.MaxPendingRequests {
 		m.mu.Unlock()
 		return nil, fmt.Errorf("max pending requests (%d) reached", m.config.MaxPendingRequests)
 	}
-	
+
 	// Set request metadata
 	request.ID = generateRequestID()
 	request.CreatedAt = time.Now()
-	
+
 	// Find matching trigger to get timeout
 	var timeout time.Duration = m.config.DefaultTimeout
 	for _, trigger := range m.triggers {
@@ -370,20 +370,20 @@ func (m *HumanInLoopManager) RequestDecision(ctx context.Context, request *Decis
 			break
 		}
 	}
-	
+
 	// Set expiry
 	expiry := time.Now().Add(timeout)
 	request.ExpiresAt = &expiry
-	
+
 	// Store pending request
 	m.pendingRequests[request.ID] = request
-	
+
 	m.mu.Unlock()
-	
+
 	// Create timeout context
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	// Wait for response or timeout
 	select {
 	case response := <-m.responseChan:
@@ -396,12 +396,12 @@ func (m *HumanInLoopManager) RequestDecision(ctx context.Context, request *Decis
 			m.responseChan <- response
 		}()
 		return nil, fmt.Errorf("received response for different request")
-		
+
 	case <-timeoutCtx.Done():
 		m.mu.Lock()
 		delete(m.pendingRequests, request.ID)
 		m.mu.Unlock()
-		
+
 		// Check for auto-decision
 		for _, trigger := range m.triggers {
 			if trigger.Enabled && trigger.Condition.Type == request.Type && trigger.Action.AutoDecision != "" {
@@ -414,9 +414,9 @@ func (m *HumanInLoopManager) RequestDecision(ctx context.Context, request *Decis
 				}, nil
 			}
 		}
-		
+
 		return nil, fmt.Errorf("decision request timed out")
-		
+
 	case <-ctx.Done():
 		m.mu.Lock()
 		delete(m.pendingRequests, request.ID)
@@ -430,11 +430,11 @@ func (m *HumanInLoopManager) RespondToDecision(response *DecisionResponse) error
 	m.mu.RLock()
 	_, pending := m.pendingRequests[response.RequestID]
 	m.mu.RUnlock()
-	
+
 	if !pending {
 		return fmt.Errorf("no pending request with ID %s", response.RequestID)
 	}
-	
+
 	response.RespondedAt = time.Now()
 	m.responseChan <- response
 	return nil
@@ -444,10 +444,10 @@ func (m *HumanInLoopManager) RespondToDecision(response *DecisionResponse) error
 func (m *HumanInLoopManager) completeRequest(requestID string, response *DecisionResponse) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	delete(m.pendingRequests, requestID)
 	m.history = append(m.history, response)
-	
+
 	// Limit history size
 	if len(m.history) > 1000 {
 		m.history = m.history[len(m.history)-1000:]
@@ -458,7 +458,7 @@ func (m *HumanInLoopManager) completeRequest(requestID string, response *Decisio
 func (m *HumanInLoopManager) GetPendingRequests() []*DecisionRequest {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	requests := make([]*DecisionRequest, 0, len(m.pendingRequests))
 	for _, req := range m.pendingRequests {
 		requests = append(requests, req)
@@ -470,7 +470,7 @@ func (m *HumanInLoopManager) GetPendingRequests() []*DecisionRequest {
 func (m *HumanInLoopManager) GetHistory() []*DecisionResponse {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	result := make([]*DecisionResponse, len(m.history))
 	copy(result, m.history)
 	return result
@@ -480,7 +480,7 @@ func (m *HumanInLoopManager) GetHistory() []*DecisionResponse {
 func (m *HumanInLoopManager) GetTriggers() []*HumanInLoopTrigger {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	result := make([]*HumanInLoopTrigger, len(m.triggers))
 	copy(result, m.triggers)
 	return result
@@ -490,7 +490,7 @@ func (m *HumanInLoopManager) GetTriggers() []*HumanInLoopTrigger {
 func (m *HumanInLoopManager) EnableTrigger(id string, enabled bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for _, t := range m.triggers {
 		if t.ID == id {
 			t.Enabled = enabled
@@ -505,11 +505,11 @@ func (m *HumanInLoopManager) EnableTrigger(id string, enabled bool) bool {
 func (m *HumanInLoopManager) GetStats() map[string]any {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	totalDecisions := len(m.history)
 	byType := make(map[DecisionType]int)
 	byUser := make(map[string]int)
-	
+
 	for _, resp := range m.history {
 		// Count auto-decisions
 		if resp.RespondedBy == "auto-timeout" {
@@ -518,15 +518,15 @@ func (m *HumanInLoopManager) GetStats() map[string]any {
 			byUser[resp.RespondedBy]++
 		}
 	}
-	
+
 	return map[string]any{
-		"enabled":            m.config.Enabled,
-		"pending_requests":   len(m.pendingRequests),
-		"total_decisions":    totalDecisions,
-		"triggers_count":     len(m.triggers),
-		"triggers_enabled":   countEnabledTriggers(m.triggers),
-		"decisions_by_user":  byUser,
-		"decisions_by_type":  byType,
+		"enabled":           m.config.Enabled,
+		"pending_requests":  len(m.pendingRequests),
+		"total_decisions":   totalDecisions,
+		"triggers_count":    len(m.triggers),
+		"triggers_enabled":  countEnabledTriggers(m.triggers),
+		"decisions_by_user": byUser,
+		"decisions_by_type": byType,
 	}
 }
 

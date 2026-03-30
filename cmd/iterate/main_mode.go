@@ -18,8 +18,8 @@ import (
 
 // sandboxManager holds the active sandbox instance when --sandbox is enabled.
 var sandboxManager struct {
-	enabled bool
-	image   string
+	enabled  bool
+	image    string
 	instance *autonomous.Sandbox
 }
 

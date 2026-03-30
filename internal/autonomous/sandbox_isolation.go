@@ -15,36 +15,36 @@ import (
 // FileSystemIsolation provides controlled file system access through sandbox.
 type FileSystemIsolation struct {
 	mu sync.RWMutex
-	
+
 	// allowedPaths are directories the sandbox can access
 	allowedPaths map[string]bool
-	
+
 	// readOnlyPaths are directories that can only be read
 	readOnlyPaths map[string]bool
-	
+
 	// deniedPatterns are file patterns that are blocked
 	deniedPatterns []string
-	
+
 	// sandbox is the active sandbox instance
 	sandbox *Sandbox
-	
+
 	// workspaceRoot is the primary workspace mount point
 	workspaceRoot string
-	
+
 	// enableAudit logs all file operations
 	enableAudit bool
-	
+
 	// auditLog stores operation history
 	auditLog []FileOperation
 }
 
 // FileOperation records a file system operation.
 type FileOperation struct {
-	Op        string    `json:"op"`
-	Path      string    `json:"path"`
-	Success   bool      `json:"success"`
-	Timestamp int64     `json:"timestamp"`
-	Error     string    `json:"error,omitempty"`
+	Op        string `json:"op"`
+	Path      string `json:"path"`
+	Success   bool   `json:"success"`
+	Timestamp int64  `json:"timestamp"`
+	Error     string `json:"error,omitempty"`
 }
 
 // IsolationConfig configures file system isolation.
@@ -58,8 +58,8 @@ type IsolationConfig struct {
 // DefaultIsolationConfig returns a secure default configuration.
 func DefaultIsolationConfig() IsolationConfig {
 	return IsolationConfig{
-		AllowedPaths:   []string{},
-		ReadOnlyPaths:  []string{},
+		AllowedPaths:  []string{},
+		ReadOnlyPaths: []string{},
 		DeniedPatterns: []string{
 			".env",
 			".git/config",
@@ -84,20 +84,20 @@ func NewFileSystemIsolation(sandbox *Sandbox, workspaceRoot string, config Isola
 		enableAudit:    config.EnableAudit,
 		auditLog:       make([]FileOperation, 0),
 	}
-	
+
 	// Normalize and store allowed paths
 	for _, p := range config.AllowedPaths {
 		fsi.allowedPaths[filepath.Clean(p)] = true
 	}
-	
+
 	// Always allow workspace root
 	fsi.allowedPaths[fsi.workspaceRoot] = true
-	
+
 	// Normalize and store read-only paths
 	for _, p := range config.ReadOnlyPaths {
 		fsi.readOnlyPaths[filepath.Clean(p)] = true
 	}
-	
+
 	return fsi
 }
 
@@ -105,15 +105,15 @@ func NewFileSystemIsolation(sandbox *Sandbox, workspaceRoot string, config Isola
 func (fsi *FileSystemIsolation) ValidatePath(path string, op string) error {
 	fsi.mu.RLock()
 	defer fsi.mu.RUnlock()
-	
+
 	// Clean the path
 	cleanPath := filepath.Clean(path)
-	
+
 	// Check for path traversal attempts
 	if strings.Contains(cleanPath, "..") {
 		return fmt.Errorf("path traversal not allowed: %s", path)
 	}
-	
+
 	// Check denied patterns
 	for _, pattern := range fsi.deniedPatterns {
 		matched, err := filepath.Match(pattern, filepath.Base(cleanPath))
@@ -126,7 +126,7 @@ func (fsi *FileSystemIsolation) ValidatePath(path string, op string) error {
 			return fmt.Errorf("path matches denied pattern '%s': %s", pattern, path)
 		}
 	}
-	
+
 	// Check if path is within allowed paths
 	allowed := false
 	for allowedPath := range fsi.allowedPaths {
@@ -135,11 +135,11 @@ func (fsi *FileSystemIsolation) ValidatePath(path string, op string) error {
 			break
 		}
 	}
-	
+
 	if !allowed {
 		return fmt.Errorf("path outside allowed directories: %s", path)
 	}
-	
+
 	// Check read-only restrictions for write operations
 	if op == "write" || op == "delete" {
 		for roPath := range fsi.readOnlyPaths {
@@ -148,19 +148,19 @@ func (fsi *FileSystemIsolation) ValidatePath(path string, op string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // ReadFile reads a file through the sandbox.
 func (fsi *FileSystemIsolation) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "read"); err != nil {
 		fsi.logOp("read", path, false, err.Error())
 		return nil, err
 	}
-	
+
 	// Execute cat command in sandbox
 	result := fsi.sandbox.Execute(ctx, "cat", containerPath)
 	if !result.Success {
@@ -168,7 +168,7 @@ func (fsi *FileSystemIsolation) ReadFile(ctx context.Context, path string) ([]by
 		fsi.logOp("read", path, false, err.Error())
 		return nil, err
 	}
-	
+
 	fsi.logOp("read", path, true, "")
 	return []byte(result.Output), nil
 }
@@ -176,12 +176,12 @@ func (fsi *FileSystemIsolation) ReadFile(ctx context.Context, path string) ([]by
 // WriteFile writes a file through the sandbox.
 func (fsi *FileSystemIsolation) WriteFile(ctx context.Context, path string, content []byte) error {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "write"); err != nil {
 		fsi.logOp("write", path, false, err.Error())
 		return err
 	}
-	
+
 	// Use printf to write content (handles special chars)
 	// For large files, we should use CopyTo instead
 	if len(content) > 10000 {
@@ -192,7 +192,7 @@ func (fsi *FileSystemIsolation) WriteFile(ctx context.Context, path string, cont
 			return err
 		}
 		defer os.Remove(tmpFile)
-		
+
 		if err := fsi.sandbox.CopyTo(ctx, tmpFile, containerPath); err != nil {
 			fsi.logOp("write", path, false, err.Error())
 			return err
@@ -207,7 +207,7 @@ func (fsi *FileSystemIsolation) WriteFile(ctx context.Context, path string, cont
 			return err
 		}
 	}
-	
+
 	fsi.logOp("write", path, true, "")
 	return nil
 }
@@ -215,19 +215,19 @@ func (fsi *FileSystemIsolation) WriteFile(ctx context.Context, path string, cont
 // DeleteFile deletes a file through the sandbox.
 func (fsi *FileSystemIsolation) DeleteFile(ctx context.Context, path string) error {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "delete"); err != nil {
 		fsi.logOp("delete", path, false, err.Error())
 		return err
 	}
-	
+
 	result := fsi.sandbox.Execute(ctx, "rm", "-f", containerPath)
 	if !result.Success {
 		err := fmt.Errorf("delete failed: %s", result.Error)
 		fsi.logOp("delete", path, false, err.Error())
 		return err
 	}
-	
+
 	fsi.logOp("delete", path, true, "")
 	return nil
 }
@@ -235,19 +235,19 @@ func (fsi *FileSystemIsolation) DeleteFile(ctx context.Context, path string) err
 // ListDir lists directory contents through the sandbox.
 func (fsi *FileSystemIsolation) ListDir(ctx context.Context, path string) ([]string, error) {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "list"); err != nil {
 		fsi.logOp("list", path, false, err.Error())
 		return nil, err
 	}
-	
+
 	result := fsi.sandbox.Execute(ctx, "ls", "-1", containerPath)
 	if !result.Success {
 		err := fmt.Errorf("list failed: %s", result.Error)
 		fsi.logOp("list", path, false, err.Error())
 		return nil, err
 	}
-	
+
 	// Parse output
 	lines := strings.Split(strings.TrimSpace(result.Output), "\n")
 	var entries []string
@@ -256,7 +256,7 @@ func (fsi *FileSystemIsolation) ListDir(ctx context.Context, path string) ([]str
 			entries = append(entries, line)
 		}
 	}
-	
+
 	fsi.logOp("list", path, true, "")
 	return entries, nil
 }
@@ -264,19 +264,19 @@ func (fsi *FileSystemIsolation) ListDir(ctx context.Context, path string) ([]str
 // MkDir creates a directory through the sandbox.
 func (fsi *FileSystemIsolation) MkDir(ctx context.Context, path string) error {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "mkdir"); err != nil {
 		fsi.logOp("mkdir", path, false, err.Error())
 		return err
 	}
-	
+
 	result := fsi.sandbox.Execute(ctx, "mkdir", "-p", containerPath)
 	if !result.Success {
 		err := fmt.Errorf("mkdir failed: %s", result.Error)
 		fsi.logOp("mkdir", path, false, err.Error())
 		return err
 	}
-	
+
 	fsi.logOp("mkdir", path, true, "")
 	return nil
 }
@@ -284,27 +284,27 @@ func (fsi *FileSystemIsolation) MkDir(ctx context.Context, path string) error {
 // Stat returns file information through the sandbox.
 func (fsi *FileSystemIsolation) Stat(ctx context.Context, path string) (map[string]interface{}, error) {
 	containerPath := fsi.toContainerPath(path)
-	
+
 	if err := fsi.ValidatePath(path, "stat"); err != nil {
 		return nil, err
 	}
-	
+
 	result := fsi.sandbox.Execute(ctx, "stat", "-c", "%s,%a,%F", containerPath)
 	if !result.Success {
 		return nil, fmt.Errorf("stat failed: %s", result.Error)
 	}
-	
+
 	// Parse stat output
 	parts := strings.Split(strings.TrimSpace(result.Output), ",")
 	if len(parts) < 3 {
 		return nil, errors.New("invalid stat output")
 	}
-	
+
 	return map[string]interface{}{
-		"size":  parts[0],
-		"mode":  parts[1],
-		"type":  parts[2],
-		"path":  path,
+		"size": parts[0],
+		"mode": parts[1],
+		"type": parts[2],
+		"path": path,
 	}, nil
 }
 
@@ -357,10 +357,10 @@ func (fsi *FileSystemIsolation) logOp(op, path string, success bool, errMsg stri
 	if !fsi.enableAudit {
 		return
 	}
-	
+
 	fsi.mu.Lock()
 	defer fsi.mu.Unlock()
-	
+
 	fsi.auditLog = append(fsi.auditLog, FileOperation{
 		Op:        op,
 		Path:      path,

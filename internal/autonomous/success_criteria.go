@@ -14,59 +14,59 @@ import (
 type CriterionType string
 
 const (
-	CriterionTypeFileExists      CriterionType = "file_exists"
-	CriterionTypeFileNotExists   CriterionType = "file_not_exists"
-	CriterionTypeFileContains    CriterionType = "file_contains"
-	CriterionTypeFileMatches     CriterionType = "file_matches"
-	CriterionTypeCommandSuccess  CriterionType = "command_success"
-	CriterionTypeCommandOutput   CriterionType = "command_output"
-	CriterionTypeTestPasses      CriterionType = "test_passes"
-	CriterionTypeBuildSuccess    CriterionType = "build_success"
-	CriterionTypeLintPasses      CriterionType = "lint_passes"
-	CriterionTypeCustom          CriterionType = "custom"
+	CriterionTypeFileExists     CriterionType = "file_exists"
+	CriterionTypeFileNotExists  CriterionType = "file_not_exists"
+	CriterionTypeFileContains   CriterionType = "file_contains"
+	CriterionTypeFileMatches    CriterionType = "file_matches"
+	CriterionTypeCommandSuccess CriterionType = "command_success"
+	CriterionTypeCommandOutput  CriterionType = "command_output"
+	CriterionTypeTestPasses     CriterionType = "test_passes"
+	CriterionTypeBuildSuccess   CriterionType = "build_success"
+	CriterionTypeLintPasses     CriterionType = "lint_passes"
+	CriterionTypeCustom         CriterionType = "custom"
 )
 
 // CriterionStatus represents the status of a criterion check
 type CriterionStatus string
 
 const (
-	CriterionStatusPending   CriterionStatus = "pending"
-	CriterionStatusPassed    CriterionStatus = "passed"
-	CriterionStatusFailed    CriterionStatus = "failed"
-	CriterionStatusSkipped   CriterionStatus = "skipped"
-	CriterionStatusError     CriterionStatus = "error"
+	CriterionStatusPending CriterionStatus = "pending"
+	CriterionStatusPassed  CriterionStatus = "passed"
+	CriterionStatusFailed  CriterionStatus = "failed"
+	CriterionStatusSkipped CriterionStatus = "skipped"
+	CriterionStatusError   CriterionStatus = "error"
 )
 
 // SuccessCriterion represents a single success criterion
 type SuccessCriterion struct {
-	ID          string                 `json:"id"`
-	Type        CriterionType          `json:"type"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Required    bool                   `json:"required"`     // Must pass for overall success
-	Weight      float64                `json:"weight"`       // Weight for scoring (0.0-1.0)
-	Target      string                 `json:"target"`       // File path, command, or target identifier
-	Pattern     string                 `json:"pattern"`      // Pattern to match (regex or substring)
-	Expected    string                 `json:"expected"`     // Expected value or output
-	Negate      bool                   `json:"negate"`       // Negate the result
-	Timeout     time.Duration          `json:"timeout"`
-	RetryCount  int                    `json:"retry_count"`
-	RetryDelay  time.Duration          `json:"retry_delay"`
-	Status      CriterionStatus        `json:"status"`
-	Message     string                 `json:"message"`      // Result message
-	CheckedAt   time.Time              `json:"checked_at"`
-	Duration    time.Duration          `json:"duration"`     // How long the check took
-	Metadata    map[string]any         `json:"metadata,omitempty"`
+	ID          string          `json:"id"`
+	Type        CriterionType   `json:"type"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Required    bool            `json:"required"` // Must pass for overall success
+	Weight      float64         `json:"weight"`   // Weight for scoring (0.0-1.0)
+	Target      string          `json:"target"`   // File path, command, or target identifier
+	Pattern     string          `json:"pattern"`  // Pattern to match (regex or substring)
+	Expected    string          `json:"expected"` // Expected value or output
+	Negate      bool            `json:"negate"`   // Negate the result
+	Timeout     time.Duration   `json:"timeout"`
+	RetryCount  int             `json:"retry_count"`
+	RetryDelay  time.Duration   `json:"retry_delay"`
+	Status      CriterionStatus `json:"status"`
+	Message     string          `json:"message"` // Result message
+	CheckedAt   time.Time       `json:"checked_at"`
+	Duration    time.Duration   `json:"duration"` // How long the check took
+	Metadata    map[string]any  `json:"metadata,omitempty"`
 }
 
 // ValidationResult represents the result of validating a criterion
 type ValidationResult struct {
-	CriterionID string           `json:"criterion_id"`
-	Passed      bool             `json:"passed"`
-	Message     string           `json:"message"`
-	Details     map[string]any   `json:"details,omitempty"`
-	Error       error            `json:"error,omitempty"`
-	Duration    time.Duration    `json:"duration"`
+	CriterionID string         `json:"criterion_id"`
+	Passed      bool           `json:"passed"`
+	Message     string         `json:"message"`
+	Details     map[string]any `json:"details,omitempty"`
+	Error       error          `json:"error,omitempty"`
+	Duration    time.Duration  `json:"duration"`
 }
 
 // ValidationReport represents a complete validation report
@@ -77,7 +77,7 @@ type ValidationReport struct {
 	Passed          int                 `json:"passed"`
 	Failed          int                 `json:"failed"`
 	Skipped         int                 `json:"skipped"`
-	Score           float64             `json:"score"`        // 0.0-1.0 weighted score
+	Score           float64             `json:"score"` // 0.0-1.0 weighted score
 	AllRequiredPass bool                `json:"all_required_pass"`
 	Criteria        []*SuccessCriterion `json:"criteria"`
 	GeneratedAt     time.Time           `json:"generated_at"`
@@ -110,7 +110,11 @@ type SuccessCriteriaValidator struct {
 	mu       sync.RWMutex
 	config   SuccessCriteriaConfig
 	checkers map[CriterionType]CriterionChecker
-	logger   interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Error(msg string, args ...any) }
+	logger   interface {
+		Info(msg string, args ...any)
+		Warn(msg string, args ...any)
+		Error(msg string, args ...any)
+	}
 }
 
 // CriterionChecker is a function that checks a criterion
@@ -122,10 +126,10 @@ func NewSuccessCriteriaValidator(config SuccessCriteriaConfig) *SuccessCriteriaV
 		config:   config,
 		checkers: make(map[CriterionType]CriterionChecker),
 	}
-	
+
 	// Register default checkers
 	v.registerDefaultCheckers()
-	
+
 	return v
 }
 
@@ -152,7 +156,11 @@ func (v *SuccessCriteriaValidator) RegisterChecker(criterionType CriterionType, 
 }
 
 // SetLogger sets the logger for the validator
-func (v *SuccessCriteriaValidator) SetLogger(logger interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Error(msg string, args ...any) }) {
+func (v *SuccessCriteriaValidator) SetLogger(logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+}) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.logger = logger
@@ -161,13 +169,13 @@ func (v *SuccessCriteriaValidator) SetLogger(logger interface{ Info(msg string, 
 // Validate validates all criteria and returns a report
 func (v *SuccessCriteriaValidator) Validate(ctx context.Context, criteria []*SuccessCriterion) *ValidationReport {
 	start := time.Now()
-	
+
 	report := &ValidationReport{
 		TotalCriteria: len(criteria),
 		Criteria:      make([]*SuccessCriterion, 0, len(criteria)),
 		GeneratedAt:   time.Now(),
 	}
-	
+
 	// Apply defaults to criteria
 	for _, c := range criteria {
 		if c.Timeout == 0 {
@@ -183,18 +191,18 @@ func (v *SuccessCriteriaValidator) Validate(ctx context.Context, criteria []*Suc
 			c.Weight = 1.0
 		}
 	}
-	
+
 	if v.config.ParallelChecks {
 		v.validateParallel(ctx, criteria, report)
 	} else {
 		v.validateSequential(ctx, criteria, report)
 	}
-	
+
 	// Calculate score and summary
 	report.Duration = time.Since(start)
 	report.calculateScore()
 	report.generateSummary()
-	
+
 	return report
 }
 
@@ -207,11 +215,11 @@ func (v *SuccessCriteriaValidator) validateSequential(ctx context.Context, crite
 			report.Criteria = append(report.Criteria, criterion)
 			continue
 		}
-		
+
 		result := v.validateCriterion(ctx, criterion)
 		v.applyResult(criterion, result)
 		report.Criteria = append(report.Criteria, criterion)
-		
+
 		if criterion.Status == CriterionStatusPassed {
 			report.Passed++
 		} else if criterion.Status == CriterionStatusFailed || criterion.Status == CriterionStatusError {
@@ -219,7 +227,7 @@ func (v *SuccessCriteriaValidator) validateSequential(ctx context.Context, crite
 		} else {
 			report.Skipped++
 		}
-		
+
 		// Stop on first failure if configured
 		if v.config.StopOnFirstFail && criterion.Status == CriterionStatusFailed && criterion.Required {
 			break
@@ -231,31 +239,31 @@ func (v *SuccessCriteriaValidator) validateSequential(ctx context.Context, crite
 func (v *SuccessCriteriaValidator) validateParallel(ctx context.Context, criteria []*SuccessCriterion, report *ValidationReport) {
 	var wg sync.WaitGroup
 	results := make(chan *criterionResult, len(criteria))
-	
+
 	for _, criterion := range criteria {
 		wg.Add(1)
 		go func(c *SuccessCriterion) {
 			defer wg.Done()
-			
+
 			if ctx.Err() != nil {
 				results <- &criterionResult{criterion: c, status: CriterionStatusSkipped}
 				return
 			}
-			
+
 			result := v.validateCriterion(ctx, c)
 			results <- &criterionResult{criterion: c, result: result}
 		}(criterion)
 	}
-	
+
 	go func() {
 		wg.Wait()
 		close(results)
 	}()
-	
+
 	for res := range results {
 		v.applyResult(res.criterion, res.result)
 		report.Criteria = append(report.Criteria, res.criterion)
-		
+
 		if res.criterion.Status == CriterionStatusPassed {
 			report.Passed++
 		} else if res.criterion.Status == CriterionStatusFailed || res.criterion.Status == CriterionStatusError {
@@ -277,7 +285,7 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 	v.mu.RLock()
 	checker, exists := v.checkers[criterion.Type]
 	v.mu.RUnlock()
-	
+
 	if !exists {
 		return &ValidationResult{
 			CriterionID: criterion.ID,
@@ -286,10 +294,10 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 			Error:       fmt.Errorf("unknown criterion type: %s", criterion.Type),
 		}
 	}
-	
+
 	var lastResult *ValidationResult
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= criterion.RetryCount; attempt++ {
 		if attempt > 0 {
 			select {
@@ -303,14 +311,14 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 			case <-time.After(criterion.RetryDelay):
 			}
 		}
-		
+
 		// Create timeout context
 		checkCtx, cancel := context.WithTimeout(ctx, criterion.Timeout)
 		start := time.Now()
-		
+
 		result, err := checker(checkCtx, criterion)
 		cancel()
-		
+
 		// Handle nil result from checker
 		if result == nil {
 			if err != nil {
@@ -324,16 +332,16 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 				Message:     "Checker returned nil result",
 			}
 		}
-		
+
 		result.Duration = time.Since(start)
-		
+
 		if err != nil {
 			lastErr = err
 			continue
 		}
-		
+
 		lastResult = result
-		
+
 		// Apply negation if needed
 		if criterion.Negate {
 			result.Passed = !result.Passed
@@ -341,14 +349,14 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 				result.Message = "Negated: " + result.Message
 			}
 		}
-		
+
 		if result.Passed {
 			return result
 		}
-		
+
 		lastResult = result
 	}
-	
+
 	if lastResult == nil {
 		return &ValidationResult{
 			CriterionID: criterion.ID,
@@ -357,23 +365,23 @@ func (v *SuccessCriteriaValidator) validateCriterion(ctx context.Context, criter
 			Error:       lastErr,
 		}
 	}
-	
+
 	return lastResult
 }
 
 // applyResult applies a validation result to a criterion
 func (v *SuccessCriteriaValidator) applyResult(criterion *SuccessCriterion, result *ValidationResult) {
 	criterion.CheckedAt = time.Now()
-	
+
 	// Handle nil result (e.g., from context cancellation)
 	if result == nil {
 		criterion.Status = CriterionStatusSkipped
 		criterion.Message = "Validation skipped (result unavailable)"
 		return
 	}
-	
+
 	criterion.Message = result.Message
-	
+
 	if result.Error != nil {
 		criterion.Status = CriterionStatusError
 		criterion.Message = fmt.Sprintf("%s (error: %v)", result.Message, result.Error)
@@ -427,7 +435,7 @@ func (v *SuccessCriteriaValidator) checkFileMatches(ctx context.Context, c *Succ
 			Error:       err,
 		}, nil
 	}
-	
+
 	return &ValidationResult{
 		CriterionID: c.ID,
 		Passed:      true,
@@ -496,7 +504,7 @@ func (v *SuccessCriteriaValidator) checkCustom(ctx context.Context, c *SuccessCr
 			Error:       fmt.Errorf("missing custom checker"),
 		}, nil
 	}
-	
+
 	checkerFunc, ok := c.Metadata["checker"].(func(context.Context, *SuccessCriterion) (bool, string, error))
 	if !ok {
 		return &ValidationResult{
@@ -506,7 +514,7 @@ func (v *SuccessCriteriaValidator) checkCustom(ctx context.Context, c *SuccessCr
 			Error:       fmt.Errorf("invalid checker type"),
 		}, nil
 	}
-	
+
 	passed, message, err := checkerFunc(ctx, c)
 	return &ValidationResult{
 		CriterionID: c.ID,
@@ -534,10 +542,10 @@ func (r *ValidationReport) calculateScore() {
 		r.AllRequiredPass = true
 		return
 	}
-	
+
 	var totalWeight, passedWeight float64
 	r.AllRequiredPass = true
-	
+
 	for _, c := range r.Criteria {
 		totalWeight += c.Weight
 		if c.Status == CriterionStatusPassed {
@@ -547,7 +555,7 @@ func (r *ValidationReport) calculateScore() {
 			r.AllRequiredPass = false
 		}
 	}
-	
+
 	if totalWeight > 0 {
 		r.Score = passedWeight / totalWeight
 	}
@@ -556,17 +564,17 @@ func (r *ValidationReport) calculateScore() {
 // generateSummary generates a human-readable summary
 func (r *ValidationReport) generateSummary() {
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("Validation: %d/%d criteria passed", r.Passed, r.TotalCriteria))
-	
+
 	if r.AllRequiredPass {
 		sb.WriteString(" ✓ All required criteria met")
 	} else {
 		sb.WriteString(" ✗ Some required criteria failed")
 	}
-	
+
 	sb.WriteString(fmt.Sprintf(" (Score: %.0f%%)", r.Score*100))
-	
+
 	r.Summary = sb.String()
 }
 
@@ -574,7 +582,7 @@ func (r *ValidationReport) generateSummary() {
 func (v *SuccessCriteriaValidator) GetStats() map[string]any {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	
+
 	return map[string]any{
 		"checkers_registered": len(v.checkers),
 		"parallel_checks":     v.config.ParallelChecks,
@@ -592,13 +600,13 @@ type CriterionBuilder struct {
 func NewCriterionBuilder(criterionType CriterionType, target string) *CriterionBuilder {
 	return &CriterionBuilder{
 		criterion: &SuccessCriterion{
-			ID:        fmt.Sprintf("crit_%d", time.Now().UnixNano()),
-			Type:      criterionType,
-			Target:    target,
-			Required:  true,
-			Weight:    1.0,
-			Status:    CriterionStatusPending,
-			Metadata:  make(map[string]any),
+			ID:       fmt.Sprintf("crit_%d", time.Now().UnixNano()),
+			Type:     criterionType,
+			Target:   target,
+			Required: true,
+			Weight:   1.0,
+			Status:   CriterionStatusPending,
+			Metadata: make(map[string]any),
 		},
 	}
 }

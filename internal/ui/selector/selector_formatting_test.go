@@ -7,8 +7,8 @@ import (
 
 func TestFormatTokenCount(t *testing.T) {
 	tests := []struct {
-		total    int
-		wantSub  string // substring expected in output
+		total     int
+		wantSub   string // substring expected in output
 		wantEmpty bool
 	}{
 		{0, "", true},
@@ -35,8 +35,8 @@ func TestFormatContextWindow(t *testing.T) {
 	ContextWindow = 200_000
 
 	tests := []struct {
-		total    int
-		wantSub  string
+		total   int
+		wantSub string
 	}{
 		{0, "0.0%"},
 		{100_000, "50.0%"},
@@ -93,5 +93,3 @@ func TestFormatCostUSD(t *testing.T) {
 		}
 	}
 }
-
-

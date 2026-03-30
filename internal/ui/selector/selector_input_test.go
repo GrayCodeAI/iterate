@@ -516,15 +516,15 @@ func TestHandleRawInput_CtrlY(t *testing.T) {
 
 func TestMoveWordBackward(t *testing.T) {
 	cases := []struct {
-		buf       string
-		startPos  int
-		wantPos   int
+		buf      string
+		startPos int
+		wantPos  int
 	}{
-		{"hello world", 11, 6},  // end → start of "world"
-		{"hello world", 6, 0},   // start of "world" → start of "hello"
-		{"hello world", 5, 0},   // space before "world" → start of "hello"
-		{"hello world", 0, 0},   // already at start → no movement
-		{"  hello", 7, 2},       // end of "hello" → start of "hello"
+		{"hello world", 11, 6}, // end → start of "world"
+		{"hello world", 6, 0},  // start of "world" → start of "hello"
+		{"hello world", 5, 0},  // space before "world" → start of "hello"
+		{"hello world", 0, 0},  // already at start → no movement
+		{"  hello", 7, 2},      // end of "hello" → start of "hello"
 	}
 	for _, tc := range cases {
 		buf := []byte(tc.buf)
@@ -538,9 +538,9 @@ func TestMoveWordBackward(t *testing.T) {
 
 func TestMoveWordForward(t *testing.T) {
 	cases := []struct {
-		buf       string
-		startPos  int
-		wantPos   int
+		buf      string
+		startPos int
+		wantPos  int
 	}{
 		{"hello world", 0, 5},   // start → end of "hello"
 		{"hello world", 5, 11},  // space → end of "world"

@@ -18,16 +18,16 @@ type RestrictionLevel string
 const (
 	// RestrictionLevelNone - No restriction
 	RestrictionLevelNone RestrictionLevel = "none"
-	
+
 	// RestrictionLevelWarn - Warning only, command can proceed
 	RestrictionLevelWarn RestrictionLevel = "warn"
-	
+
 	// RestrictionLevelConfirm - Requires user confirmation
 	RestrictionLevelConfirm RestrictionLevel = "confirm"
-	
+
 	// RestrictionLevelApproval - Requires explicit approval
 	RestrictionLevelApproval RestrictionLevel = "approval"
-	
+
 	// RestrictionLevelBlock - Command is blocked completely
 	RestrictionLevelBlock RestrictionLevel = "block"
 )
@@ -36,62 +36,62 @@ const (
 type CommandCategory string
 
 const (
-	CommandCategoryFileSystem  CommandCategory = "filesystem"
-	CommandCategoryNetwork     CommandCategory = "network"
-	CommandCategoryProcess     CommandCategory = "process"
-	CommandCategorySystem      CommandCategory = "system"
-	CommandCategoryPackage     CommandCategory = "package"
-	CommandCategoryGit         CommandCategory = "git"
-	CommandCategoryDatabase    CommandCategory = "database"
-	CommandCategoryCloud       CommandCategory = "cloud"
-	CommandCategoryContainer   CommandCategory = "container"
-	CommandCategoryCustom      CommandCategory = "custom"
+	CommandCategoryFileSystem CommandCategory = "filesystem"
+	CommandCategoryNetwork    CommandCategory = "network"
+	CommandCategoryProcess    CommandCategory = "process"
+	CommandCategorySystem     CommandCategory = "system"
+	CommandCategoryPackage    CommandCategory = "package"
+	CommandCategoryGit        CommandCategory = "git"
+	CommandCategoryDatabase   CommandCategory = "database"
+	CommandCategoryCloud      CommandCategory = "cloud"
+	CommandCategoryContainer  CommandCategory = "container"
+	CommandCategoryCustom     CommandCategory = "custom"
 )
 
 // RestrictedCommand represents a restricted command configuration.
 type RestrictedCommand struct {
 	// ID is the unique identifier
 	ID string `json:"id"`
-	
+
 	// Name is the command name
 	Name string `json:"name"`
-	
+
 	// Pattern is the regex or glob pattern to match
 	Pattern string `json:"pattern"`
-	
+
 	// Description explains why it's restricted
 	Description string `json:"description"`
-	
+
 	// Category is the command category
 	Category CommandCategory `json:"category"`
-	
+
 	// Restriction is the restriction level
 	Restriction RestrictionLevel `json:"restriction"`
-	
+
 	// Enabled turns the restriction on/off
 	Enabled bool `json:"enabled"`
-	
+
 	// Message shown when the command is restricted
 	Message string `json:"message,omitempty"`
-	
+
 	// AllowWithFlag allows the command with specific flags
 	AllowWithFlag []string `json:"allow_with_flag,omitempty"`
-	
+
 	// BlockWithFlag blocks the command with specific flags
 	BlockWithFlag []string `json:"block_with_flag,omitempty"`
-	
+
 	// RequireFlag requires these flags to be present
 	RequireFlag []string `json:"require_flag,omitempty"`
-	
+
 	// DangerLevelOverride overrides the danger level
 	DangerLevelOverride *DangerLevel `json:"danger_level_override,omitempty"`
-	
+
 	// TimeRestriction restricts when the command can run
 	TimeRestriction *TimeRestriction `json:"time_restriction,omitempty"`
-	
+
 	// CreatedAt is when this was created
 	CreatedAt time.Time `json:"created_at"`
-	
+
 	// ModifiedAt is when this was last modified
 	ModifiedAt time.Time `json:"modified_at"`
 }
@@ -100,19 +100,19 @@ type RestrictedCommand struct {
 type TimeRestriction struct {
 	// AllowedHours are the hours (0-23) when the command is allowed
 	AllowedHours []int `json:"allowed_hours,omitempty"`
-	
+
 	// BlockedHours are the hours when the command is blocked
 	BlockedHours []int `json:"blocked_hours,omitempty"`
-	
+
 	// AllowedDays are the days (0=Sunday, 6=Saturday) when allowed
 	AllowedDays []int `json:"allowed_days,omitempty"`
-	
+
 	// BlockedDays are the days when blocked
 	BlockedDays []int `json:"blocked_days,omitempty"`
-	
+
 	// StartTime is the start time (HH:MM format)
 	StartTime string `json:"start_time,omitempty"`
-	
+
 	// EndTime is the end time (HH:MM format)
 	EndTime string `json:"end_time,omitempty"`
 }
@@ -121,19 +121,19 @@ type TimeRestriction struct {
 type RestrictionResult struct {
 	// Restricted indicates if the command is restricted
 	Restricted bool `json:"restricted"`
-	
+
 	// Restriction is the restriction level
 	Restriction RestrictionLevel `json:"restriction"`
-	
+
 	// Command is the matched command config
 	Command *RestrictedCommand `json:"command,omitempty"`
-	
+
 	// Message explains why it's restricted
 	Message string `json:"message"`
-	
+
 	// MatchedPattern is the pattern that matched
 	MatchedPattern string `json:"matched_pattern,omitempty"`
-	
+
 	// Suggestion for alternative commands
 	Suggestion string `json:"suggestion,omitempty"`
 }
@@ -142,16 +142,16 @@ type RestrictionResult struct {
 type RestrictedCommandsConfig struct {
 	// Enabled turns on restriction checking
 	Enabled bool `json:"enabled"`
-	
+
 	// ConfigPath is where to load/save restrictions
 	ConfigPath string `json:"config_path"`
-	
+
 	// DefaultRestriction is the default level for unknown commands
 	DefaultRestriction RestrictionLevel `json:"default_restriction"`
-	
+
 	// EnforceStrict enforces strict mode for all restrictions
 	EnforceStrict bool `json:"enforce_strict"`
-	
+
 	// LogRestrictions logs all restriction checks
 	LogRestrictions bool `json:"log_restrictions"`
 }
@@ -159,35 +159,35 @@ type RestrictedCommandsConfig struct {
 // DefaultRestrictedCommandsConfig returns the default configuration.
 func DefaultRestrictedCommandsConfig() RestrictedCommandsConfig {
 	return RestrictedCommandsConfig{
-		Enabled:           true,
+		Enabled:            true,
 		DefaultRestriction: RestrictionLevelNone,
-		EnforceStrict:     false,
-		LogRestrictions:   true,
+		EnforceStrict:      false,
+		LogRestrictions:    true,
 	}
 }
 
 // RestrictedCommandsManager manages the restricted commands list.
 type RestrictedCommandsManager struct {
 	mu sync.RWMutex
-	
+
 	// config is the configuration
 	config RestrictedCommandsConfig
-	
+
 	// commands is the map of restricted commands
 	commands map[string]*RestrictedCommand
-	
+
 	// patterns is the list of compiled regex patterns
 	patterns map[string]*regexp.Regexp
-	
+
 	// categories groups commands by category
 	categories map[CommandCategory][]string
-	
+
 	// stats tracks restriction statistics
 	stats RestrictionStats
-	
+
 	// auditLogger is the optional audit logger
 	auditLogger *AuditLogger
-	
+
 	// timeNow is a function to get current time (for testing)
 	timeNow func() time.Time
 }
@@ -218,20 +218,20 @@ func NewRestrictedCommandsManager(config RestrictedCommandsConfig) *RestrictedCo
 		},
 		timeNow: time.Now,
 	}
-	
+
 	// Initialize with default restricted commands
 	mgr.initDefaultCommands()
-	
+
 	// Load from config if exists
 	mgr.loadFromConfig()
-	
+
 	return mgr
 }
 
 // initDefaultCommands initializes the default restricted commands.
 func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 	now := mgr.timeNow()
-	
+
 	// Define default restricted commands
 	defaults := []RestrictedCommand{
 		// File system - destructive
@@ -285,7 +285,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "Changing file ownership to root requires approval",
 		},
-		
+
 		// System commands
 		{
 			ID:          "shutdown",
@@ -327,7 +327,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "Modifying firewall rules requires approval",
 		},
-		
+
 		// Network commands
 		{
 			ID:          "wget-exec",
@@ -359,7 +359,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "Netcat connections require approval",
 		},
-		
+
 		// Process commands
 		{
 			ID:          "killall",
@@ -391,7 +391,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "SIGKILL cannot be caught by processes, use with caution",
 		},
-		
+
 		// Package management
 		{
 			ID:          "apt-remove",
@@ -423,7 +423,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "Force installing packages may break dependencies",
 		},
-		
+
 		// Git commands
 		{
 			ID:          "git-force-push",
@@ -455,7 +455,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "This will remove untracked files and directories",
 		},
-		
+
 		// Database commands
 		{
 			ID:          "drop-database",
@@ -477,7 +477,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "Truncating tables will delete all data",
 		},
-		
+
 		// Container commands
 		{
 			ID:          "docker-rm-force",
@@ -509,7 +509,7 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Enabled:     true,
 			Message:     "System prune will remove unused containers, networks, and images",
 		},
-		
+
 		// Cloud commands
 		{
 			ID:          "aws-terminate",
@@ -532,23 +532,23 @@ func (mgr *RestrictedCommandsManager) initDefaultCommands() {
 			Message:     "Deleting Kubernetes resources requires approval",
 		},
 	}
-	
+
 	for _, cmd := range defaults {
 		cmd.CreatedAt = now
 		cmd.ModifiedAt = now
 		mgr.commands[cmd.ID] = &cmd
-		
+
 		// Compile regex pattern
 		if re, err := regexp.Compile(cmd.Pattern); err == nil {
 			mgr.patterns[cmd.ID] = re
 		}
-		
+
 		// Add to category
 		mgr.categories[cmd.Category] = append(mgr.categories[cmd.Category], cmd.ID)
 		mgr.stats.ByCategory[string(cmd.Category)]++
 		mgr.stats.ByRestriction[string(cmd.Restriction)]++
 	}
-	
+
 	mgr.stats.TotalCommands = len(defaults)
 }
 
@@ -557,17 +557,17 @@ func (mgr *RestrictedCommandsManager) loadFromConfig() {
 	if mgr.config.ConfigPath == "" {
 		return
 	}
-	
+
 	data, err := os.ReadFile(filepath.Join(mgr.config.ConfigPath, "restricted_commands.json"))
 	if err != nil {
 		return
 	}
-	
+
 	var customCommands []RestrictedCommand
 	if err := json.Unmarshal(data, &customCommands); err != nil {
 		return
 	}
-	
+
 	now := mgr.timeNow()
 	for _, cmd := range customCommands {
 		if cmd.ID == "" {
@@ -576,11 +576,11 @@ func (mgr *RestrictedCommandsManager) loadFromConfig() {
 		cmd.CreatedAt = now
 		cmd.ModifiedAt = now
 		mgr.commands[cmd.ID] = &cmd
-		
+
 		if re, err := regexp.Compile(cmd.Pattern); err == nil {
 			mgr.patterns[cmd.ID] = re
 		}
-		
+
 		mgr.categories[cmd.Category] = append(mgr.categories[cmd.Category], cmd.ID)
 	}
 }
@@ -596,31 +596,31 @@ func (mgr *RestrictedCommandsManager) SetAuditLogger(logger *AuditLogger) {
 func (mgr *RestrictedCommandsManager) AddCommand(cmd RestrictedCommand) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	if cmd.ID == "" {
 		cmd.ID = fmt.Sprintf("cmd-%d", mgr.timeNow().UnixNano())
 	}
-	
+
 	// Validate pattern
 	re, err := regexp.Compile(cmd.Pattern)
 	if err != nil {
 		return fmt.Errorf("invalid pattern: %w", err)
 	}
-	
+
 	now := mgr.timeNow()
 	cmd.CreatedAt = now
 	cmd.ModifiedAt = now
-	
+
 	mgr.commands[cmd.ID] = &cmd
 	mgr.patterns[cmd.ID] = re
 	mgr.categories[cmd.Category] = append(mgr.categories[cmd.Category], cmd.ID)
 	mgr.stats.TotalCommands++
 	mgr.stats.ByCategory[string(cmd.Category)]++
 	mgr.stats.ByRestriction[string(cmd.Restriction)]++
-	
+
 	// Save to config
 	mgr.saveToConfig()
-	
+
 	return nil
 }
 
@@ -628,15 +628,15 @@ func (mgr *RestrictedCommandsManager) AddCommand(cmd RestrictedCommand) error {
 func (mgr *RestrictedCommandsManager) RemoveCommand(id string) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	cmd, exists := mgr.commands[id]
 	if !exists {
 		return fmt.Errorf("command %s not found", id)
 	}
-	
+
 	delete(mgr.commands, id)
 	delete(mgr.patterns, id)
-	
+
 	// Remove from category
 	for i, cmdID := range mgr.categories[cmd.Category] {
 		if cmdID == id {
@@ -647,14 +647,14 @@ func (mgr *RestrictedCommandsManager) RemoveCommand(id string) error {
 			break
 		}
 	}
-	
+
 	mgr.stats.TotalCommands--
 	mgr.stats.ByCategory[string(cmd.Category)]--
 	mgr.stats.ByRestriction[string(cmd.Restriction)]--
-	
+
 	// Save to config
 	mgr.saveToConfig()
-	
+
 	return nil
 }
 
@@ -662,39 +662,39 @@ func (mgr *RestrictedCommandsManager) RemoveCommand(id string) error {
 func (mgr *RestrictedCommandsManager) UpdateCommand(cmd RestrictedCommand) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	existing, exists := mgr.commands[cmd.ID]
 	if !exists {
 		return fmt.Errorf("command %s not found", cmd.ID)
 	}
-	
+
 	// Validate new pattern
 	re, err := regexp.Compile(cmd.Pattern)
 	if err != nil {
 		return fmt.Errorf("invalid pattern: %w", err)
 	}
-	
+
 	// Update category counts if changed
 	if existing.Category != cmd.Category {
 		mgr.stats.ByCategory[string(existing.Category)]--
 		mgr.stats.ByCategory[string(cmd.Category)]++
 	}
-	
+
 	// Update restriction counts if changed
 	if existing.Restriction != cmd.Restriction {
 		mgr.stats.ByRestriction[string(existing.Restriction)]--
 		mgr.stats.ByRestriction[string(cmd.Restriction)]++
 	}
-	
+
 	cmd.ModifiedAt = mgr.timeNow()
 	cmd.CreatedAt = existing.CreatedAt
-	
+
 	mgr.commands[cmd.ID] = &cmd
 	mgr.patterns[cmd.ID] = re
-	
+
 	// Save to config
 	mgr.saveToConfig()
-	
+
 	return nil
 }
 
@@ -702,7 +702,7 @@ func (mgr *RestrictedCommandsManager) UpdateCommand(cmd RestrictedCommand) error
 func (mgr *RestrictedCommandsManager) GetCommand(id string) (*RestrictedCommand, bool) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	cmd, exists := mgr.commands[id]
 	return cmd, exists
 }
@@ -711,7 +711,7 @@ func (mgr *RestrictedCommandsManager) GetCommand(id string) (*RestrictedCommand,
 func (mgr *RestrictedCommandsManager) ListCommands() []*RestrictedCommand {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	result := make([]*RestrictedCommand, 0, len(mgr.commands))
 	for _, cmd := range mgr.commands {
 		result = append(result, cmd)
@@ -723,7 +723,7 @@ func (mgr *RestrictedCommandsManager) ListCommands() []*RestrictedCommand {
 func (mgr *RestrictedCommandsManager) ListByCategory(category CommandCategory) []*RestrictedCommand {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	result := make([]*RestrictedCommand, 0)
 	for _, id := range mgr.categories[category] {
 		if cmd, exists := mgr.commands[id]; exists {
@@ -737,7 +737,7 @@ func (mgr *RestrictedCommandsManager) ListByCategory(category CommandCategory) [
 func (mgr *RestrictedCommandsManager) ListByRestriction(level RestrictionLevel) []*RestrictedCommand {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	result := make([]*RestrictedCommand, 0)
 	for _, cmd := range mgr.commands {
 		if cmd.Restriction == level {
@@ -751,25 +751,25 @@ func (mgr *RestrictedCommandsManager) ListByRestriction(level RestrictionLevel) 
 func (mgr *RestrictedCommandsManager) CheckCommand(command string) *RestrictionResult {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.stats.TotalChecks++
-	
+
 	// Skip if not enabled
 	if !mgr.config.Enabled {
 		return &RestrictionResult{
-			Restricted: false,
+			Restricted:  false,
 			Restriction: RestrictionLevelNone,
 			Message:     "Restriction checking is disabled",
 		}
 	}
-	
+
 	// Check each command pattern
 	for id, re := range mgr.patterns {
 		cmd, exists := mgr.commands[id]
 		if !exists || !cmd.Enabled {
 			continue
 		}
-		
+
 		if re.MatchString(command) {
 			result := &RestrictionResult{
 				Restricted:     cmd.Restriction != RestrictionLevelNone,
@@ -778,7 +778,7 @@ func (mgr *RestrictedCommandsManager) CheckCommand(command string) *RestrictionR
 				Message:        cmd.Message,
 				MatchedPattern: cmd.Pattern,
 			}
-			
+
 			// Check flag restrictions
 			if len(cmd.BlockWithFlag) > 0 {
 				for _, flag := range cmd.BlockWithFlag {
@@ -788,7 +788,7 @@ func (mgr *RestrictedCommandsManager) CheckCommand(command string) *RestrictionR
 					}
 				}
 			}
-			
+
 			// Check time restrictions
 			if cmd.TimeRestriction != nil {
 				if !mgr.isTimeAllowed(cmd.TimeRestriction) {
@@ -796,7 +796,7 @@ func (mgr *RestrictedCommandsManager) CheckCommand(command string) *RestrictionR
 					result.Message = "Command not allowed at this time"
 				}
 			}
-			
+
 			// Update stats
 			switch result.Restriction {
 			case RestrictionLevelBlock:
@@ -810,18 +810,18 @@ func (mgr *RestrictedCommandsManager) CheckCommand(command string) *RestrictionR
 			case RestrictionLevelApproval:
 				mgr.stats.TotalApproved++
 			}
-			
+
 			// Log to audit
 			if mgr.auditLogger != nil && mgr.config.LogRestrictions {
 				details := fmt.Sprintf("command=%s restriction=%s matched=%s",
 					command, string(result.Restriction), cmd.Name)
 				mgr.auditLogger.LogSecurity("command_restriction", details, AuditSeverityWarning)
 			}
-			
+
 			return result
 		}
 	}
-	
+
 	// No match - return default
 	return &RestrictionResult{
 		Restricted:  mgr.config.DefaultRestriction != RestrictionLevelNone,
@@ -835,21 +835,21 @@ func (mgr *RestrictedCommandsManager) isTimeAllowed(tr *TimeRestriction) bool {
 	now := mgr.timeNow()
 	hour := now.Hour()
 	day := int(now.Weekday())
-	
+
 	// Check blocked hours
 	for _, h := range tr.BlockedHours {
 		if h == hour {
 			return false
 		}
 	}
-	
+
 	// Check blocked days
 	for _, d := range tr.BlockedDays {
 		if d == day {
 			return false
 		}
 	}
-	
+
 	// If allowed hours specified, must be in list
 	if len(tr.AllowedHours) > 0 {
 		allowed := false
@@ -863,7 +863,7 @@ func (mgr *RestrictedCommandsManager) isTimeAllowed(tr *TimeRestriction) bool {
 			return false
 		}
 	}
-	
+
 	// If allowed days specified, must be in list
 	if len(tr.AllowedDays) > 0 {
 		allowed := false
@@ -877,7 +877,7 @@ func (mgr *RestrictedCommandsManager) isTimeAllowed(tr *TimeRestriction) bool {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -892,15 +892,15 @@ func (mgr *RestrictedCommandsManager) GetStats() RestrictionStats {
 func (mgr *RestrictedCommandsManager) EnableCommand(id string) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	cmd, exists := mgr.commands[id]
 	if !exists {
 		return fmt.Errorf("command %s not found", id)
 	}
-	
+
 	cmd.Enabled = true
 	cmd.ModifiedAt = mgr.timeNow()
-	
+
 	return nil
 }
 
@@ -908,15 +908,15 @@ func (mgr *RestrictedCommandsManager) EnableCommand(id string) error {
 func (mgr *RestrictedCommandsManager) DisableCommand(id string) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	cmd, exists := mgr.commands[id]
 	if !exists {
 		return fmt.Errorf("command %s not found", id)
 	}
-	
+
 	cmd.Enabled = false
 	cmd.ModifiedAt = mgr.timeNow()
-	
+
 	return nil
 }
 
@@ -924,19 +924,19 @@ func (mgr *RestrictedCommandsManager) DisableCommand(id string) error {
 func (mgr *RestrictedCommandsManager) SetRestrictionLevel(id string, level RestrictionLevel) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	cmd, exists := mgr.commands[id]
 	if !exists {
 		return fmt.Errorf("command %s not found", id)
 	}
-	
+
 	// Update stats
 	mgr.stats.ByRestriction[string(cmd.Restriction)]--
 	mgr.stats.ByRestriction[string(level)]++
-	
+
 	cmd.Restriction = level
 	cmd.ModifiedAt = mgr.timeNow()
-	
+
 	return nil
 }
 
@@ -951,12 +951,12 @@ func (mgr *RestrictedCommandsManager) SetGlobalRestriction(level RestrictionLeve
 func (mgr *RestrictedCommandsManager) Export() ([]byte, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	commands := make([]RestrictedCommand, 0, len(mgr.commands))
 	for _, cmd := range mgr.commands {
 		commands = append(commands, *cmd)
 	}
-	
+
 	return json.MarshalIndent(commands, "", "  ")
 }
 
@@ -966,10 +966,10 @@ func (mgr *RestrictedCommandsManager) Import(data []byte) error {
 	if err := json.Unmarshal(data, &commands); err != nil {
 		return fmt.Errorf("failed to parse commands: %w", err)
 	}
-	
+
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	now := mgr.timeNow()
 	for _, cmd := range commands {
 		if cmd.ID == "" {
@@ -977,14 +977,14 @@ func (mgr *RestrictedCommandsManager) Import(data []byte) error {
 		}
 		cmd.CreatedAt = now
 		cmd.ModifiedAt = now
-		
+
 		mgr.commands[cmd.ID] = &cmd
-		
+
 		if re, err := regexp.Compile(cmd.Pattern); err == nil {
 			mgr.patterns[cmd.ID] = re
 		}
 	}
-	
+
 	return nil
 }
 
@@ -992,7 +992,7 @@ func (mgr *RestrictedCommandsManager) Import(data []byte) error {
 func (mgr *RestrictedCommandsManager) Reset() {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.commands = make(map[string]*RestrictedCommand)
 	mgr.patterns = make(map[string]*regexp.Regexp)
 	mgr.categories = make(map[CommandCategory][]string)
@@ -1000,7 +1000,7 @@ func (mgr *RestrictedCommandsManager) Reset() {
 		ByCategory:    make(map[string]int),
 		ByRestriction: make(map[string]int),
 	}
-	
+
 	mgr.initDefaultCommands()
 }
 
@@ -1009,7 +1009,7 @@ func (mgr *RestrictedCommandsManager) saveToConfig() {
 	if mgr.config.ConfigPath == "" {
 		return
 	}
-	
+
 	// Only save custom commands (not defaults)
 	customCommands := make([]RestrictedCommand, 0)
 	for _, cmd := range mgr.commands {
@@ -1019,16 +1019,16 @@ func (mgr *RestrictedCommandsManager) saveToConfig() {
 		}
 		customCommands = append(customCommands, *cmd)
 	}
-	
+
 	if len(customCommands) == 0 {
 		return
 	}
-	
+
 	data, err := json.MarshalIndent(customCommands, "", "  ")
 	if err != nil {
 		return
 	}
-	
+
 	os.MkdirAll(mgr.config.ConfigPath, 0755)
 	os.WriteFile(filepath.Join(mgr.config.ConfigPath, "restricted_commands.json"), data, 0644)
 }

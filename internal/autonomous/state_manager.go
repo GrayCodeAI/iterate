@@ -13,51 +13,51 @@ import (
 
 // StateManager handles persistence and recovery of autonomous session state.
 type StateManager struct {
-	mu           sync.RWMutex
-	stateDir     string
-	sessionID    string
-	checkpoints  []Checkpoint
+	mu             sync.RWMutex
+	stateDir       string
+	sessionID      string
+	checkpoints    []Checkpoint
 	maxCheckpoints int
-	autoSave     bool
-	saveInterval time.Duration
+	autoSave       bool
+	saveInterval   time.Duration
 }
 
 // Checkpoint represents a saved state of an autonomous session.
 type Checkpoint struct {
-	ID           string         `json:"id"`
-	Timestamp    int64          `json:"timestamp"`
-	Phase        string         `json:"phase"`
-	Iteration    int            `json:"iteration"`
-	Task         string         `json:"task"`
-	Plan         *Plan          `json:"plan,omitempty"`
-	CompletedSteps []int        `json:"completed_steps"`
-	PendingSteps []int          `json:"pending_steps"`
-	Result       *Result        `json:"result,omitempty"`
-	Metadata     map[string]any `json:"metadata,omitempty"`
+	ID             string         `json:"id"`
+	Timestamp      int64          `json:"timestamp"`
+	Phase          string         `json:"phase"`
+	Iteration      int            `json:"iteration"`
+	Task           string         `json:"task"`
+	Plan           *Plan          `json:"plan,omitempty"`
+	CompletedSteps []int          `json:"completed_steps"`
+	PendingSteps   []int          `json:"pending_steps"`
+	Result         *Result        `json:"result,omitempty"`
+	Metadata       map[string]any `json:"metadata,omitempty"`
 }
 
 // SessionState represents the full state of an autonomous session.
 type SessionState struct {
-	SessionID     string        `json:"session_id"`
-	Task          string        `json:"task"`
-	Status        SessionStatus `json:"status"`
-	StartTime     int64         `json:"start_time"`
-	LastUpdate    int64         `json:"last_update"`
-	Checkpoints   []Checkpoint  `json:"checkpoints"`
-	CurrentPhase  string        `json:"current_phase"`
-	Iteration     int           `json:"iteration"`
-	TotalCost     float64       `json:"total_cost"`
-	Error         string        `json:"error,omitempty"`
+	SessionID    string        `json:"session_id"`
+	Task         string        `json:"task"`
+	Status       SessionStatus `json:"status"`
+	StartTime    int64         `json:"start_time"`
+	LastUpdate   int64         `json:"last_update"`
+	Checkpoints  []Checkpoint  `json:"checkpoints"`
+	CurrentPhase string        `json:"current_phase"`
+	Iteration    int           `json:"iteration"`
+	TotalCost    float64       `json:"total_cost"`
+	Error        string        `json:"error,omitempty"`
 }
 
 // SessionStatus represents the status of a session.
 type SessionStatus string
 
 const (
-	SessionStatusRunning    SessionStatus = "running"
-	SessionStatusPaused     SessionStatus = "paused"
-	SessionStatusCompleted  SessionStatus = "completed"
-	SessionStatusFailed     SessionStatus = "failed"
+	SessionStatusRunning     SessionStatus = "running"
+	SessionStatusPaused      SessionStatus = "paused"
+	SessionStatusCompleted   SessionStatus = "completed"
+	SessionStatusFailed      SessionStatus = "failed"
 	SessionStatusInterrupted SessionStatus = "interrupted"
 )
 
@@ -115,7 +115,7 @@ func (sm *StateManager) GetLatestCheckpoint() *Checkpoint {
 	if len(sm.checkpoints) == 0 {
 		return nil
 	}
-	
+
 	latest := sm.checkpoints[len(sm.checkpoints)-1]
 	return &latest
 }
@@ -137,7 +137,7 @@ func (sm *StateManager) RestoreFromCheckpoint(checkpointID string) (*Checkpoint,
 // ResumeSession loads a previously interrupted session.
 func (sm *StateManager) ResumeSession(sessionID string) (*SessionState, error) {
 	stateFile := filepath.Join(sm.stateDir, sessionID, "session.json")
-	
+
 	data, err := os.ReadFile(stateFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read session file: %w", err)
@@ -208,7 +208,7 @@ func (sm *StateManager) saveToDisk() error {
 // loadFromDisk loads checkpoints from disk.
 func (sm *StateManager) loadFromDisk() error {
 	checkpointFile := filepath.Join(sm.stateDir, sm.sessionID, "checkpoints.json")
-	
+
 	data, err := os.ReadFile(checkpointFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -279,10 +279,10 @@ func NewInterruptContext() *InterruptContext {
 func (ic *InterruptContext) Interrupt(reason string) {
 	ic.mu.Lock()
 	defer ic.mu.Unlock()
-	
+
 	ic.interrupted = true
 	ic.reason = reason
-	
+
 	if ic.cancelFunc != nil {
 		ic.cancelFunc()
 	}
@@ -345,15 +345,15 @@ func (re *ResumableEngine) Run(ctx context.Context, task string) (*Result, error
 	// Create cancellable context
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	
+
 	re.interrupt.SetCancelFunc(cancel)
 
 	// Check for previous session to resume
 	latestCheckpoint := re.stateManager.GetLatestCheckpoint()
-	
+
 	startIteration := 0
 	var currentPlan *Plan
-	
+
 	if latestCheckpoint != nil && latestCheckpoint.Phase != "completed" {
 		startIteration = latestCheckpoint.Iteration
 		currentPlan = latestCheckpoint.Plan
@@ -379,16 +379,16 @@ func (re *ResumableEngine) Run(ctx context.Context, task string) (*Result, error
 			if err == nil {
 				re.interrupt.SetCheckpoint(cp)
 			}
-			
+
 			re.stateManager.SaveSession(task, SessionStatusInterrupted, re.engine.status.Phase, iteration, result.TotalCost, re.interrupt.Reason())
-			
+
 			result.Status = "interrupted"
 			return result, fmt.Errorf("interrupted: %s", re.interrupt.Reason())
 		}
 
 		// Execute iteration (simplified - actual implementation would use engine methods)
 		re.engine.updateProgress("executing", fmt.Sprintf("Iteration %d", iteration))
-		
+
 		// Create periodic checkpoint
 		if iteration%5 == 0 {
 			re.stateManager.CreateCheckpoint(

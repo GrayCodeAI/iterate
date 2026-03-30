@@ -11,7 +11,7 @@ import (
 
 func TestDefaultTestCoverageConfig(t *testing.T) {
 	config := DefaultTestCoverageConfig()
-	
+
 	if config.TestFileSuffix != "_test.go" {
 		t.Errorf("expected _test.go, got %s", config.TestFileSuffix)
 	}
@@ -44,7 +44,7 @@ func TestNewTestCoverageManager(t *testing.T) {
 
 func TestTestCoverageManager_GetTestFilePath(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	tests := []struct {
 		source   string
 		expected string
@@ -54,7 +54,7 @@ func TestTestCoverageManager_GetTestFilePath(t *testing.T) {
 		{"utils.py", "utils_test.py"},
 		{"main.rs", "main.rs"}, // Rust tests are inline
 	}
-	
+
 	for _, tc := range tests {
 		result := tcm.getTestFilePath(tc.source)
 		if result != tc.expected {
@@ -65,20 +65,20 @@ func TestTestCoverageManager_GetTestFilePath(t *testing.T) {
 
 func TestTestCoverageManager_FindTestForSource_NoTest(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create source file without test
 	sourceFile := filepath.Join(tmpDir, "handler.go")
 	if err := os.WriteFile(sourceFile, []byte("package main"), 0644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	result, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if result.HasTests {
 		t.Error("expected HasTests to be false")
 	}
@@ -89,13 +89,13 @@ func TestTestCoverageManager_FindTestForSource_NoTest(t *testing.T) {
 
 func TestTestCoverageManager_FindTestForSource_WithTest(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create source file
 	sourceFile := filepath.Join(tmpDir, "handler.go")
 	if err := os.WriteFile(sourceFile, []byte("package main\n\nfunc Handle() {}"), 0644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
-	
+
 	// Create test file
 	testFile := filepath.Join(tmpDir, "handler_test.go")
 	testContent := `package main
@@ -121,21 +121,21 @@ func FuzzHandle(f *testing.F) {
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	result, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if !result.HasTests {
 		t.Error("expected HasTests to be true")
 	}
 	if len(result.TestFiles) != 1 {
 		t.Fatalf("expected 1 test file, got %d", len(result.TestFiles))
 	}
-	
+
 	tf := result.TestFiles[0]
 	if len(tf.TestFunctions) != 2 {
 		t.Errorf("expected 2 test functions (TestHandle, FuzzHandle), got %d: %v", len(tf.TestFunctions), tf.TestFunctions)
@@ -143,7 +143,7 @@ func FuzzHandle(f *testing.F) {
 	if len(tf.Benchmarks) != 1 {
 		t.Errorf("expected 1 benchmark, got %d: %v", len(tf.Benchmarks), tf.Benchmarks)
 	}
-	
+
 	// Check test function names
 	foundTest := false
 	foundFuzz := false
@@ -165,25 +165,25 @@ func FuzzHandle(f *testing.F) {
 
 func TestTestCoverageManager_ParseJSTests(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	testFile := filepath.Join(tmpDir, "utils.test.ts")
 	testContent := `describe('Utils', () => {
   test('should format date', () => {});
   it('should parse JSON', () => {});
 });
 test('standalone test', () => {});`
-	
+
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	info, err := tcm.parseTestFile(testFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if len(info.TestFunctions) < 3 {
 		t.Errorf("expected at least 3 test functions, got %d: %v", len(info.TestFunctions), info.TestFunctions)
 	}
@@ -191,7 +191,7 @@ test('standalone test', () => {});`
 
 func TestTestCoverageManager_ParsePythonTests(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	testFile := filepath.Join(tmpDir, "test_utils.py")
 	testContent := `import unittest
 
@@ -208,14 +208,14 @@ def test_standalone():
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	info, err := tcm.parseTestFile(testFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	// Should find test_format, test_parse, test_standalone, and class:TestUtils
 	if len(info.TestFunctions) < 3 {
 		t.Errorf("expected at least 3 test functions, got %d: %v", len(info.TestFunctions), info.TestFunctions)
@@ -224,7 +224,7 @@ def test_standalone():
 
 func TestTestCoverageManager_ParseRustTests(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	testFile := filepath.Join(tmpDir, "main.rs")
 	testContent := `#[test]
 fn test_add() {
@@ -245,14 +245,14 @@ fn bench_add(b: &mut test::Bencher) {
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	info, err := tcm.parseTestFile(testFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if len(info.TestFunctions) != 2 {
 		t.Errorf("expected 2 test functions, got %d: %v", len(info.TestFunctions), info.TestFunctions)
 	}
@@ -263,7 +263,7 @@ fn bench_add(b: &mut test::Bencher) {
 
 func TestTestCoverageManager_FindAdditionalTests(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create multiple test files
 	testFiles := []string{"handler_test.go", "utils_test.go", "other_test.go"}
 	for _, tf := range testFiles {
@@ -271,11 +271,11 @@ func TestTestCoverageManager_FindAdditionalTests(t *testing.T) {
 			t.Fatalf("failed to create test file: %v", err)
 		}
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	additional := tcm.findAdditionalTests(tmpDir, filepath.Join(tmpDir, "handler_test.go"))
-	
+
 	if len(additional) != 2 {
 		t.Errorf("expected 2 additional test files, got %d: %v", len(additional), additional)
 	}
@@ -283,13 +283,13 @@ func TestTestCoverageManager_FindAdditionalTests(t *testing.T) {
 
 func TestTestCoverageManager_GetTestContext(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create source and test files
 	source1 := filepath.Join(tmpDir, "handler.go")
 	test1 := filepath.Join(tmpDir, "handler_test.go")
 	source2 := filepath.Join(tmpDir, "utils.go")
 	test2 := filepath.Join(tmpDir, "utils_test.go")
-	
+
 	if err := os.WriteFile(source1, []byte("package main"), 0644); err != nil {
 		t.Fatalf("failed to create source1: %v", err)
 	}
@@ -302,18 +302,18 @@ func TestTestCoverageManager_GetTestContext(t *testing.T) {
 	if err := os.WriteFile(test2, []byte("package main\n\nfunc TestUtils(t *testing.T) {}"), 0644); err != nil {
 		t.Fatalf("failed to create test2: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	results, err := tcm.GetTestContext(context.Background(), []string{source1, source2})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if len(results) != 2 {
 		t.Errorf("expected 2 results, got %d", len(results))
 	}
-	
+
 	totalTests := 0
 	for _, r := range results {
 		totalTests += r.TotalTests
@@ -325,9 +325,9 @@ func TestTestCoverageManager_GetTestContext(t *testing.T) {
 
 func TestTestCoverageManager_UpdateCoverage(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	tcm.UpdateCoverage("handler.go", 85.5)
-	
+
 	coverage := tcm.coverageCache["handler.go"]
 	if coverage != 85.5 {
 		t.Errorf("expected 85.5, got %f", coverage)
@@ -336,13 +336,13 @@ func TestTestCoverageManager_UpdateCoverage(t *testing.T) {
 
 func TestTestCoverageManager_ClearCache(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	// Add some cache entries
 	tcm.testCache["test.go"] = &TestFileInfo{Path: "test.go"}
 	tcm.coverageCache["source.go"] = 75.0
-	
+
 	tcm.ClearCache()
-	
+
 	if len(tcm.testCache) != 0 {
 		t.Error("expected testCache to be empty")
 	}
@@ -353,7 +353,7 @@ func TestTestCoverageManager_ClearCache(t *testing.T) {
 
 func TestTestCoverageManager_GetTestStats(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	// Add some cache entries
 	tcm.testCache["test1.go"] = &TestFileInfo{
 		Path:          "test1.go",
@@ -365,9 +365,9 @@ func TestTestCoverageManager_GetTestStats(t *testing.T) {
 		TestFunctions: []string{"TestC"},
 	}
 	tcm.coverageCache["source.go"] = 90.0
-	
+
 	stats := tcm.GetTestStats()
-	
+
 	if stats["cached_test_files"].(int) != 2 {
 		t.Errorf("expected 2 cached test files, got %v", stats["cached_test_files"])
 	}
@@ -381,7 +381,7 @@ func TestTestCoverageManager_GetTestStats(t *testing.T) {
 
 func TestTestCoverageManager_GetSourceFromTest(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	tests := []struct {
 		testFile string
 		expected string
@@ -391,7 +391,7 @@ func TestTestCoverageManager_GetSourceFromTest(t *testing.T) {
 		{"utils_test.py", "utils.py"},
 		{"unknown.txt", ""},
 	}
-	
+
 	for _, tc := range tests {
 		result := tcm.GetSourceFromTest(tc.testFile)
 		if result != tc.expected {
@@ -402,9 +402,9 @@ func TestTestCoverageManager_GetSourceFromTest(t *testing.T) {
 
 func TestTestCoverageManager_ShouldIncludeTest(t *testing.T) {
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	sourceFiles := []string{"handler.go", "utils.go"}
-	
+
 	tests := []struct {
 		testFile string
 		expected bool
@@ -413,7 +413,7 @@ func TestTestCoverageManager_ShouldIncludeTest(t *testing.T) {
 		{"utils_test.go", true},
 		{"other_test.go", false},
 	}
-	
+
 	for _, tc := range tests {
 		result := tcm.ShouldIncludeTest(tc.testFile, sourceFiles)
 		if result != tc.expected {
@@ -424,28 +424,28 @@ func TestTestCoverageManager_ShouldIncludeTest(t *testing.T) {
 
 func TestTestCoverageManager_MaxTestSize(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	sourceFile := filepath.Join(tmpDir, "handler.go")
 	if err := os.WriteFile(sourceFile, []byte("package main"), 0644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
-	
+
 	// Create large test file
 	testFile := filepath.Join(tmpDir, "handler_test.go")
 	largeContent := make([]byte, 200*1024) // 200KB
 	if err := os.WriteFile(testFile, largeContent, 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	config := DefaultTestCoverageConfig()
 	config.MaxTestSize = 100 * 1024 // 100KB
 	tcm := NewTestCoverageManager(config, nil)
-	
+
 	result, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	// Should not include the large test file
 	if result.HasTests {
 		t.Error("expected HasTests to be false (file too large)")
@@ -454,12 +454,12 @@ func TestTestCoverageManager_MaxTestSize(t *testing.T) {
 
 func TestTestCoverageManager_MaxTestFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	sourceFile := filepath.Join(tmpDir, "main.go")
 	if err := os.WriteFile(sourceFile, []byte("package main"), 0644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
-	
+
 	// Create multiple test files
 	for i := 0; i < 5; i++ {
 		testFile := filepath.Join(tmpDir, "test"+string(rune('0'+i))+"_test.go")
@@ -468,16 +468,16 @@ func TestTestCoverageManager_MaxTestFiles(t *testing.T) {
 			t.Fatalf("failed to create test file: %v", err)
 		}
 	}
-	
+
 	config := DefaultTestCoverageConfig()
 	config.MaxTestFiles = 2
 	tcm := NewTestCoverageManager(config, nil)
-	
+
 	result, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	// Should only include 2 test files
 	if len(result.TestFiles) > config.MaxTestFiles {
 		t.Errorf("expected at most %d test files, got %d", config.MaxTestFiles, len(result.TestFiles))
@@ -486,7 +486,7 @@ func TestTestCoverageManager_MaxTestFiles(t *testing.T) {
 
 func TestTestCoverageManager_ContextCancellation(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create multiple source files
 	files := make([]string, 10)
 	for i := 0; i < 10; i++ {
@@ -495,12 +495,12 @@ func TestTestCoverageManager_ContextCancellation(t *testing.T) {
 			t.Fatalf("failed to create file %d: %v", i, err)
 		}
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	
+
 	_, err := tcm.GetTestContext(ctx, files)
 	if err != context.Canceled {
 		t.Logf("context cancellation result: %v", err)
@@ -523,9 +523,9 @@ func TestTestCoverageResult_ToMarkdown(t *testing.T) {
 			},
 		},
 	}
-	
+
 	markdown := result.ToMarkdown()
-	
+
 	if markdown == "" {
 		t.Error("expected non-empty markdown")
 	}
@@ -542,9 +542,9 @@ func TestTestCoverageResult_ToMarkdown_NoTests(t *testing.T) {
 		SourceFile: "handler.go",
 		HasTests:   false,
 	}
-	
+
 	markdown := result.ToMarkdown()
-	
+
 	if !contains(markdown, "No tests found") {
 		t.Errorf("expected 'No tests found' message in markdown: %s", markdown)
 	}
@@ -552,35 +552,35 @@ func TestTestCoverageResult_ToMarkdown_NoTests(t *testing.T) {
 
 func TestTestCoverageManager_Caching(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	sourceFile := filepath.Join(tmpDir, "handler.go")
 	testFile := filepath.Join(tmpDir, "handler_test.go")
-	
+
 	if err := os.WriteFile(sourceFile, []byte("package main"), 0644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
 	if err := os.WriteFile(testFile, []byte("package main\n\nfunc TestHandler(t *testing.T) {}"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
-	
+
 	tcm := NewTestCoverageManager(nil, nil)
-	
+
 	// First call - should parse and cache
 	result1, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	// Second call - should use cache
 	result2, err := tcm.FindTestForSource(sourceFile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if result1.TotalTests != result2.TotalTests {
 		t.Errorf("cached result differs: %d vs %d", result1.TotalTests, result2.TotalTests)
 	}
-	
+
 	// Check cache was populated
 	if len(tcm.testCache) == 0 {
 		t.Error("expected test cache to be populated")

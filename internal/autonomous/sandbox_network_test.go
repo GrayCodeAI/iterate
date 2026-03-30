@@ -16,7 +16,7 @@ func TestNetworkModes(t *testing.T) {
 		{"bridge mode", NetworkModeBridge, "bridge"},
 		{"host mode", NetworkModeHost, "host"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if string(tt.mode) != tt.expected {
@@ -28,7 +28,7 @@ func TestNetworkModes(t *testing.T) {
 
 func TestDefaultNetworkPolicy(t *testing.T) {
 	policy := DefaultNetworkPolicy()
-	
+
 	if !policy.AllowDNS {
 		t.Error("Default policy should allow DNS")
 	}
@@ -48,7 +48,7 @@ func TestDefaultNetworkPolicy(t *testing.T) {
 
 func TestStrictNetworkPolicy(t *testing.T) {
 	policy := StrictNetworkPolicy()
-	
+
 	if policy.AllowDNS {
 		t.Error("Strict policy should not allow DNS")
 	}
@@ -68,7 +68,7 @@ func TestStrictNetworkPolicy(t *testing.T) {
 
 func TestPermissiveNetworkPolicy(t *testing.T) {
 	policy := PermissiveNetworkPolicy()
-	
+
 	if !policy.AllowDNS {
 		t.Error("Permissive policy should allow DNS")
 	}
@@ -85,11 +85,11 @@ func TestPermissiveNetworkPolicy(t *testing.T) {
 
 func TestDevelopmentNetworkPolicy(t *testing.T) {
 	policy := DevelopmentNetworkPolicy()
-	
+
 	if !policy.AllowInbound {
 		t.Error("Development policy should allow inbound")
 	}
-	
+
 	// Check common dev ports
 	expectedPorts := map[int]bool{80: true, 443: true, 3000: true, 5000: true, 8000: true, 8080: true}
 	for _, port := range policy.AllowedPorts {
@@ -101,7 +101,7 @@ func TestDevelopmentNetworkPolicy(t *testing.T) {
 
 func TestNewNetworkIsolation(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{})
-	
+
 	if ni.GetMode() != NetworkModeNone {
 		t.Error("Default mode should be 'none'")
 	}
@@ -111,7 +111,7 @@ func TestNewNetworkIsolationWithMode(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode: NetworkModeBridge,
 	})
-	
+
 	if ni.GetMode() != NetworkModeBridge {
 		t.Errorf("Mode should be 'bridge', got %s", ni.GetMode())
 	}
@@ -119,12 +119,12 @@ func TestNewNetworkIsolationWithMode(t *testing.T) {
 
 func TestNetworkIsolation_SetMode(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{})
-	
+
 	ni.SetMode(NetworkModeHost)
 	if ni.GetMode() != NetworkModeHost {
 		t.Error("Failed to set mode to host")
 	}
-	
+
 	ni.SetMode(NetworkModeInternal)
 	if ni.GetMode() != NetworkModeInternal {
 		t.Error("Failed to set mode to internal")
@@ -133,10 +133,10 @@ func TestNetworkIsolation_SetMode(t *testing.T) {
 
 func TestNetworkIsolation_SetPolicy(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{})
-	
+
 	newPolicy := PermissiveNetworkPolicy()
 	ni.SetPolicy(newPolicy)
-	
+
 	if !ni.GetPolicy().AllowOutbound {
 		t.Error("Failed to set permissive policy")
 	}
@@ -144,22 +144,22 @@ func TestNetworkIsolation_SetPolicy(t *testing.T) {
 
 func TestNetworkIsolation_PortMappings(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{})
-	
+
 	ni.AddPortMapping(PortMapping{
 		HostPort:      8080,
 		ContainerPort: 80,
 		Protocol:      "tcp",
 	})
-	
+
 	mappings := ni.GetPortMappings()
 	if len(mappings) != 1 {
 		t.Fatalf("Expected 1 port mapping, got %d", len(mappings))
 	}
-	
+
 	if mappings[0].HostPort != 8080 || mappings[0].ContainerPort != 80 {
 		t.Errorf("Port mapping mismatch: %+v", mappings[0])
 	}
-	
+
 	// Remove mapping
 	ni.RemovePortMapping(8080)
 	mappings = ni.GetPortMappings()
@@ -172,9 +172,9 @@ func TestNetworkIsolation_BuildDockerArgs_None(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode: NetworkModeNone,
 	})
-	
+
 	args := ni.BuildDockerArgs()
-	
+
 	found := false
 	for i, arg := range args {
 		if arg == "--network" && i+1 < len(args) && args[i+1] == "none" {
@@ -182,7 +182,7 @@ func TestNetworkIsolation_BuildDockerArgs_None(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Expected --network none in Docker args")
 	}
@@ -192,9 +192,9 @@ func TestNetworkIsolation_BuildDockerArgs_Host(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode: NetworkModeHost,
 	})
-	
+
 	args := ni.BuildDockerArgs()
-	
+
 	found := false
 	for i, arg := range args {
 		if arg == "--network" && i+1 < len(args) && args[i+1] == "host" {
@@ -202,7 +202,7 @@ func TestNetworkIsolation_BuildDockerArgs_Host(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Expected --network host in Docker args")
 	}
@@ -215,9 +215,9 @@ func TestNetworkIsolation_BuildDockerArgs_WithPortMapping(t *testing.T) {
 			{HostPort: 8080, ContainerPort: 80, Protocol: "tcp"},
 		},
 	})
-	
+
 	args := ni.BuildDockerArgs()
-	
+
 	found := false
 	for i, arg := range args {
 		if arg == "-p" && i+1 < len(args) {
@@ -228,7 +228,7 @@ func TestNetworkIsolation_BuildDockerArgs_WithPortMapping(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if !found {
 		t.Errorf("Expected port mapping in Docker args, got: %v", args)
 	}
@@ -241,9 +241,9 @@ func TestNetworkIsolation_BuildDockerArgs_WithDNS(t *testing.T) {
 			Servers: []string{"8.8.8.8", "8.8.4.4"},
 		},
 	})
-	
+
 	args := ni.BuildDockerArgs()
-	
+
 	found8 := false
 	found4 := false
 	for i, arg := range args {
@@ -256,7 +256,7 @@ func TestNetworkIsolation_BuildDockerArgs_WithDNS(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if !found8 || !found4 {
 		t.Errorf("Expected DNS servers in Docker args, got: %v", args)
 	}
@@ -266,7 +266,7 @@ func TestNetworkIsolation_ValidateConnection_None(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode: NetworkModeNone,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 443)
 	if err == nil {
 		t.Error("Expected error for connection with network mode 'none'")
@@ -277,7 +277,7 @@ func TestNetworkIsolation_ValidateConnection_Host(t *testing.T) {
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode: NetworkModeHost,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 443)
 	if err != nil {
 		t.Errorf("Host mode should allow all connections: %v", err)
@@ -287,12 +287,12 @@ func TestNetworkIsolation_ValidateConnection_Host(t *testing.T) {
 func TestNetworkIsolation_ValidateConnection_BlockedHost(t *testing.T) {
 	policy := DefaultNetworkPolicy()
 	policy.BlockedHosts = []string{"blocked.com"}
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("blocked.com", 443)
 	if err == nil {
 		t.Error("Expected error for blocked host")
@@ -302,12 +302,12 @@ func TestNetworkIsolation_ValidateConnection_BlockedHost(t *testing.T) {
 func TestNetworkIsolation_ValidateConnection_BlockedPort(t *testing.T) {
 	policy := DefaultNetworkPolicy()
 	policy.BlockedPorts = []int{22}
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 22)
 	if err == nil {
 		t.Error("Expected error for blocked port")
@@ -316,12 +316,12 @@ func TestNetworkIsolation_ValidateConnection_BlockedPort(t *testing.T) {
 
 func TestNetworkIsolation_ValidateConnection_AllowOutbound(t *testing.T) {
 	policy := PermissiveNetworkPolicy()
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 443)
 	if err != nil {
 		t.Errorf("Permissive policy should allow outbound: %v", err)
@@ -331,12 +331,12 @@ func TestNetworkIsolation_ValidateConnection_AllowOutbound(t *testing.T) {
 func TestNetworkIsolation_ValidateConnection_DNS(t *testing.T) {
 	policy := DefaultNetworkPolicy()
 	policy.AllowDNS = false
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("dns.server", 53)
 	if err == nil {
 		t.Error("Expected error for DNS when disabled")
@@ -346,12 +346,12 @@ func TestNetworkIsolation_ValidateConnection_DNS(t *testing.T) {
 func TestNetworkIsolation_ValidateConnection_HTTP(t *testing.T) {
 	policy := DefaultNetworkPolicy()
 	policy.AllowHTTP = false
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 80)
 	if err == nil {
 		t.Error("Expected error for HTTP when disabled")
@@ -361,12 +361,12 @@ func TestNetworkIsolation_ValidateConnection_HTTP(t *testing.T) {
 func TestNetworkIsolation_ValidateConnection_HTTPS(t *testing.T) {
 	policy := DefaultNetworkPolicy()
 	policy.AllowHTTPS = false
-	
+
 	ni := NewNetworkIsolation(NetworkIsolationConfig{
 		Mode:   NetworkModeBridge,
 		Policy: policy,
 	})
-	
+
 	err := ni.ValidateConnection("example.com", 443)
 	if err == nil {
 		t.Error("Expected error for HTTPS when disabled")
@@ -376,7 +376,7 @@ func TestNetworkIsolation_ValidateConnection_HTTPS(t *testing.T) {
 func TestNetworkProfiles(t *testing.T) {
 	profiles := ListNetworkProfiles()
 	expectedProfiles := []string{"strict", "secure", "development", "isolated", "full"}
-	
+
 	for _, expected := range expectedProfiles {
 		found := false
 		for _, p := range profiles {
@@ -396,11 +396,11 @@ func TestGetNetworkProfile(t *testing.T) {
 	if !ok {
 		t.Error("Expected to find 'strict' profile")
 	}
-	
+
 	if profile.Mode != NetworkModeNone {
 		t.Errorf("Strict profile should have mode 'none', got %s", profile.Mode)
 	}
-	
+
 	_, ok = GetNetworkProfile("nonexistent")
 	if ok {
 		t.Error("Expected not to find 'nonexistent' profile")
@@ -414,15 +414,15 @@ func TestNetworkIsolationBuilder(t *testing.T) {
 		WithPortMapping(8080, 80, "tcp").
 		WithDNS([]string{"8.8.8.8"}).
 		Build()
-	
+
 	if ni.GetMode() != NetworkModeBridge {
 		t.Error("Builder failed to set mode")
 	}
-	
+
 	if !ni.GetPolicy().AllowOutbound {
 		t.Error("Builder failed to set policy")
 	}
-	
+
 	mappings := ni.GetPortMappings()
 	if len(mappings) != 1 {
 		t.Error("Builder failed to add port mapping")
@@ -433,11 +433,11 @@ func TestNetworkIsolationBuilder_WithProfile(t *testing.T) {
 	ni := NewNetworkIsolationBuilder().
 		WithProfile("development").
 		Build()
-	
+
 	if ni.GetMode() != NetworkModeBridge {
 		t.Errorf("Development profile should use bridge mode, got %s", ni.GetMode())
 	}
-	
+
 	if !ni.GetPolicy().AllowInbound {
 		t.Error("Development profile should allow inbound")
 	}
@@ -445,25 +445,25 @@ func TestNetworkIsolationBuilder_WithProfile(t *testing.T) {
 
 func TestApplyNetworkProfile(t *testing.T) {
 	config := DefaultSandboxConfig()
-	
+
 	err := ApplyNetworkProfile(&config, "strict")
 	if err != nil {
 		t.Fatalf("Failed to apply profile: %v", err)
 	}
-	
+
 	if config.NetworkEnabled {
 		t.Error("Strict profile should disable network")
 	}
-	
+
 	err = ApplyNetworkProfile(&config, "development")
 	if err != nil {
 		t.Fatalf("Failed to apply development profile: %v", err)
 	}
-	
+
 	if !config.NetworkEnabled {
 		t.Error("Development profile should enable network")
 	}
-	
+
 	err = ApplyNetworkProfile(&config, "nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent profile")
@@ -472,45 +472,45 @@ func TestApplyNetworkProfile(t *testing.T) {
 
 func TestTask25NetworkIsolation(t *testing.T) {
 	// Comprehensive test for Task 25
-	
+
 	// Test 1: Create isolation with strict profile
 	strict := NewNetworkIsolationBuilder().
 		WithProfile("strict").
 		Build()
-	
+
 	if strict.GetMode() != NetworkModeNone {
 		t.Error("Strict profile should use 'none' network mode")
 	}
-	
+
 	// Test 2: Connection validation
 	err := strict.ValidateConnection("any.host", 443)
 	if err == nil {
 		t.Error("Strict profile should block all connections")
 	}
-	
+
 	// Test 3: Create isolation with development profile
 	dev := NewNetworkIsolationBuilder().
 		WithProfile("development").
 		WithPortMapping(3000, 3000, "tcp").
 		Build()
-	
+
 	// Test 4: Docker args generation
 	args := dev.BuildDockerArgs()
 	if len(args) == 0 {
 		t.Error("Development isolation should produce Docker args")
 	}
-	
+
 	// Test 5: Connection validation for development
 	err = dev.ValidateConnection("example.com", 443)
 	if err != nil {
 		t.Errorf("Development profile should allow HTTPS: %v", err)
 	}
-	
+
 	// Test 6: Full profile allows everything
 	full := NewNetworkIsolationBuilder().
 		WithProfile("full").
 		Build()
-	
+
 	err = full.ValidateConnection("any.host", 12345)
 	if err != nil {
 		t.Errorf("Full profile should allow all connections: %v", err)

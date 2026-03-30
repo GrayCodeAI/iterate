@@ -17,14 +17,14 @@ import (
 
 // FolderContextConfig holds configuration for folder context.
 type FolderContextConfig struct {
-	MaxFiles           int           `json:"max_files"`            // Max files per folder
-	MaxDepth           int           `json:"max_depth"`            // Max recursion depth
-	MaxTotalSize       int64         `json:"max_total_size"`       // Max total size in bytes
-	ExcludePatterns    []string      `json:"exclude_patterns"`     // Patterns to exclude
-	IncludeHidden      bool          `json:"include_hidden"`       // Include hidden files
-	PriorityExtensions []string      `json:"priority_extensions"`  // Extensions to prioritize
-	SummaryMode        string        `json:"summary_mode"`         // "full", "structure", "stats"
-	CacheTTL           time.Duration `json:"cache_ttl"`            // Cache time-to-live
+	MaxFiles           int           `json:"max_files"`           // Max files per folder
+	MaxDepth           int           `json:"max_depth"`           // Max recursion depth
+	MaxTotalSize       int64         `json:"max_total_size"`      // Max total size in bytes
+	ExcludePatterns    []string      `json:"exclude_patterns"`    // Patterns to exclude
+	IncludeHidden      bool          `json:"include_hidden"`      // Include hidden files
+	PriorityExtensions []string      `json:"priority_extensions"` // Extensions to prioritize
+	SummaryMode        string        `json:"summary_mode"`        // "full", "structure", "stats"
+	CacheTTL           time.Duration `json:"cache_ttl"`           // Cache time-to-live
 }
 
 // DefaultFolderContextConfig returns default configuration.
@@ -43,53 +43,53 @@ func DefaultFolderContextConfig() *FolderContextConfig {
 
 // FolderInfo represents information about a folder.
 type FolderInfo struct {
-	Path           string            `json:"path"`
-	Name           string            `json:"name"`
-	FileCount      int               `json:"file_count"`
-	DirCount       int               `json:"dir_count"`
-	TotalSize      int64             `json:"total_size"`
-	Files          []*FileSummary    `json:"files,omitempty"`
-	Subdirs        []string          `json:"subdirs,omitempty"`
-	Extensions     map[string]int    `json:"extensions"`
-	ModTime        time.Time         `json:"mod_time"`
-	HasReadme      bool              `json:"has_readme"`
-	ReadmePath     string            `json:"readme_path,omitempty"`
-	Metadata       map[string]string `json:"metadata,omitempty"`
+	Path       string            `json:"path"`
+	Name       string            `json:"name"`
+	FileCount  int               `json:"file_count"`
+	DirCount   int               `json:"dir_count"`
+	TotalSize  int64             `json:"total_size"`
+	Files      []*FileSummary    `json:"files,omitempty"`
+	Subdirs    []string          `json:"subdirs,omitempty"`
+	Extensions map[string]int    `json:"extensions"`
+	ModTime    time.Time         `json:"mod_time"`
+	HasReadme  bool              `json:"has_readme"`
+	ReadmePath string            `json:"readme_path,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 // FileSummary represents a summary of a file.
 type FileSummary struct {
-	Path        string    `json:"path"`
-	Name        string    `json:"name"`
-	Ext         string    `json:"ext"`
-	Size        int64     `json:"size"`
-	ModTime     time.Time `json:"mod_time"`
-	IsDir       bool      `json:"is_dir"`
-	IsHidden    bool      `json:"is_hidden"`
-	TokenEst    int       `json:"token_est"`
-	Priority    int       `json:"priority"` // Higher = more important
+	Path     string    `json:"path"`
+	Name     string    `json:"name"`
+	Ext      string    `json:"ext"`
+	Size     int64     `json:"size"`
+	ModTime  time.Time `json:"mod_time"`
+	IsDir    bool      `json:"is_dir"`
+	IsHidden bool      `json:"is_hidden"`
+	TokenEst int       `json:"token_est"`
+	Priority int       `json:"priority"` // Higher = more important
 }
 
 // FolderContextResult represents the result of folder context gathering.
 type FolderContextResult struct {
-	Folder       *FolderInfo   `json:"folder"`
-	Depth        int           `json:"depth"`
-	TotalFiles   int           `json:"total_files"`
-	TotalSize    int64         `json:"total_size"`
-	GatherTime   time.Duration `json:"gather_time"`
-	Truncated    bool          `json:"truncated"` // True if limits were hit
+	Folder     *FolderInfo   `json:"folder"`
+	Depth      int           `json:"depth"`
+	TotalFiles int           `json:"total_files"`
+	TotalSize  int64         `json:"total_size"`
+	GatherTime time.Duration `json:"gather_time"`
+	Truncated  bool          `json:"truncated"` // True if limits were hit
 }
 
 // FolderContextManager manages folder-level context gathering.
 type FolderContextManager struct {
-	config     *FolderContextConfig
-	logger     *slog.Logger
-	mu         sync.RWMutex
-	
+	config *FolderContextConfig
+	logger *slog.Logger
+	mu     sync.RWMutex
+
 	// Cache
 	folderCache map[string]*FolderContextResult
 	cacheExpiry time.Time
-	
+
 	// Token estimator
 	tokenEstimator func(string) int
 }
@@ -102,11 +102,11 @@ func NewFolderContextManager(config *FolderContextConfig, logger *slog.Logger) *
 	if config == nil {
 		config = DefaultFolderContextConfig()
 	}
-	
+
 	return &FolderContextManager{
-		config:        config,
-		logger:        logger.With("component", "folder_context"),
-		folderCache:   make(map[string]*FolderContextResult),
+		config:         config,
+		logger:         logger.With("component", "folder_context"),
+		folderCache:    make(map[string]*FolderContextResult),
 		tokenEstimator: EstimateTokens,
 	}
 }
@@ -114,7 +114,7 @@ func NewFolderContextManager(config *FolderContextConfig, logger *slog.Logger) *
 // GatherFolder gathers context for a folder.
 func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath string, depth int) (*FolderContextResult, error) {
 	start := time.Now()
-	
+
 	fcm.mu.RLock()
 	// Check cache
 	if result, ok := fcm.folderCache[folderPath]; ok && time.Now().Before(fcm.cacheExpiry) {
@@ -122,11 +122,11 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 		return result, nil
 	}
 	fcm.mu.RUnlock()
-	
+
 	result := &FolderContextResult{
 		Depth: depth,
 	}
-	
+
 	// Validate folder exists
 	info, err := os.Stat(folderPath)
 	if err != nil {
@@ -135,7 +135,7 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 	if !info.IsDir() {
 		return nil, fmt.Errorf("not a directory: %s", folderPath)
 	}
-	
+
 	folderInfo := &FolderInfo{
 		Path:       folderPath,
 		Name:       filepath.Base(folderPath),
@@ -145,23 +145,23 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 		Subdirs:    make([]string, 0),
 		Metadata:   make(map[string]string),
 	}
-	
+
 	// Gather files
 	var totalSize int64
 	var totalFiles int
 	truncated := false
-	
+
 	err = filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-		
+
 		if err != nil {
 			return nil // Skip errors
 		}
-		
+
 		// Check depth
 		relPath, _ := filepath.Rel(folderPath, path)
 		currentDepth := len(strings.Split(relPath, string(os.PathSeparator)))
@@ -171,7 +171,7 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 			}
 			return nil
 		}
-		
+
 		// Check exclusions
 		if fcm.shouldExclude(path, info) {
 			if info.IsDir() {
@@ -179,7 +179,7 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 			}
 			return nil
 		}
-		
+
 		// Check limits
 		if totalFiles >= fcm.config.MaxFiles {
 			truncated = true
@@ -188,12 +188,12 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 			}
 			return nil
 		}
-		
+
 		if totalSize > fcm.config.MaxTotalSize {
 			truncated = true
 			return nil
 		}
-		
+
 		// Process file/directory
 		if info.IsDir() {
 			if path != folderPath {
@@ -210,26 +210,26 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 				IsDir:    false,
 				IsHidden: strings.HasPrefix(info.Name(), "."),
 			}
-			
+
 			// Calculate priority
 			summary.Priority = fcm.calculatePriority(summary)
-			
+
 			// Estimate tokens
 			content, err := os.ReadFile(path)
 			if err == nil && fcm.tokenEstimator != nil {
 				summary.TokenEst = fcm.tokenEstimator(string(content))
 			}
-			
+
 			folderInfo.Files = append(folderInfo.Files, summary)
 			folderInfo.FileCount++
 			totalFiles++
 			totalSize += info.Size()
-			
+
 			// Track extensions
 			if summary.Ext != "" {
 				folderInfo.Extensions[summary.Ext]++
 			}
-			
+
 			// Check for README
 			name := strings.ToLower(info.Name())
 			if name == "readme.md" || name == "readme.txt" || name == "readme" {
@@ -237,44 +237,44 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 				folderInfo.ReadmePath = path
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil && err != context.Canceled {
 		fcm.logger.Debug("Error walking folder", "path", folderPath, "error", err)
 	}
-	
+
 	// Sort files by priority
 	sort.Slice(folderInfo.Files, func(i, j int) bool {
 		return folderInfo.Files[i].Priority > folderInfo.Files[j].Priority
 	})
-	
+
 	folderInfo.TotalSize = totalSize
 	result.Folder = folderInfo
 	result.TotalFiles = totalFiles
 	result.TotalSize = totalSize
 	result.GatherTime = time.Since(start)
 	result.Truncated = truncated
-	
+
 	// Cache result
 	fcm.mu.Lock()
 	fcm.folderCache[folderPath] = result
 	fcm.cacheExpiry = time.Now().Add(fcm.config.CacheTTL)
 	fcm.mu.Unlock()
-	
+
 	return result, nil
 }
 
 // shouldExclude checks if a path should be excluded.
 func (fcm *FolderContextManager) shouldExclude(path string, info os.FileInfo) bool {
 	name := info.Name()
-	
+
 	// Check hidden files
 	if !fcm.config.IncludeHidden && strings.HasPrefix(name, ".") {
 		return true
 	}
-	
+
 	// Check exclusion patterns
 	for _, pattern := range fcm.config.ExcludePatterns {
 		// Exact match
@@ -293,14 +293,14 @@ func (fcm *FolderContextManager) shouldExclude(path string, info os.FileInfo) bo
 			}
 		}
 	}
-	
+
 	return false
 }
 
 // calculatePriority calculates the priority of a file.
 func (fcm *FolderContextManager) calculatePriority(summary *FileSummary) int {
 	priority := 0
-	
+
 	// Check priority extensions
 	for i, ext := range fcm.config.PriorityExtensions {
 		if summary.Ext == ext {
@@ -308,51 +308,51 @@ func (fcm *FolderContextManager) calculatePriority(summary *FileSummary) int {
 			break
 		}
 	}
-	
+
 	// Boost for README
 	name := strings.ToLower(summary.Name)
 	if name == "readme.md" || name == "readme.txt" {
 		priority += 50
 	}
-	
+
 	// Boost for common config files
-	if summary.Name == "go.mod" || summary.Name == "package.json" || 
-	   summary.Name == "Cargo.toml" || summary.Name == "requirements.txt" {
+	if summary.Name == "go.mod" || summary.Name == "package.json" ||
+		summary.Name == "Cargo.toml" || summary.Name == "requirements.txt" {
 		priority += 40
 	}
-	
+
 	// Boost for main files
-	if summary.Name == "main.go" || summary.Name == "index.ts" || 
-	   summary.Name == "index.js" || summary.Name == "__init__.py" {
+	if summary.Name == "main.go" || summary.Name == "index.ts" ||
+		summary.Name == "index.js" || summary.Name == "__init__.py" {
 		priority += 30
 	}
-	
+
 	// Penalty for test files
-	if strings.HasSuffix(summary.Name, "_test.go") || 
-	   strings.Contains(summary.Name, ".test.") ||
-	   strings.HasSuffix(summary.Name, "_test.py") {
+	if strings.HasSuffix(summary.Name, "_test.go") ||
+		strings.Contains(summary.Name, ".test.") ||
+		strings.HasSuffix(summary.Name, "_test.py") {
 		priority -= 10
 	}
-	
+
 	// Penalty for hidden files
 	if summary.IsHidden {
 		priority -= 20
 	}
-	
+
 	return priority
 }
 
 // GatherMultipleFolders gathers context for multiple folders.
 func (fcm *FolderContextManager) GatherMultipleFolders(ctx context.Context, folderPaths []string, depth int) ([]*FolderContextResult, error) {
 	results := make([]*FolderContextResult, 0, len(folderPaths))
-	
+
 	for _, path := range folderPaths {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		result, err := fcm.GatherFolder(ctx, path, depth)
 		if err != nil {
 			fcm.logger.Debug("Error gathering folder", "path", path, "error", err)
@@ -360,19 +360,19 @@ func (fcm *FolderContextManager) GatherMultipleFolders(ctx context.Context, fold
 		}
 		results = append(results, result)
 	}
-	
+
 	return results, nil
 }
 
 // GetFolderStructure returns a tree structure of the folder.
 func (fcm *FolderContextManager) GetFolderStructure(ctx context.Context, folderPath string, maxDepth int) (string, error) {
 	var sb strings.Builder
-	
+
 	err := fcm.buildTree(ctx, folderPath, "", 0, maxDepth, &sb)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return sb.String(), nil
 }
 
@@ -383,16 +383,16 @@ func (fcm *FolderContextManager) buildTree(ctx context.Context, path string, pre
 		return ctx.Err()
 	default:
 	}
-	
+
 	if depth > maxDepth {
 		return nil
 	}
-	
+
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil
 	}
-	
+
 	// Sort entries
 	sort.Slice(entries, func(i, j int) bool {
 		// Dirs first
@@ -401,22 +401,22 @@ func (fcm *FolderContextManager) buildTree(ctx context.Context, path string, pre
 		}
 		return entries[i].Name() < entries[j].Name()
 	})
-	
+
 	for i, entry := range entries {
 		// Skip hidden and excluded
 		info, _ := entry.Info()
 		if info != nil && fcm.shouldExclude(filepath.Join(path, entry.Name()), info) {
 			continue
 		}
-		
+
 		isLast := i == len(entries)-1
 		connector := "├── "
 		if isLast {
 			connector = "└── "
 		}
-		
+
 		sb.WriteString(prefix + connector + entry.Name() + "\n")
-		
+
 		if entry.IsDir() {
 			newPrefix := prefix
 			if isLast {
@@ -427,7 +427,7 @@ func (fcm *FolderContextManager) buildTree(ctx context.Context, path string, pre
 			fcm.buildTree(ctx, filepath.Join(path, entry.Name()), newPrefix, depth+1, maxDepth, sb)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -442,7 +442,7 @@ func (fcm *FolderContextManager) ClearCache() {
 func (fcm *FolderContextManager) GetStats() map[string]interface{} {
 	fcm.mu.RLock()
 	defer fcm.mu.RUnlock()
-	
+
 	return map[string]interface{}{
 		"cached_folders": len(fcm.folderCache),
 		"max_files":      fcm.config.MaxFiles,
@@ -463,7 +463,7 @@ func (fcm *FolderContextManager) ResolveFolderPath(mention string) (string, bool
 	// Remove @folder prefix if present
 	mention = strings.TrimPrefix(mention, "@folder")
 	mention = strings.TrimSpace(mention)
-	
+
 	// Check if it's an absolute path
 	if filepath.IsAbs(mention) {
 		if info, err := os.Stat(mention); err == nil && info.IsDir() {
@@ -471,34 +471,34 @@ func (fcm *FolderContextManager) ResolveFolderPath(mention string) (string, bool
 		}
 		return "", false
 	}
-	
+
 	// Try relative path
 	if info, err := os.Stat(mention); err == nil && info.IsDir() {
 		return mention, true
 	}
-	
+
 	return "", false
 }
 
 // ToMarkdown generates a markdown representation of the folder context result.
 func (r *FolderContextResult) ToMarkdown() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("# Folder: %s\n\n", r.Folder.Name))
 	sb.WriteString(fmt.Sprintf("**Path:** `%s`\n\n", r.Folder.Path))
 	sb.WriteString(fmt.Sprintf("- **Files:** %d\n", r.Folder.FileCount))
 	sb.WriteString(fmt.Sprintf("- **Subdirs:** %d\n", r.Folder.DirCount))
 	sb.WriteString(fmt.Sprintf("- **Total Size:** %s\n", formatSize(r.Folder.TotalSize)))
 	sb.WriteString(fmt.Sprintf("- **Gather Time:** %v\n\n", r.GatherTime))
-	
+
 	if r.Truncated {
 		sb.WriteString("⚠️ *Results truncated due to size limits*\n\n")
 	}
-	
+
 	if r.Folder.HasReadme {
 		sb.WriteString(fmt.Sprintf("📄 **README:** `%s`\n\n", r.Folder.ReadmePath))
 	}
-	
+
 	// Extensions
 	if len(r.Folder.Extensions) > 0 {
 		sb.WriteString("### Extensions\n\n")
@@ -507,7 +507,7 @@ func (r *FolderContextResult) ToMarkdown() string {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	// Top files by priority
 	if len(r.Folder.Files) > 0 {
 		sb.WriteString("### Top Files\n\n")
@@ -520,7 +520,7 @@ func (r *FolderContextResult) ToMarkdown() string {
 			sb.WriteString(fmt.Sprintf("- `%s` (%s, priority: %d)\n", f.Name, formatSize(f.Size), f.Priority))
 		}
 	}
-	
+
 	return sb.String()
 }
 

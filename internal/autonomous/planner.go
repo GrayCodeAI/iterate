@@ -12,9 +12,9 @@ import (
 
 // DependencyGraph represents the dependency relationships between plan steps.
 type DependencyGraph struct {
-	mu          sync.RWMutex
-	nodes       map[int]*PlanNode
-	edges       map[int][]int // node -> dependencies
+	mu           sync.RWMutex
+	nodes        map[int]*PlanNode
+	edges        map[int][]int // node -> dependencies
 	reverseEdges map[int][]int // node -> dependents
 }
 
@@ -31,13 +31,13 @@ type PlanNode struct {
 type NodeStatus string
 
 const (
-	StatusPending    NodeStatus = "pending"
-	StatusReady      NodeStatus = "ready"     // All dependencies met
-	StatusRunning    NodeStatus = "running"
-	StatusCompleted  NodeStatus = "completed"
-	StatusFailed     NodeStatus = "failed"
-	StatusSkipped    NodeStatus = "skipped"
-	StatusBlocked    NodeStatus = "blocked"   // Dependencies failed
+	StatusPending   NodeStatus = "pending"
+	StatusReady     NodeStatus = "ready" // All dependencies met
+	StatusRunning   NodeStatus = "running"
+	StatusCompleted NodeStatus = "completed"
+	StatusFailed    NodeStatus = "failed"
+	StatusSkipped   NodeStatus = "skipped"
+	StatusBlocked   NodeStatus = "blocked" // Dependencies failed
 )
 
 // Planner manages multi-step plans with dependency resolution.
@@ -52,8 +52,8 @@ type Planner struct {
 func NewPlanner(logger *slog.Logger) *Planner {
 	return &Planner{
 		graph: &DependencyGraph{
-			nodes:       make(map[int]*PlanNode),
-			edges:       make(map[int][]int),
+			nodes:        make(map[int]*PlanNode),
+			edges:        make(map[int][]int),
 			reverseEdges: make(map[int][]int),
 		},
 		maxRetries: 3,
@@ -67,7 +67,7 @@ func (p *Planner) AddStep(step PlanStep, dependencies []int) (int, error) {
 	defer p.mu.Unlock()
 
 	id := len(p.graph.nodes)
-	
+
 	node := &PlanNode{
 		Step:         step,
 		ID:           id,
@@ -99,15 +99,15 @@ func (p *Planner) hasCycle(nodeID int, visited map[int]bool) bool {
 	if visited[nodeID] {
 		return true
 	}
-	
+
 	visited[nodeID] = true
-	
+
 	for _, dep := range p.graph.edges[nodeID] {
 		if p.hasCycle(dep, visited) {
 			return true
 		}
 	}
-	
+
 	delete(visited, nodeID)
 	return false
 }
@@ -150,7 +150,7 @@ func (p *Planner) GetExecutionOrder() ([]int, error) {
 	})
 
 	result := make([]int, 0)
-	
+
 	for len(queue) > 0 {
 		// Dequeue
 		current := queue[0]
@@ -183,7 +183,7 @@ func (p *Planner) GetReadySteps() []*PlanNode {
 	defer p.mu.RUnlock()
 
 	ready := make([]*PlanNode, 0)
-	
+
 	for _, node := range p.graph.nodes {
 		if node.Status != StatusPending {
 			continue
@@ -381,7 +381,7 @@ func (p *Planner) inferDependencies(step PlanStep, previousSteps []PlanStep, pre
 	deps := make([]int, 0)
 
 	stepType := strings.ToLower(step.Type)
-	
+
 	// Write operations depend on reads of the same file
 	if strings.Contains(stepType, "write") || strings.Contains(stepType, "edit") {
 		for i, prev := range previousSteps {
@@ -425,7 +425,7 @@ func (p *Planner) sameTarget(target1, target2 string) bool {
 // calculatePriority assigns priority based on step type.
 func calculatePriority(step PlanStep) int {
 	stepType := strings.ToLower(step.Type)
-	
+
 	switch {
 	case strings.Contains(stepType, "read"):
 		return 100 // Read operations first
@@ -451,7 +451,7 @@ func (p *Planner) ExecutePlan(ctx context.Context, executor func(step PlanStep) 
 
 	for _, stepID := range order {
 		node := p.graph.nodes[stepID]
-		
+
 		// Check if dependencies are completed
 		allDepsComplete := true
 		for _, depID := range node.Dependencies {

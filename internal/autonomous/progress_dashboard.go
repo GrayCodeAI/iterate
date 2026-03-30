@@ -19,7 +19,7 @@ type ProgressDashboard struct {
 	currentStep *ProgressStep
 	status      DashboardStatus
 	progress    float64
-	
+
 	// Metrics
 	totalOperations int
 	completedOps    int
@@ -27,13 +27,13 @@ type ProgressDashboard struct {
 	retries         int
 	tokensUsed      int64
 	cost            float64
-	
+
 	// Display options
 	output         io.Writer
 	refreshRate    time.Duration
 	showTimestamps bool
 	compact        bool
-	
+
 	// Live updates
 	stopChan   chan struct{}
 	running    bool
@@ -95,7 +95,7 @@ func NewProgressDashboard(config DashboardConfig) *ProgressDashboard {
 	if config.RefreshRate == 0 {
 		config.RefreshRate = 500 * time.Millisecond
 	}
-	
+
 	return &ProgressDashboard{
 		taskName:       config.TaskName,
 		startTime:      time.Now(),
@@ -113,7 +113,7 @@ func NewProgressDashboard(config DashboardConfig) *ProgressDashboard {
 func (d *ProgressDashboard) AddStep(id, name, description string) *ProgressStep {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	step := &ProgressStep{
 		ID:          id,
 		Name:        name,
@@ -124,10 +124,10 @@ func (d *ProgressDashboard) AddStep(id, name, description string) *ProgressStep 
 		SubSteps:    make([]*ProgressStep, 0),
 		Metadata:    make(map[string]any),
 	}
-	
+
 	d.steps = append(d.steps, step)
 	d.totalOperations++
-	
+
 	return step
 }
 
@@ -135,7 +135,7 @@ func (d *ProgressDashboard) AddStep(id, name, description string) *ProgressStep 
 func (d *ProgressDashboard) StartStep(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Status = StepRunning
@@ -151,7 +151,7 @@ func (d *ProgressDashboard) StartStep(id string) {
 func (d *ProgressDashboard) UpdateStepProgress(id string, progress float64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Progress = progress
@@ -165,7 +165,7 @@ func (d *ProgressDashboard) UpdateStepProgress(id string, progress float64) {
 func (d *ProgressDashboard) CompleteStep(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Status = StepCompleted
@@ -183,7 +183,7 @@ func (d *ProgressDashboard) CompleteStep(id string) {
 func (d *ProgressDashboard) FailStep(id, errMsg string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Status = StepFailed
@@ -201,7 +201,7 @@ func (d *ProgressDashboard) FailStep(id, errMsg string) {
 func (d *ProgressDashboard) RetryStep(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Status = StepRetrying
@@ -216,7 +216,7 @@ func (d *ProgressDashboard) RetryStep(id string) {
 func (d *ProgressDashboard) SkipStep(id string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == id {
 			step.Status = StepSkipped
@@ -231,7 +231,7 @@ func (d *ProgressDashboard) SkipStep(id string) {
 func (d *ProgressDashboard) AddSubStep(parentID, id, name string) *ProgressStep {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	for _, step := range d.steps {
 		if step.ID == parentID {
 			subStep := &ProgressStep{
@@ -290,71 +290,71 @@ func (d *ProgressDashboard) IncrementRetries() {
 func (d *ProgressDashboard) Render() {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	var sb strings.Builder
-	
+
 	// Clear screen if not compact
 	if !d.compact {
 		sb.WriteString("\033[2J\033[H")
 	}
-	
+
 	// Header
 	sb.WriteString(d.renderHeader())
 	sb.WriteString("\n")
-	
+
 	// Progress bar
 	sb.WriteString(d.renderProgressBar())
 	sb.WriteString("\n\n")
-	
+
 	// Steps
 	sb.WriteString(d.renderSteps())
 	sb.WriteString("\n")
-	
+
 	// Metrics
 	sb.WriteString(d.renderMetrics())
 	sb.WriteString("\n")
-	
+
 	// Footer
 	sb.WriteString(d.renderFooter())
-	
+
 	fmt.Fprint(d.output, sb.String())
 }
 
 // renderHeader renders the dashboard header.
 func (d *ProgressDashboard) renderHeader() string {
 	var sb strings.Builder
-	
+
 	// Title
 	sb.WriteString("╭──────────────────────────────────────────────────────────────╮\n")
 	title := fmt.Sprintf("│ %-60s │", truncate(d.taskName, 60))
 	sb.WriteString(title)
 	sb.WriteString("\n")
 	sb.WriteString("├──────────────────────────────────────────────────────────────┤\n")
-	
+
 	// Status and duration
 	duration := time.Since(d.startTime)
 	statusIcon := d.getStatusIcon()
-	statusLine := fmt.Sprintf("│ Status: %s %-12s Duration: %-20s │", 
+	statusLine := fmt.Sprintf("│ Status: %s %-12s Duration: %-20s │",
 		statusIcon, d.status, formatDuration(duration))
 	sb.WriteString(statusLine)
 	sb.WriteString("\n")
-	
+
 	return sb.String()
 }
 
 // renderProgressBar renders the progress bar.
 func (d *ProgressDashboard) renderProgressBar() string {
 	var sb strings.Builder
-	
+
 	progress := d.progress
 	if progress == 0 && d.totalOperations > 0 {
 		progress = float64(d.completedOps) / float64(d.totalOperations)
 	}
-	
+
 	// Progress bar
 	barWidth := 40
 	filled := int(progress * float64(barWidth))
-	
+
 	sb.WriteString("│ Progress: [")
 	for i := 0; i < barWidth; i++ {
 		if i < filled {
@@ -366,32 +366,32 @@ func (d *ProgressDashboard) renderProgressBar() string {
 	sb.WriteString("] ")
 	sb.WriteString(fmt.Sprintf("%5.1f%%", progress*100))
 	sb.WriteString("     │\n")
-	
+
 	return sb.String()
 }
 
 // renderSteps renders the steps section.
 func (d *ProgressDashboard) renderSteps() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("├──────────────────────────────────────────────────────────────┤\n")
 	sb.WriteString("│ Steps                                                        │\n")
 	sb.WriteString("├──────────────────────────────────────────────────────────────┤\n")
-	
+
 	for _, step := range d.steps {
 		sb.WriteString(d.renderStep(step, 0))
 	}
-	
+
 	return sb.String()
 }
 
 // renderStep renders a single step.
 func (d *ProgressDashboard) renderStep(step *ProgressStep, indent int) string {
 	var sb strings.Builder
-	
+
 	prefix := strings.Repeat("  ", indent)
 	icon := d.getStepIcon(step.Status)
-	
+
 	// Step line
 	line := fmt.Sprintf("│ %s%s %-20s %s %s",
 		prefix,
@@ -400,60 +400,60 @@ func (d *ProgressDashboard) renderStep(step *ProgressStep, indent int) string {
 		step.Status,
 		formatDuration(step.Duration),
 	)
-	
+
 	// Pad to width
 	line = fmt.Sprintf("%-62s │", line)
 	sb.WriteString(line)
 	sb.WriteString("\n")
-	
+
 	// Error if present
 	if step.Error != "" {
 		errLine := fmt.Sprintf("│ %s   ⚠ Error: %-44s │", prefix, truncate(step.Error, 44))
 		sb.WriteString(errLine)
 		sb.WriteString("\n")
 	}
-	
+
 	// Sub-steps
 	for _, subStep := range step.SubSteps {
 		sb.WriteString(d.renderStep(subStep, indent+1))
 	}
-	
+
 	return sb.String()
 }
 
 // renderMetrics renders the metrics section.
 func (d *ProgressDashboard) renderMetrics() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("├──────────────────────────────────────────────────────────────┤\n")
 	sb.WriteString("│ Metrics                                                      │\n")
 	sb.WriteString("├──────────────────────────────────────────────────────────────┤\n")
-	
+
 	// Operations
 	opsLine := fmt.Sprintf("│ Operations: %d total, %d completed, %d failed, %d retries %-9s │",
 		d.totalOperations, d.completedOps, d.failedOps, d.retries, "")
 	sb.WriteString(opsLine)
 	sb.WriteString("\n")
-	
+
 	// Tokens and cost
 	resourceLine := fmt.Sprintf("│ Tokens: %-8d Cost: $%-8.2f %-23s │",
 		d.tokensUsed, d.cost, "")
 	sb.WriteString(resourceLine)
 	sb.WriteString("\n")
-	
+
 	return sb.String()
 }
 
 // renderFooter renders the footer.
 func (d *ProgressDashboard) renderFooter() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("╰──────────────────────────────────────────────────────────────╯\n")
-	
+
 	if d.showTimestamps {
 		sb.WriteString(fmt.Sprintf("Last updated: %s\n", time.Now().Format("15:04:05")))
 	}
-	
+
 	return sb.String()
 }
 
@@ -500,11 +500,11 @@ func (d *ProgressDashboard) Start() {
 	d.mu.Lock()
 	d.running = true
 	d.mu.Unlock()
-	
+
 	go func() {
 		ticker := time.NewTicker(d.refreshRate)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-d.stopChan:
@@ -520,7 +520,7 @@ func (d *ProgressDashboard) Start() {
 func (d *ProgressDashboard) Stop() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	
+
 	if d.running {
 		close(d.stopChan)
 		d.running = false
@@ -553,20 +553,20 @@ func (d *ProgressDashboard) Cancel() {
 func (d *ProgressDashboard) GetStats() DashboardStats {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	return DashboardStats{
-		TaskName:        d.taskName,
-		Duration:        time.Since(d.startTime),
-		Status:          d.status,
-		Progress:        d.progress,
-		TotalOps:        d.totalOperations,
-		CompletedOps:    d.completedOps,
-		FailedOps:       d.failedOps,
-		Retries:         d.retries,
-		TokensUsed:      d.tokensUsed,
-		Cost:            d.cost,
-		StepsCompleted:  countCompletedSteps(d.steps),
-		StepsTotal:      len(d.steps),
+		TaskName:       d.taskName,
+		Duration:       time.Since(d.startTime),
+		Status:         d.status,
+		Progress:       d.progress,
+		TotalOps:       d.totalOperations,
+		CompletedOps:   d.completedOps,
+		FailedOps:      d.failedOps,
+		Retries:        d.retries,
+		TokensUsed:     d.tokensUsed,
+		Cost:           d.cost,
+		StepsCompleted: countCompletedSteps(d.steps),
+		StepsTotal:     len(d.steps),
 	}
 }
 
@@ -616,7 +616,7 @@ func formatDuration(d time.Duration) string {
 	if d == 0 {
 		return "-"
 	}
-	
+
 	if d < time.Second {
 		return fmt.Sprintf("%dms", d.Milliseconds())
 	}
@@ -628,7 +628,7 @@ func formatDuration(d time.Duration) string {
 		s := int(d.Seconds()) % 60
 		return fmt.Sprintf("%dm %ds", m, s)
 	}
-	
+
 	h := int(d.Hours())
 	m := int(d.Minutes()) % 60
 	return fmt.Sprintf("%dh %dm", h, m)
@@ -638,7 +638,7 @@ func formatDuration(d time.Duration) string {
 func (d *ProgressDashboard) ExportJSON() string {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	
+
 	var sb strings.Builder
 	sb.WriteString("{\n")
 	sb.WriteString(fmt.Sprintf("  \"task_name\": \"%s\",\n", d.taskName))
@@ -652,7 +652,7 @@ func (d *ProgressDashboard) ExportJSON() string {
 	sb.WriteString(fmt.Sprintf("  \"tokens_used\": %d,\n", d.tokensUsed))
 	sb.WriteString(fmt.Sprintf("  \"cost\": %.4f,\n", d.cost))
 	sb.WriteString("  \"steps\": [\n")
-	
+
 	for i, step := range d.steps {
 		sb.WriteString(d.exportStepJSON(step, 2))
 		if i < len(d.steps)-1 {
@@ -660,10 +660,10 @@ func (d *ProgressDashboard) ExportJSON() string {
 		}
 		sb.WriteString("\n")
 	}
-	
+
 	sb.WriteString("  ]\n")
 	sb.WriteString("}\n")
-	
+
 	return sb.String()
 }
 
@@ -671,14 +671,14 @@ func (d *ProgressDashboard) ExportJSON() string {
 func (d *ProgressDashboard) exportStepJSON(step *ProgressStep, indent int) string {
 	var sb strings.Builder
 	prefix := strings.Repeat("  ", indent)
-	
+
 	sb.WriteString(fmt.Sprintf("%s{\n", prefix))
 	sb.WriteString(fmt.Sprintf("%s  \"id\": \"%s\",\n", prefix, step.ID))
 	sb.WriteString(fmt.Sprintf("%s  \"name\": \"%s\",\n", prefix, step.Name))
 	sb.WriteString(fmt.Sprintf("%s  \"status\": \"%s\",\n", prefix, step.Status))
 	sb.WriteString(fmt.Sprintf("%s  \"progress\": %.2f,\n", prefix, step.Progress))
 	sb.WriteString(fmt.Sprintf("%s  \"duration\": \"%s\"", prefix, formatDuration(step.Duration)))
-	
+
 	if len(step.SubSteps) > 0 {
 		sb.WriteString(",\n")
 		sb.WriteString(fmt.Sprintf("%s  \"sub_steps\": [\n", prefix))
@@ -693,8 +693,8 @@ func (d *ProgressDashboard) exportStepJSON(step *ProgressStep, indent int) strin
 	} else {
 		sb.WriteString("\n")
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("%s}", prefix))
-	
+
 	return sb.String()
 }

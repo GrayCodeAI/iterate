@@ -475,9 +475,9 @@ func cmdProviders(ctx Context) Result {
 	fmt.Printf("%s── Configured Providers ────────────────────%s\n", ColorDim, ColorReset)
 
 	type providerInfo struct {
-		name    string
-		envKey  string
-		models  string
+		name   string
+		envKey string
+		models string
 	}
 	providers := []providerInfo{
 		{"anthropic", "ANTHROPIC_API_KEY", "claude-sonnet-4-6, claude-3-5-sonnet, claude-3-haiku"},

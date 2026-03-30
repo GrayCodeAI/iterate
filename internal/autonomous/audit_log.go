@@ -17,40 +17,40 @@ type AuditEventType string
 const (
 	// AuditEventCommand - Command execution
 	AuditEventCommand AuditEventType = "command"
-	
+
 	// AuditEventFileRead - File read operation
 	AuditEventFileRead AuditEventType = "file_read"
-	
+
 	// AuditEventFileWrite - File write operation
 	AuditEventFileWrite AuditEventType = "file_write"
-	
+
 	// AuditEventFileDelete - File delete operation
 	AuditEventFileDelete AuditEventType = "file_delete"
-	
+
 	// AuditEventApproval - Approval request/decision
 	AuditEventApproval AuditEventType = "approval"
-	
+
 	// AuditEventSnapshot - Snapshot created/restored
 	AuditEventSnapshot AuditEventType = "snapshot"
-	
+
 	// AuditEventRollback - Rollback operation
 	AuditEventRollback AuditEventType = "rollback"
-	
+
 	// AuditEventError - Error occurred
 	AuditEventError AuditEventType = "error"
-	
+
 	// AuditEventSecurity - Security-related event
 	AuditEventSecurity AuditEventType = "security"
-	
+
 	// AuditEventSandbox - Sandbox operation
 	AuditEventSandbox AuditEventType = "sandbox"
-	
+
 	// AuditEventNetwork - Network operation
 	AuditEventNetwork AuditEventType = "network"
-	
+
 	// AuditEventPlan - Plan created/modified
 	AuditEventPlan AuditEventType = "plan"
-	
+
 	// AuditEventStep - Step execution
 	AuditEventStep AuditEventType = "step"
 )
@@ -61,13 +61,13 @@ type AuditSeverity string
 const (
 	// AuditSeverityInfo - Informational event
 	AuditSeverityInfo AuditSeverity = "info"
-	
+
 	// AuditSeverityWarning - Warning event
 	AuditSeverityWarning AuditSeverity = "warning"
-	
+
 	// AuditSeverityError - Error event
 	AuditSeverityError AuditSeverity = "error"
-	
+
 	// AuditSeverityCritical - Critical security event
 	AuditSeverityCritical AuditSeverity = "critical"
 )
@@ -76,55 +76,55 @@ const (
 type AuditEvent struct {
 	// ID is the unique event identifier
 	ID string `json:"id"`
-	
+
 	// Timestamp is when the event occurred
 	Timestamp time.Time `json:"timestamp"`
-	
+
 	// Type is the event type
 	Type AuditEventType `json:"type"`
-	
+
 	// Severity is the event severity
 	Severity AuditSeverity `json:"severity"`
-	
+
 	// Message is a human-readable description
 	Message string `json:"message"`
-	
+
 	// SessionID is the session this event belongs to
 	SessionID string `json:"session_id,omitempty"`
-	
+
 	// StepID is the step this event relates to
 	StepID string `json:"step_id,omitempty"`
-	
+
 	// Operation is the specific operation performed
 	Operation string `json:"operation,omitempty"`
-	
+
 	// Target is what was operated on (file path, command, etc.)
 	Target string `json:"target,omitempty"`
-	
+
 	// Actor is who/what initiated the operation
 	Actor string `json:"actor,omitempty"`
-	
+
 	// Result is the outcome (success/failure)
 	Result string `json:"result,omitempty"`
-	
+
 	// Error contains error details if applicable
 	Error string `json:"error,omitempty"`
-	
+
 	// DangerLevel is the assessed danger level (if applicable)
 	DangerLevel string `json:"danger_level,omitempty"`
-	
+
 	// Approved indicates if this was approved
 	Approved *bool `json:"approved,omitempty"`
-	
+
 	// ApprovalID references the approval request
 	ApprovalID string `json:"approval_id,omitempty"`
-	
+
 	// Duration is how long the operation took
 	Duration time.Duration `json:"duration,omitempty"`
-	
+
 	// Metadata contains additional context
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	
+
 	// Checksum for event integrity
 	Checksum string `json:"checksum"`
 }
@@ -133,25 +133,25 @@ type AuditEvent struct {
 type AuditConfig struct {
 	// Enabled turns audit logging on/off
 	Enabled bool `json:"enabled"`
-	
+
 	// MaxEvents is the maximum events to keep in memory
 	MaxEvents int `json:"max_events"`
-	
+
 	// PersistToFile saves audit logs to disk
 	PersistToFile bool `json:"persist_to_file"`
-	
+
 	// LogPath is the directory for audit log files
 	LogPath string `json:"log_path"`
-	
+
 	// RotateSize is the max size before rotating (bytes)
 	RotateSize int64 `json:"rotate_size"`
-	
+
 	// IncludeMetadata includes full metadata in logs
 	IncludeMetadata bool `json:"include_metadata"`
-	
+
 	// SeverityFilter only logs events at or above this severity
 	SeverityFilter AuditSeverity `json:"severity_filter"`
-	
+
 	// EventTypes filters which event types to log (empty = all)
 	EventTypes []AuditEventType `json:"event_types,omitempty"`
 }
@@ -181,25 +181,25 @@ type AuditStats struct {
 // AuditLogger manages audit logging for autonomous operations.
 type AuditLogger struct {
 	mu sync.RWMutex
-	
+
 	// config is the audit configuration
 	config AuditConfig
-	
+
 	// events stores all audit events in memory
 	events []AuditEvent
-	
+
 	// stats tracks audit statistics
 	stats AuditStats
-	
+
 	// sessionID is the current session identifier
 	sessionID string
-	
+
 	// file is the current log file handle
 	file *os.File
-	
+
 	// currentSize is the current log file size
 	currentSize int64
-	
+
 	// timeNow is a function to get current time (for testing)
 	timeNow func() time.Time
 }
@@ -215,12 +215,12 @@ func NewAuditLogger(config AuditConfig) *AuditLogger {
 		},
 		timeNow: time.Now,
 	}
-	
+
 	// Initialize file logging if enabled
 	if config.PersistToFile && config.LogPath != "" {
 		logger.initFileLogging()
 	}
-	
+
 	return logger
 }
 
@@ -236,17 +236,17 @@ func (al *AuditLogger) Log(eventType AuditEventType, severity AuditSeverity, mes
 	if !al.config.Enabled {
 		return
 	}
-	
+
 	// Check severity filter
 	if !al.shouldLog(severity) {
 		return
 	}
-	
+
 	// Check event type filter
 	if !al.shouldLogType(eventType) {
 		return
 	}
-	
+
 	// Build the event
 	event := AuditEvent{
 		ID:        generateEventID(),
@@ -257,29 +257,29 @@ func (al *AuditLogger) Log(eventType AuditEventType, severity AuditSeverity, mes
 		SessionID: al.sessionID,
 		Metadata:  make(map[string]interface{}),
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(&event)
 	}
-	
+
 	// Calculate checksum
 	event.Checksum = calculateEventChecksum(event)
-	
+
 	al.mu.Lock()
 	defer al.mu.Unlock()
-	
+
 	// Add to events
 	al.events = append(al.events, event)
-	
+
 	// Trim if needed
 	if len(al.events) > al.config.MaxEvents {
 		al.events = al.events[len(al.events)-al.config.MaxEvents:]
 	}
-	
+
 	// Update stats
 	al.updateStats(event)
-	
+
 	// Persist to file if enabled
 	if al.config.PersistToFile && al.file != nil {
 		al.persistEvent(event)
@@ -361,7 +361,7 @@ func (al *AuditLogger) LogCommand(command string, args []string, result string, 
 	if err != nil {
 		severity = AuditSeverityError
 	}
-	
+
 	al.Log(AuditEventCommand, severity, fmt.Sprintf("Command: %s", command),
 		WithOperation("execute"),
 		WithTarget(command+" "+joinArgsForAudit(args)),
@@ -375,7 +375,7 @@ func (al *AuditLogger) LogCommand(command string, args []string, result string, 
 func (al *AuditLogger) LogFileOperation(operation, path string, result string, err error) {
 	eventType := AuditEventFileRead
 	severity := AuditSeverityInfo
-	
+
 	switch operation {
 	case "write", "create", "modify":
 		eventType = AuditEventFileWrite
@@ -383,11 +383,11 @@ func (al *AuditLogger) LogFileOperation(operation, path string, result string, e
 		eventType = AuditEventFileDelete
 		severity = AuditSeverityWarning
 	}
-	
+
 	if err != nil {
 		severity = AuditSeverityError
 	}
-	
+
 	al.Log(eventType, severity, fmt.Sprintf("File %s: %s", operation, path),
 		WithOperation(operation),
 		WithTarget(path),
@@ -404,7 +404,7 @@ func (al *AuditLogger) LogApproval(requestID, command string, approved bool, app
 		severity = AuditSeverityWarning
 		result = "denied"
 	}
-	
+
 	al.Log(AuditEventApproval, severity, fmt.Sprintf("Approval %s: %s", result, command),
 		WithOperation("approval_decision"),
 		WithTarget(command),
@@ -421,7 +421,7 @@ func (al *AuditLogger) LogSecurity(event, details string, severity AuditSeverity
 	if severity == "" {
 		severity = AuditSeverityWarning
 	}
-	
+
 	al.Log(AuditEventSecurity, severity, fmt.Sprintf("Security: %s", event),
 		WithOperation("security_check"),
 		WithMetadata("details", details),
@@ -443,7 +443,7 @@ func (al *AuditLogger) LogSnapshot(operation, snapshotID string, err error) {
 	if err != nil {
 		severity = AuditSeverityError
 	}
-	
+
 	al.Log(AuditEventSnapshot, severity, fmt.Sprintf("Snapshot %s: %s", operation, snapshotID),
 		WithOperation(operation),
 		WithTarget(snapshotID),
@@ -457,15 +457,15 @@ func (al *AuditLogger) LogSnapshot(operation, snapshotID string, err error) {
 func (al *AuditLogger) GetEvents(filter AuditFilter) []AuditEvent {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
-	
+
 	result := make([]AuditEvent, 0)
-	
+
 	for _, event := range al.events {
 		if filter.Matches(event) {
 			result = append(result, event)
 		}
 	}
-	
+
 	return result
 }
 
@@ -473,11 +473,11 @@ func (al *AuditLogger) GetEvents(filter AuditFilter) []AuditEvent {
 func (al *AuditLogger) GetRecentEvents(n int) []AuditEvent {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
-	
+
 	if n >= len(al.events) {
 		return append([]AuditEvent{}, al.events...)
 	}
-	
+
 	return append([]AuditEvent{}, al.events[len(al.events)-n:]...)
 }
 
@@ -485,7 +485,7 @@ func (al *AuditLogger) GetRecentEvents(n int) []AuditEvent {
 func (al *AuditLogger) GetStats() AuditStats {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
-	
+
 	return al.stats
 }
 
@@ -493,7 +493,7 @@ func (al *AuditLogger) GetStats() AuditStats {
 func (al *AuditLogger) Export() ([]byte, error) {
 	al.mu.RLock()
 	defer al.mu.RUnlock()
-	
+
 	export := struct {
 		SessionID string       `json:"session_id"`
 		Events    []AuditEvent `json:"events"`
@@ -505,7 +505,7 @@ func (al *AuditLogger) Export() ([]byte, error) {
 		Stats:     al.stats,
 		Exported:  al.timeNow(),
 	}
-	
+
 	return json.MarshalIndent(export, "", "  ")
 }
 
@@ -513,7 +513,7 @@ func (al *AuditLogger) Export() ([]byte, error) {
 func (al *AuditLogger) Clear() {
 	al.mu.Lock()
 	defer al.mu.Unlock()
-	
+
 	al.events = make([]AuditEvent, 0, al.config.MaxEvents)
 	al.stats = AuditStats{
 		EventsByType:   make(map[string]int),
@@ -530,10 +530,10 @@ func (al *AuditLogger) shouldLog(severity AuditSeverity) bool {
 		AuditSeverityError:    2,
 		AuditSeverityCritical: 3,
 	}
-	
+
 	filterLevel := severityOrder[al.config.SeverityFilter]
 	eventLevel := severityOrder[severity]
-	
+
 	return eventLevel >= filterLevel
 }
 
@@ -541,13 +541,13 @@ func (al *AuditLogger) shouldLogType(eventType AuditEventType) bool {
 	if len(al.config.EventTypes) == 0 {
 		return true
 	}
-	
+
 	for _, t := range al.config.EventTypes {
 		if t == eventType {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -555,12 +555,12 @@ func (al *AuditLogger) updateStats(event AuditEvent) {
 	al.stats.TotalEvents++
 	al.stats.EventsByType[string(event.Type)]++
 	al.stats.EventsByResult[event.Result]++
-	
+
 	if al.stats.FirstEvent == nil {
 		al.stats.FirstEvent = &event.Timestamp
 	}
 	al.stats.LastEvent = &event.Timestamp
-	
+
 	if event.Severity == AuditSeverityError {
 		al.stats.ErrorsLogged++
 	}
@@ -574,16 +574,16 @@ func (al *AuditLogger) initFileLogging() {
 	if err := os.MkdirAll(al.config.LogPath, 0755); err != nil {
 		return
 	}
-	
+
 	// Open or create log file
 	filename := filepath.Join(al.config.LogPath, "audit.log")
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return
 	}
-	
+
 	al.file = file
-	
+
 	// Get current file size
 	if info, err := file.Stat(); err == nil {
 		al.currentSize = info.Size()
@@ -595,19 +595,19 @@ func (al *AuditLogger) persistEvent(event AuditEvent) {
 	if err != nil {
 		return
 	}
-	
+
 	data = append(data, '\n')
-	
+
 	// Check rotation
 	if al.config.RotateSize > 0 && al.currentSize+int64(len(data)) > al.config.RotateSize {
 		al.rotateFile()
 	}
-	
+
 	n, err := al.file.Write(data)
 	if err != nil {
 		return
 	}
-	
+
 	al.currentSize += int64(n)
 }
 
@@ -615,12 +615,12 @@ func (al *AuditLogger) rotateFile() {
 	if al.file != nil {
 		al.file.Close()
 	}
-	
+
 	// Rename current file
 	oldPath := filepath.Join(al.config.LogPath, "audit.log")
 	newPath := filepath.Join(al.config.LogPath, fmt.Sprintf("audit-%s.log", al.timeNow().Format("20060102-150405")))
 	os.Rename(oldPath, newPath)
-	
+
 	// Create new file
 	al.initFileLogging()
 }
@@ -651,27 +651,27 @@ func (f AuditFilter) Matches(event AuditEvent) bool {
 			return false
 		}
 	}
-	
+
 	// Check severity
 	if f.Severity != "" && event.Severity != f.Severity {
 		return false
 	}
-	
+
 	// Check session ID
 	if f.SessionID != "" && event.SessionID != f.SessionID {
 		return false
 	}
-	
+
 	// Check step ID
 	if f.StepID != "" && event.StepID != f.StepID {
 		return false
 	}
-	
+
 	// Check result
 	if f.Result != "" && event.Result != f.Result {
 		return false
 	}
-	
+
 	// Check time range
 	if f.StartTime != nil && event.Timestamp.Before(*f.StartTime) {
 		return false
@@ -679,7 +679,7 @@ func (f AuditFilter) Matches(event AuditEvent) bool {
 	if f.EndTime != nil && event.Timestamp.After(*f.EndTime) {
 		return false
 	}
-	
+
 	return true
 }
 

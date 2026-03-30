@@ -505,7 +505,7 @@ func TestTask10FullIntegration(t *testing.T) {
 
 	// Create a complex refactoring goal
 	refactor := gt.CreateGoal("Refactor Auth Module", "Refactor authentication to use JWT", GoalPriorityHigh)
-	
+
 	// Define success criteria
 	gt.AddSuccessCriterion(refactor.ID, "all tests pass")
 	gt.AddSuccessCriterion(refactor.ID, "coverage >= 80%")

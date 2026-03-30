@@ -14,38 +14,38 @@ import (
 type PlaybookType string
 
 const (
-	PlaybookTypeRefactor    PlaybookType = "refactor"
-	PlaybookTypeAddTest     PlaybookType = "add_test"
-	PlaybookTypeFixBug      PlaybookType = "fix_bug"
-	PlaybookTypeAddFeature  PlaybookType = "add_feature"
-	PlaybookTypeOptimize    PlaybookType = "optimize"
-	PlaybookTypeDocument    PlaybookType = "document"
-	PlaybookTypeMigrate     PlaybookType = "migrate"
-	PlaybookTypeSecurity    PlaybookType = "security"
-	PlaybookTypeCustom      PlaybookType = "custom"
+	PlaybookTypeRefactor   PlaybookType = "refactor"
+	PlaybookTypeAddTest    PlaybookType = "add_test"
+	PlaybookTypeFixBug     PlaybookType = "fix_bug"
+	PlaybookTypeAddFeature PlaybookType = "add_feature"
+	PlaybookTypeOptimize   PlaybookType = "optimize"
+	PlaybookTypeDocument   PlaybookType = "document"
+	PlaybookTypeMigrate    PlaybookType = "migrate"
+	PlaybookTypeSecurity   PlaybookType = "security"
+	PlaybookTypeCustom     PlaybookType = "custom"
 )
 
 // PlaybookStep represents a single step in a playbook
 type PlaybookStep struct {
-	ID          string            `json:"id"`
-	Order       int               `json:"order"`
-	Type        string            `json:"type"`        // "read", "write", "test", "build", "command"
-	Action      string            `json:"action"`      // Action description template
-	Target      string            `json:"target"`      // Target template (file, command, etc.)
-	Required    bool              `json:"required"`    // Must succeed for playbook success
-	Timeout     time.Duration     `json:"timeout"`
-	RetryCount  int               `json:"retry_count"`
-	Variables   map[string]string `json:"variables"`   // Variables to substitute
-	Conditions  []string          `json:"conditions"`  // Conditions to execute this step
-	OnFailure   string            `json:"on_failure"`  // "abort", "skip", "retry", "continue"
+	ID         string            `json:"id"`
+	Order      int               `json:"order"`
+	Type       string            `json:"type"`     // "read", "write", "test", "build", "command"
+	Action     string            `json:"action"`   // Action description template
+	Target     string            `json:"target"`   // Target template (file, command, etc.)
+	Required   bool              `json:"required"` // Must succeed for playbook success
+	Timeout    time.Duration     `json:"timeout"`
+	RetryCount int               `json:"retry_count"`
+	Variables  map[string]string `json:"variables"`  // Variables to substitute
+	Conditions []string          `json:"conditions"` // Conditions to execute this step
+	OnFailure  string            `json:"on_failure"` // "abort", "skip", "retry", "continue"
 }
 
 // PlaybookTrigger defines when a playbook should be suggested
 type PlaybookTrigger struct {
-	Keywords    []string `json:"keywords"`     // Keywords in task description
-	Patterns    []string `json:"patterns"`     // Regex patterns to match
-	FileTypes   []string `json:"file_types"`   // Relevant file extensions
-	Priority    int      `json:"priority"`     // Higher = more relevant
+	Keywords  []string `json:"keywords"`   // Keywords in task description
+	Patterns  []string `json:"patterns"`   // Regex patterns to match
+	FileTypes []string `json:"file_types"` // Relevant file extensions
+	Priority  int      `json:"priority"`   // Higher = more relevant
 }
 
 // Playbook represents a reusable task template
@@ -61,7 +61,7 @@ type Playbook struct {
 	Steps           []PlaybookStep    `json:"steps"`
 	SuccessCriteria []string          `json:"success_criteria"`
 	Triggers        PlaybookTrigger   `json:"triggers"`
-	Variables       map[string]string `json:"variables"`       // Default variable values
+	Variables       map[string]string `json:"variables"` // Default variable values
 	Metadata        map[string]any    `json:"metadata"`
 	Tags            []string          `json:"tags"`
 	Enabled         bool              `json:"enabled"`
@@ -72,7 +72,11 @@ type PlaybookRegistry struct {
 	mu        sync.RWMutex
 	playbooks map[string]*Playbook
 	byType    map[PlaybookType][]string
-	logger    interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Error(msg string, args ...any) }
+	logger    interface {
+		Info(msg string, args ...any)
+		Warn(msg string, args ...any)
+		Error(msg string, args ...any)
+	}
 }
 
 // NewPlaybookRegistry creates a new playbook registry
@@ -81,17 +85,17 @@ func NewPlaybookRegistry() *PlaybookRegistry {
 		playbooks: make(map[string]*Playbook),
 		byType:    make(map[PlaybookType][]string),
 	}
-	
+
 	// Register default playbooks
 	r.registerDefaultPlaybooks()
-	
+
 	return r
 }
 
 // registerDefaultPlaybooks registers built-in playbooks
 func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 	now := time.Now()
-	
+
 	// Fix Bug Playbook
 	r.Register(&Playbook{
 		ID:          "fix-bug",
@@ -111,14 +115,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Bug is fixed", "Tests pass", "No regressions"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"fix", "bug", "error", "crash", "issue", "problem"},
-			Patterns:  []string{`fix\s+(bug|issue)`, `resolve\s+(error|crash)`, `debug\s+\w+`},
-			Priority:  10,
+			Keywords: []string{"fix", "bug", "error", "crash", "issue", "problem"},
+			Patterns: []string{`fix\s+(bug|issue)`, `resolve\s+(error|crash)`, `debug\s+\w+`},
+			Priority: 10,
 		},
-		Tags: []string{"bugfix", "debugging", "quality"},
+		Tags:    []string{"bugfix", "debugging", "quality"},
 		Enabled: true,
 	})
-	
+
 	// Add Test Playbook
 	r.Register(&Playbook{
 		ID:          "add-test",
@@ -138,14 +142,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Tests pass", "Coverage improved", "Edge cases covered"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"test", "coverage", "unit test", "integration test"},
-			Patterns:  []string{`add\s+test`, `write\s+test`, `create\s+test`, `increase\s+coverage`},
-			Priority:  9,
+			Keywords: []string{"test", "coverage", "unit test", "integration test"},
+			Patterns: []string{`add\s+test`, `write\s+test`, `create\s+test`, `increase\s+coverage`},
+			Priority: 9,
 		},
-		Tags: []string{"testing", "quality", "coverage"},
+		Tags:    []string{"testing", "quality", "coverage"},
 		Enabled: true,
 	})
-	
+
 	// Refactor Playbook
 	r.Register(&Playbook{
 		ID:          "refactor",
@@ -166,14 +170,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"All tests pass", "Build succeeds", "No behavior changes"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"refactor", "clean", "restructure", "reorganize"},
-			Patterns:  []string{`refactor\s+\w+`, `clean\s+up\s+code`, `simplify\s+\w+`},
-			Priority:  8,
+			Keywords: []string{"refactor", "clean", "restructure", "reorganize"},
+			Patterns: []string{`refactor\s+\w+`, `clean\s+up\s+code`, `simplify\s+\w+`},
+			Priority: 8,
 		},
-		Tags: []string{"refactoring", "quality", "maintainability"},
+		Tags:    []string{"refactoring", "quality", "maintainability"},
 		Enabled: true,
 	})
-	
+
 	// Add Feature Playbook
 	r.Register(&Playbook{
 		ID:          "add-feature",
@@ -194,14 +198,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Feature implemented", "Tests pass", "Build succeeds", "Documented"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"add", "implement", "feature", "new", "create"},
-			Patterns:  []string{`add\s+(new\s+)?feature`, `implement\s+\w+`, `create\s+new\s+\w+`},
-			Priority:  7,
+			Keywords: []string{"add", "implement", "feature", "new", "create"},
+			Patterns: []string{`add\s+(new\s+)?feature`, `implement\s+\w+`, `create\s+new\s+\w+`},
+			Priority: 7,
 		},
-		Tags: []string{"feature", "development", "new"},
+		Tags:    []string{"feature", "development", "new"},
 		Enabled: true,
 	})
-	
+
 	// Optimize Playbook
 	r.Register(&Playbook{
 		ID:          "optimize",
@@ -221,14 +225,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Performance improved", "Tests pass", "No regressions"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"optimize", "performance", "speed", "faster", "slow"},
-			Patterns:  []string{`optimize\s+\w+`, `improve\s+performance`, `make\s+\w+\s+faster`},
-			Priority:  8,
+			Keywords: []string{"optimize", "performance", "speed", "faster", "slow"},
+			Patterns: []string{`optimize\s+\w+`, `improve\s+performance`, `make\s+\w+\s+faster`},
+			Priority: 8,
 		},
-		Tags: []string{"performance", "optimization", "speed"},
+		Tags:    []string{"performance", "optimization", "speed"},
 		Enabled: true,
 	})
-	
+
 	// Document Playbook
 	r.Register(&Playbook{
 		ID:          "document",
@@ -246,14 +250,14 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Code documented", "Examples provided"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"document", "docs", "comment", "readme", "explain"},
-			Patterns:  []string{`add\s+documentation`, `document\s+\w+`, `write\s+docs`, `add\s+comments`},
-			Priority:  6,
+			Keywords: []string{"document", "docs", "comment", "readme", "explain"},
+			Patterns: []string{`add\s+documentation`, `document\s+\w+`, `write\s+docs`, `add\s+comments`},
+			Priority: 6,
 		},
-		Tags: []string{"documentation", "comments", "readability"},
+		Tags:    []string{"documentation", "comments", "readability"},
 		Enabled: true,
 	})
-	
+
 	// Security Playbook
 	r.Register(&Playbook{
 		ID:          "security",
@@ -273,11 +277,11 @@ func (r *PlaybookRegistry) registerDefaultPlaybooks() {
 		},
 		SuccessCriteria: []string{"Vulnerability fixed", "Security scan passes", "Tests pass"},
 		Triggers: PlaybookTrigger{
-			Keywords:  []string{"security", "vulnerability", "cve", "exploit", "sanitize"},
-			Patterns:  []string{`fix\s+security`, `fix\s+vulnerability`, `address\s+cve`, `sanitize\s+input`},
-			Priority:  10,
+			Keywords: []string{"security", "vulnerability", "cve", "exploit", "sanitize"},
+			Patterns: []string{`fix\s+security`, `fix\s+vulnerability`, `address\s+cve`, `sanitize\s+input`},
+			Priority: 10,
 		},
-		Tags: []string{"security", "vulnerability", "safety"},
+		Tags:    []string{"security", "vulnerability", "safety"},
 		Enabled: true,
 	})
 }
@@ -287,14 +291,14 @@ func (r *PlaybookRegistry) Register(playbook *Playbook) error {
 	if playbook.ID == "" {
 		return fmt.Errorf("playbook ID is required")
 	}
-	
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	playbook.UpdatedAt = time.Now()
 	r.playbooks[playbook.ID] = playbook
 	r.byType[playbook.Type] = append(r.byType[playbook.Type], playbook.ID)
-	
+
 	return nil
 }
 
@@ -302,7 +306,7 @@ func (r *PlaybookRegistry) Register(playbook *Playbook) error {
 func (r *PlaybookRegistry) Unregister(id string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if p, exists := r.playbooks[id]; exists {
 		// Remove from byType index
 		typeIDs := r.byType[p.Type]
@@ -320,7 +324,7 @@ func (r *PlaybookRegistry) Unregister(id string) {
 func (r *PlaybookRegistry) Get(id string) (*Playbook, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	p, exists := r.playbooks[id]
 	if !exists {
 		return nil, fmt.Errorf("playbook not found: %s", id)
@@ -332,7 +336,7 @@ func (r *PlaybookRegistry) Get(id string) (*Playbook, error) {
 func (r *PlaybookRegistry) GetByType(playbookType PlaybookType) []*Playbook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	var result []*Playbook
 	for _, id := range r.byType[playbookType] {
 		if p, exists := r.playbooks[id]; exists {
@@ -346,7 +350,7 @@ func (r *PlaybookRegistry) GetByType(playbookType PlaybookType) []*Playbook {
 func (r *PlaybookRegistry) List() []*Playbook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	result := make([]*Playbook, 0, len(r.playbooks))
 	for _, p := range r.playbooks {
 		result = append(result, p)
@@ -358,7 +362,7 @@ func (r *PlaybookRegistry) List() []*Playbook {
 func (r *PlaybookRegistry) ListEnabled() []*Playbook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	var result []*Playbook
 	for _, p := range r.playbooks {
 		if p.Enabled {
@@ -372,37 +376,37 @@ func (r *PlaybookRegistry) ListEnabled() []*Playbook {
 func (r *PlaybookRegistry) Match(taskDescription string) *Playbook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	taskLower := strings.ToLower(taskDescription)
 	var bestMatch *Playbook
 	bestScore := 0
-	
+
 	for _, p := range r.playbooks {
 		if !p.Enabled {
 			continue
 		}
-		
+
 		score := r.calculateMatchScore(taskLower, p)
 		if score > bestScore {
 			bestScore = score
 			bestMatch = p
 		}
 	}
-	
+
 	return bestMatch
 }
 
 // calculateMatchScore calculates how well a playbook matches a task
 func (r *PlaybookRegistry) calculateMatchScore(taskLower string, playbook *Playbook) int {
 	score := 0
-	
+
 	// Check keyword matches
 	for _, keyword := range playbook.Triggers.Keywords {
 		if strings.Contains(taskLower, strings.ToLower(keyword)) {
 			score += playbook.Triggers.Priority
 		}
 	}
-	
+
 	// Check pattern matches
 	for _, pattern := range playbook.Triggers.Patterns {
 		matched, err := regexp.MatchString("(?i)"+pattern, taskLower)
@@ -410,12 +414,12 @@ func (r *PlaybookRegistry) calculateMatchScore(taskLower string, playbook *Playb
 			score += playbook.Triggers.Priority * 2
 		}
 	}
-	
+
 	// Type name match
 	if strings.Contains(taskLower, string(playbook.Type)) {
 		score += 5
 	}
-	
+
 	return score
 }
 
@@ -423,13 +427,13 @@ func (r *PlaybookRegistry) calculateMatchScore(taskLower string, playbook *Playb
 func (r *PlaybookRegistry) MatchAll(taskDescription string) []*Playbook {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	taskLower := strings.ToLower(taskDescription)
 	type scored struct {
 		playbook *Playbook
 		score    int
 	}
-	
+
 	var matches []scored
 	for _, p := range r.playbooks {
 		if !p.Enabled {
@@ -440,7 +444,7 @@ func (r *PlaybookRegistry) MatchAll(taskDescription string) []*Playbook {
 			matches = append(matches, scored{playbook: p, score: score})
 		}
 	}
-	
+
 	// Sort by score descending
 	for i := 0; i < len(matches); i++ {
 		for j := i + 1; j < len(matches); j++ {
@@ -449,7 +453,7 @@ func (r *PlaybookRegistry) MatchAll(taskDescription string) []*Playbook {
 			}
 		}
 	}
-	
+
 	result := make([]*Playbook, len(matches))
 	for i, m := range matches {
 		result[i] = m.playbook
@@ -458,7 +462,11 @@ func (r *PlaybookRegistry) MatchAll(taskDescription string) []*Playbook {
 }
 
 // SetLogger sets the logger for the registry
-func (r *PlaybookRegistry) SetLogger(logger interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Error(msg string, args ...any) }) {
+func (r *PlaybookRegistry) SetLogger(logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.logger = logger
@@ -468,7 +476,7 @@ func (r *PlaybookRegistry) SetLogger(logger interface{ Info(msg string, args ...
 func (r *PlaybookRegistry) Enable(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	p, exists := r.playbooks[id]
 	if !exists {
 		return fmt.Errorf("playbook not found: %s", id)
@@ -482,7 +490,7 @@ func (r *PlaybookRegistry) Enable(id string) error {
 func (r *PlaybookRegistry) Disable(id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	p, exists := r.playbooks[id]
 	if !exists {
 		return fmt.Errorf("playbook not found: %s", id)
@@ -498,7 +506,7 @@ func (r *PlaybookRegistry) InstantiatePlaybook(ctx context.Context, playbookID s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return NewPlaybookInstance(playbook, variables), nil
 }
 
@@ -516,11 +524,11 @@ type PlaybookInstance struct {
 type InstanceStatus string
 
 const (
-	InstanceStatusPending    InstanceStatus = "pending"
-	InstanceStatusRunning    InstanceStatus = "running"
-	InstanceStatusCompleted  InstanceStatus = "completed"
-	InstanceStatusFailed     InstanceStatus = "failed"
-	InstanceStatusCancelled  InstanceStatus = "cancelled"
+	InstanceStatusPending   InstanceStatus = "pending"
+	InstanceStatusRunning   InstanceStatus = "running"
+	InstanceStatusCompleted InstanceStatus = "completed"
+	InstanceStatusFailed    InstanceStatus = "failed"
+	InstanceStatusCancelled InstanceStatus = "cancelled"
 )
 
 // ResolvedStep is a playbook step with variables resolved
@@ -554,7 +562,7 @@ func NewPlaybookInstance(playbook *Playbook, variables map[string]string) *Playb
 	for k, v := range variables {
 		mergedVars[k] = v
 	}
-	
+
 	instance := &PlaybookInstance{
 		Playbook:    playbook,
 		Variables:   mergedVars,
@@ -563,7 +571,7 @@ func NewPlaybookInstance(playbook *Playbook, variables map[string]string) *Playb
 		Status:      InstanceStatusPending,
 		CurrentStep: 0,
 	}
-	
+
 	// Resolve steps
 	for i, step := range playbook.Steps {
 		instance.Steps[i] = ResolvedStep{
@@ -573,7 +581,7 @@ func NewPlaybookInstance(playbook *Playbook, variables map[string]string) *Playb
 			Status:         PlaybookStepStatusPending,
 		}
 	}
-	
+
 	return instance
 }
 
@@ -662,12 +670,12 @@ func (pi *PlaybookInstance) GetProgress() float64 {
 // GetSummary returns a summary of the instance execution
 func (pi *PlaybookInstance) GetSummary() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString(fmt.Sprintf("Playbook: %s\n", pi.Playbook.Name))
 	sb.WriteString(fmt.Sprintf("Status: %s\n", pi.Status))
 	sb.WriteString(fmt.Sprintf("Progress: %.0f%%\n", pi.GetProgress()))
 	sb.WriteString("Steps:\n")
-	
+
 	for i, step := range pi.Steps {
 		marker := " "
 		if i == pi.CurrentStep && pi.Status == InstanceStatusRunning {
@@ -686,7 +694,7 @@ func (pi *PlaybookInstance) GetSummary() string {
 		}
 		sb.WriteString(fmt.Sprintf("  %s %s [%s] %s\n", marker, statusIcon, step.Type, step.ResolvedAction))
 	}
-	
+
 	return sb.String()
 }
 
@@ -700,18 +708,18 @@ func NewPlaybookBuilder(id, name string, playbookType PlaybookType) *PlaybookBui
 	now := time.Now()
 	return &PlaybookBuilder{
 		playbook: &Playbook{
-			ID:          id,
-			Name:        name,
-			Type:        playbookType,
-			Version:     "1.0.0",
-			Author:      "custom",
-			CreatedAt:   now,
-			UpdatedAt:   now,
-			Steps:       []PlaybookStep{},
-			Variables:   make(map[string]string),
-			Metadata:    make(map[string]any),
-			Tags:        []string{},
-			Enabled:     true,
+			ID:        id,
+			Name:      name,
+			Type:      playbookType,
+			Version:   "1.0.0",
+			Author:    "custom",
+			CreatedAt: now,
+			UpdatedAt: now,
+			Steps:     []PlaybookStep{},
+			Variables: make(map[string]string),
+			Metadata:  make(map[string]any),
+			Tags:      []string{},
+			Enabled:   true,
 		},
 	}
 }
@@ -801,7 +809,7 @@ func (b *PlaybookBuilder) Build() *Playbook {
 func (r *PlaybookRegistry) GetStats() map[string]any {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	typeCount := make(map[PlaybookType]int)
 	enabled := 0
 	for _, p := range r.playbooks {
@@ -810,7 +818,7 @@ func (r *PlaybookRegistry) GetStats() map[string]any {
 			enabled++
 		}
 	}
-	
+
 	return map[string]any{
 		"total_playbooks":   len(r.playbooks),
 		"enabled_playbooks": enabled,

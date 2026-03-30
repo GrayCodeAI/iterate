@@ -98,9 +98,9 @@ func TestPolicySetRequireReviewAboveLevel(t *testing.T) {
 func TestPolicyAddProtectedPath(t *testing.T) {
 	policy := DefaultReviewPolicy()
 	initial := len(policy.protectedPaths)
-	
+
 	policy.AddProtectedPath("secrets/*")
-	
+
 	if len(policy.protectedPaths) != initial+1 {
 		t.Error("Failed to add protected path")
 	}
@@ -108,7 +108,7 @@ func TestPolicyAddProtectedPath(t *testing.T) {
 
 func TestNewReviewCheckpoint(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
-	
+
 	if rc == nil {
 		t.Fatal("Expected non-nil review checkpoint")
 	}
@@ -119,7 +119,7 @@ func TestNewReviewCheckpoint(t *testing.T) {
 
 func TestRequestReviewAutoApprove(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
-	
+
 	req, err := rc.RequestReview(context.Background(), OperationNetworkRequest, "api.example.com", "fetch data", nil)
 	if err != nil {
 		t.Fatalf("Failed to request review: %v", err)
@@ -133,7 +133,7 @@ func TestRequestReviewAutoApprove(t *testing.T) {
 
 func TestRequestReviewRequiresReview(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
-	
+
 	req, err := rc.RequestReview(context.Background(), OperationFileDelete, "important.go", "delete file", map[string]any{
 		"git_tracked": true,
 	})
@@ -155,9 +155,9 @@ func TestRequestReviewRequiresReview(t *testing.T) {
 
 func TestApproveReview(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
-	
+
 	req, _ := rc.RequestReview(context.Background(), OperationFileDelete, "test.go", "delete file", nil)
-	
+
 	err := rc.Approve(req.ID, "looks safe")
 	if err != nil {
 		t.Fatalf("Failed to approve: %v", err)
@@ -172,9 +172,9 @@ func TestApproveReview(t *testing.T) {
 
 func TestRejectReview(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
-	
+
 	req, _ := rc.RequestReview(context.Background(), OperationFileDelete, "test.go", "delete file", nil)
-	
+
 	err := rc.Reject(req.ID, "too risky")
 	if err != nil {
 		t.Fatalf("Failed to reject: %v", err)
@@ -184,9 +184,9 @@ func TestRejectReview(t *testing.T) {
 func TestWaitForReview(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
 	rc.policy.reviewTimeout = 100 * time.Millisecond
-	
+
 	req, _ := rc.RequestReview(context.Background(), OperationFileDelete, "test.go", "delete file", nil)
-	
+
 	// Approve in goroutine
 	go func() {
 		time.Sleep(50 * time.Millisecond)
@@ -206,9 +206,9 @@ func TestWaitForReview(t *testing.T) {
 func TestWaitForReviewTimeout(t *testing.T) {
 	rc := NewReviewCheckpoint(nil, nil)
 	rc.policy.reviewTimeout = 50 * time.Millisecond
-	
+
 	req, _ := rc.RequestReview(context.Background(), OperationFileDelete, "test.go", "delete file", nil)
-	
+
 	resp, err := rc.WaitForReview(context.Background(), req.ID)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)

@@ -29,23 +29,23 @@ func TestDefaultThresholds(t *testing.T) {
 
 func TestCalculateConfidenceHighConfidence(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	action := PlanStep{
 		Type:   "read",
 		Target: "./main.go",
 	}
-	
+
 	context := ActionContext{
-		FileExists:     true,
-		HasTests:       true,
-		IsGitRepo:      true,
+		FileExists:      true,
+		HasTests:        true,
+		IsGitRepo:       true,
 		DependencyCount: 1,
-		MaxTokens:      100000,
-		TargetFiles:    []string{"main.go"},
+		MaxTokens:       100000,
+		TargetFiles:     []string{"main.go"},
 	}
-	
+
 	score := engine.CalculateConfidence(action, context)
-	
+
 	if score.Overall < 0.7 {
 		t.Errorf("Expected high confidence for read action, got %f", score.Overall)
 	}
@@ -59,22 +59,22 @@ func TestCalculateConfidenceHighConfidence(t *testing.T) {
 
 func TestCalculateConfidenceLowConfidence(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	action := PlanStep{
 		Type:   "delete_file",
 		Target: "config/.env",
 	}
-	
+
 	context := ActionContext{
-		FileExists:         true,
-		HasTests:           false,
+		FileExists:            true,
+		HasTests:              false,
 		HasUncommittedChanges: true,
-		DependencyCount:    10,
-		RecentFailures:     3,
+		DependencyCount:       10,
+		RecentFailures:        3,
 	}
-	
+
 	score := engine.CalculateConfidence(action, context)
-	
+
 	if score.Overall > 0.6 {
 		t.Errorf("Expected low confidence for risky action, got %f", score.Overall)
 	}
@@ -85,13 +85,13 @@ func TestCalculateConfidenceLowConfidence(t *testing.T) {
 
 func TestAssessActionFamiliarity(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Known action
 	score := engine.assessActionFamiliarity("read")
 	if score < 0.9 {
 		t.Errorf("Expected high familiarity for read, got %f", score)
 	}
-	
+
 	// Unknown action
 	score = engine.assessActionFamiliarity("unknown_action")
 	if score != 0.50 {
@@ -101,19 +101,19 @@ func TestAssessActionFamiliarity(t *testing.T) {
 
 func TestAssessTargetClarity(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Empty target
 	score := engine.assessTargetClarity("")
 	if score > 0.5 {
 		t.Errorf("Expected low clarity for empty target, got %f", score)
 	}
-	
+
 	// Explicit path
 	score = engine.assessTargetClarity("./src/main.go")
 	if score < 0.8 {
 		t.Errorf("Expected high clarity for explicit path, got %f", score)
 	}
-	
+
 	// Wildcard
 	score = engine.assessTargetClarity("*.go")
 	if score > 0.7 {
@@ -123,7 +123,7 @@ func TestAssessTargetClarity(t *testing.T) {
 
 func TestAssessRisk(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Safe read action
 	readAction := PlanStep{Type: "read", Target: "main.go"}
 	readCtx := ActionContext{HasTests: true}
@@ -131,7 +131,7 @@ func TestAssessRisk(t *testing.T) {
 	if score < 0.8 {
 		t.Errorf("Expected low risk for read, got %f", score)
 	}
-	
+
 	// Delete action
 	deleteAction := PlanStep{Type: "delete_file", Target: "main.go"}
 	deleteCtx := ActionContext{HasTests: false, HasUncommittedChanges: true}
@@ -139,7 +139,7 @@ func TestAssessRisk(t *testing.T) {
 	if score > 0.5 {
 		t.Errorf("Expected high risk for delete, got %f", score)
 	}
-	
+
 	// Critical file pattern
 	criticalAction := PlanStep{Type: "edit", Target: ".env"}
 	criticalCtx := ActionContext{HasTests: false}
@@ -151,7 +151,7 @@ func TestAssessRisk(t *testing.T) {
 
 func TestDetermineRiskLevel(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	if engine.determineRiskLevel(0.2) != RiskCritical {
 		t.Error("Expected Critical for score 0.2")
 	}
@@ -168,25 +168,25 @@ func TestDetermineRiskLevel(t *testing.T) {
 
 func TestShouldProceed(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// High confidence - proceed
 	highScore := ConfidenceScore{Overall: 0.9, RiskLevel: RiskLow}
 	if engine.ShouldProceed(highScore) != DecisionProceed {
 		t.Error("Expected Proceed for high confidence")
 	}
-	
+
 	// Low confidence - ask human
 	lowScore := ConfidenceScore{Overall: 0.4, RiskLevel: RiskMedium}
 	if engine.ShouldProceed(lowScore) != DecisionAskHuman {
 		t.Error("Expected AskHuman for low confidence")
 	}
-	
+
 	// Very low confidence - refuse
 	veryLowScore := ConfidenceScore{Overall: 0.1, RiskLevel: RiskHigh}
 	if engine.ShouldProceed(veryLowScore) != DecisionRefuse {
 		t.Error("Expected Refuse for very low confidence")
 	}
-	
+
 	// Critical risk - always ask (ShouldAsk is set by CalculateConfidence for critical risk)
 	criticalScore := ConfidenceScore{Overall: 0.9, RiskLevel: RiskCritical, ShouldAsk: true}
 	if engine.ShouldProceed(criticalScore) != DecisionAskHuman {
@@ -196,12 +196,12 @@ func TestShouldProceed(t *testing.T) {
 
 func TestRecordOutcome(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Record some outcomes
 	engine.RecordOutcome("read:main.go", 0.9, "success")
 	engine.RecordOutcome("write:config.go", 0.7, "failure")
 	engine.RecordOutcome("edit:auth.go", 0.8, "partial")
-	
+
 	stats := engine.GetConfidenceStats()
 	if stats.TotalDecisions != 3 {
 		t.Errorf("Expected 3 decisions, got %d", stats.TotalDecisions)
@@ -210,26 +210,26 @@ func TestRecordOutcome(t *testing.T) {
 
 func TestLearningFromOutcomes(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Initial familiarity for write action
 	initialFamiliarity := engine.assessActionFamiliarity("write")
-	
+
 	// Record multiple failures for write
 	for i := 0; i < 5; i++ {
 		engine.RecordOutcome("write:file.go", 0.8, "failure")
 	}
-	
+
 	// Familiarity should decrease
 	newFamiliarity := engine.assessActionFamiliarity("write")
 	if newFamiliarity >= initialFamiliarity {
 		t.Errorf("Expected familiarity to decrease after failures, was %f now %f", initialFamiliarity, newFamiliarity)
 	}
-	
+
 	// Record successes
 	for i := 0; i < 5; i++ {
 		engine.RecordOutcome("write:file.go", 0.8, "success")
 	}
-	
+
 	// Should recover somewhat
 	recoveredFamiliarity := engine.assessActionFamiliarity("write")
 	if recoveredFamiliarity < newFamiliarity {
@@ -239,18 +239,18 @@ func TestLearningFromOutcomes(t *testing.T) {
 
 func TestGetConfidenceStats(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Empty stats
 	stats := engine.GetConfidenceStats()
 	if stats.TotalDecisions != 0 {
 		t.Errorf("Expected 0 decisions for new engine, got %d", stats.TotalDecisions)
 	}
-	
+
 	// Add some records
 	engine.RecordOutcome("read:a.go", 0.9, "success")
 	engine.RecordOutcome("read:b.go", 0.8, "success")
 	engine.RecordOutcome("write:c.go", 0.6, "failure")
-	
+
 	stats = engine.GetConfidenceStats()
 	if stats.TotalDecisions != 3 {
 		t.Errorf("Expected 3 decisions, got %d", stats.TotalDecisions)
@@ -267,15 +267,15 @@ func TestGetConfidenceStats(t *testing.T) {
 
 func TestSetThresholds(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	custom := ConfidenceThresholds{
 		AutoProceed:  0.9,
 		AskHuman:     0.6,
 		RefuseAction: 0.3,
 	}
-	
+
 	engine.SetThresholds(custom)
-	
+
 	thresholds := engine.GetThresholds()
 	if thresholds.AutoProceed != 0.9 {
 		t.Errorf("Expected AutoProceed 0.9, got %f", thresholds.AutoProceed)
@@ -284,21 +284,21 @@ func TestSetThresholds(t *testing.T) {
 
 func TestExportImportLearnings(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Create some learnings
 	engine.RecordOutcome("read:a.go", 0.9, "success")
 	engine.RecordOutcome("write:b.go", 0.7, "failure")
-	
+
 	// Export
 	learnings := engine.ExportLearnings()
 	if len(learnings) == 0 {
 		t.Error("Expected some learnings after recording outcomes")
 	}
-	
+
 	// Create new engine and import
 	engine2 := NewConfidenceEngine()
 	engine2.ApplyLearningFromFile(learnings)
-	
+
 	// Should have same adjustments
 	exported := engine2.ExportLearnings()
 	if len(exported) != len(learnings) {
@@ -308,7 +308,7 @@ func TestExportImportLearnings(t *testing.T) {
 
 func TestGenerateReasoning(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// High confidence - simple reasoning
 	components := map[string]float64{
 		"action_familiarity":    0.95,
@@ -318,12 +318,12 @@ func TestGenerateReasoning(t *testing.T) {
 		"risk_assessment":       0.95,
 		"dependency_confidence": 0.90,
 	}
-	
+
 	reasoning := engine.generateReasoning(components, 0.92, false)
 	if reasoning == "" {
 		t.Error("Expected non-empty reasoning")
 	}
-	
+
 	// Low confidence - detailed reasoning
 	lowComponents := map[string]float64{
 		"action_familiarity":    0.40,
@@ -333,7 +333,7 @@ func TestGenerateReasoning(t *testing.T) {
 		"risk_assessment":       0.35,
 		"dependency_confidence": 0.40,
 	}
-	
+
 	reasoning = engine.generateReasoning(lowComponents, 0.38, true)
 	if !containsSubstring(reasoning, "Human review") {
 		t.Errorf("Expected 'Human review' in reasoning, got: %s", reasoning)
@@ -342,7 +342,7 @@ func TestGenerateReasoning(t *testing.T) {
 
 func TestTask4FullIntegration(t *testing.T) {
 	engine := NewConfidenceEngine()
-	
+
 	// Simulate a series of autonomous decisions
 	actions := []struct {
 		action  PlanStep
@@ -370,17 +370,17 @@ func TestTask4FullIntegration(t *testing.T) {
 			outcome: "partial",
 		},
 	}
-	
+
 	for _, tc := range actions {
 		score := engine.CalculateConfidence(tc.action, tc.context)
 		decision := engine.ShouldProceed(score)
-		
+
 		// Record outcome
 		engine.RecordOutcome(tc.action.Type+":"+tc.action.Target, score.Overall, tc.outcome)
-		
+
 		t.Logf("Action: %s, Confidence: %.0f%%, Decision: %s, Risk: %s",
 			tc.action.Type, score.Overall*100, decision, score.RiskLevel)
-		
+
 		// Verify decision logic
 		if score.Overall >= 0.8 && decision != DecisionProceed {
 			t.Errorf("Expected Proceed for high confidence %.2f", score.Overall)
@@ -389,19 +389,19 @@ func TestTask4FullIntegration(t *testing.T) {
 			t.Errorf("Expected Refuse for low confidence %.2f", score.Overall)
 		}
 	}
-	
+
 	// Check final stats
 	stats := engine.GetConfidenceStats()
 	t.Logf("Final stats: %d decisions, %.0f%% avg confidence, %.0f%% success rate",
 		stats.TotalDecisions, stats.AverageConfidence*100, stats.SuccessRate*100)
-	
+
 	if stats.TotalDecisions != 4 {
 		t.Errorf("Expected 4 decisions, got %d", stats.TotalDecisions)
 	}
 	if stats.LearningsActive == false {
 		t.Error("Expected learnings to be active after recording outcomes")
 	}
-	
+
 	t.Log("✅ Task 4: Agent Confidence Score - Full integration PASSED")
 }
 

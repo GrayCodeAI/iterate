@@ -11,8 +11,8 @@ import (
 
 // TestRunner provides autonomous test execution with failure analysis.
 type TestRunner struct {
-	engine    *Engine
-	maxRetries int
+	engine          *Engine
+	maxRetries      int
 	failurePatterns []FailurePattern
 }
 
@@ -37,14 +37,14 @@ type TestResult struct {
 
 // TestFailure represents a single test failure.
 type TestFailure struct {
-	TestName    string
-	Package     string
-	Error       string
-	File        string
-	Line        int
-	Expected    string
-	Got         string
-	Category    string
+	TestName      string
+	Package       string
+	Error         string
+	File          string
+	Line          int
+	Expected      string
+	Got           string
+	Category      string
 	FixSuggestion string
 }
 
@@ -60,8 +60,8 @@ type TestSummary struct {
 // NewTestRunner creates a new test runner.
 func NewTestRunner(engine *Engine) *TestRunner {
 	return &TestRunner{
-		engine:     engine,
-		maxRetries: 3,
+		engine:          engine,
+		maxRetries:      3,
 		failurePatterns: DefaultFailurePatterns(),
 	}
 }
@@ -140,7 +140,7 @@ func (tr *TestRunner) RunTestsWithAnalysis(ctx context.Context) (*TestResult, er
 	// Step 1: Build first
 	buildOutput, buildErr := tr.engine.runCommand(ctx, "go build ./...")
 	result.BuildOutput = buildOutput
-	
+
 	if buildErr != nil {
 		result.Passed = false
 		result.Output = buildOutput
@@ -170,7 +170,7 @@ func (tr *TestRunner) RunTestsWithAnalysis(ctx context.Context) (*TestResult, er
 func (tr *TestRunner) RunTestsWithAutoFix(ctx context.Context) (*TestResult, error) {
 	for attempt := 1; attempt <= tr.maxRetries; attempt++ {
 		result, err := tr.RunTestsWithAnalysis(ctx)
-		
+
 		if err == nil && result.Passed {
 			tr.engine.logger.Info("Tests passed", "attempt", attempt)
 			return result, nil
@@ -187,7 +187,7 @@ func (tr *TestRunner) RunTestsWithAutoFix(ctx context.Context) (*TestResult, err
 
 		// Generate fix suggestions
 		fixPrompt := tr.buildFixPrompt(result, autoFixable)
-		
+
 		// Apply fixes via agent
 		if tr.engine.agent != nil {
 			for ev := range tr.engine.agent.Prompt(ctx, fixPrompt) {
@@ -215,8 +215,8 @@ func (tr *TestRunner) analyzeBuildFailures(output string) []TestFailure {
 
 		for _, match := range matches {
 			failure := TestFailure{
-				Category:    pattern.Category,
-				Error:       match[0],
+				Category:      pattern.Category,
+				Error:         match[0],
 				FixSuggestion: tr.expandHint(pattern.FixHint, match),
 			}
 
@@ -280,7 +280,6 @@ func (tr *TestRunner) parseTestSummary(output string) TestSummary {
 	// Parse test counts
 	// Example: "PASS ok github.com/pkg/module 0.123s"
 	// Example: "FAIL github.com/pkg/module [build failed]"
-	
 
 	// Count PASS/FAIL lines
 	lines := strings.Split(output, "\n")
@@ -405,7 +404,7 @@ func (tr *TestRunner) DetectFlakyTests(ctx context.Context, iterations int) ([]s
 
 	for i := 0; i < iterations; i++ {
 		output, _ := tr.engine.runCommand(ctx, "go test ./...")
-		
+
 		failPattern := regexp.MustCompile(`--- FAIL: ([^\s]+)`)
 		matches := failPattern.FindAllStringSubmatch(output, -1)
 

@@ -13,65 +13,65 @@ import (
 type DebugLevel int
 
 const (
-	DebugLevelNone    DebugLevel = 0
-	DebugLevelError   DebugLevel = 1
-	DebugLevelWarn    DebugLevel = 2
-	DebugLevelInfo    DebugLevel = 3
-	DebugLevelDebug   DebugLevel = 4
-	DebugLevelTrace   DebugLevel = 5
+	DebugLevelNone  DebugLevel = 0
+	DebugLevelError DebugLevel = 1
+	DebugLevelWarn  DebugLevel = 2
+	DebugLevelInfo  DebugLevel = 3
+	DebugLevelDebug DebugLevel = 4
+	DebugLevelTrace DebugLevel = 5
 )
 
 // DebugCategory represents a category of debug output
 type DebugCategory string
 
 const (
-	DebugCategoryPlanning    DebugCategory = "planning"
-	DebugCategoryExecution   DebugCategory = "execution"
+	DebugCategoryPlanning     DebugCategory = "planning"
+	DebugCategoryExecution    DebugCategory = "execution"
 	DebugCategoryVerification DebugCategory = "verification"
-	DebugCategoryRetry       DebugCategory = "retry"
-	DebugCategoryState       DebugCategory = "state"
-	DebugCategoryContext     DebugCategory = "context"
-	DebugCategoryAll         DebugCategory = "all"
+	DebugCategoryRetry        DebugCategory = "retry"
+	DebugCategoryState        DebugCategory = "state"
+	DebugCategoryContext      DebugCategory = "context"
+	DebugCategoryAll          DebugCategory = "all"
 )
 
 // DebugEvent represents a single debug event
 type DebugEvent struct {
-	Timestamp   time.Time     `json:"timestamp"`
-	Level       DebugLevel    `json:"level"`
-	Category    DebugCategory `json:"category"`
-	Message     string        `json:"message"`
-	Details     map[string]any `json:"details,omitempty"`
-	Duration    time.Duration `json:"duration,omitempty"`
-	StackTrace  string        `json:"stack_trace,omitempty"`
-	TaskID      string        `json:"task_id,omitempty"`
-	StepID      string        `json:"step_id,omitempty"`
-	Iteration   int           `json:"iteration,omitempty"`
+	Timestamp  time.Time      `json:"timestamp"`
+	Level      DebugLevel     `json:"level"`
+	Category   DebugCategory  `json:"category"`
+	Message    string         `json:"message"`
+	Details    map[string]any `json:"details,omitempty"`
+	Duration   time.Duration  `json:"duration,omitempty"`
+	StackTrace string         `json:"stack_trace,omitempty"`
+	TaskID     string         `json:"task_id,omitempty"`
+	StepID     string         `json:"step_id,omitempty"`
+	Iteration  int            `json:"iteration,omitempty"`
 }
 
 // DebugSession represents a debug session for an autonomous run
 type DebugSession struct {
-	ID          string        `json:"id"`
-	StartedAt   time.Time     `json:"started_at"`
-	EndedAt     time.Time     `json:"ended_at,omitempty"`
-	Task        string        `json:"task"`
-	Events      []DebugEvent  `json:"events"`
-	Status      string        `json:"status"`
-	Config      DebugConfig   `json:"config"`
-	mu          sync.RWMutex
+	ID        string       `json:"id"`
+	StartedAt time.Time    `json:"started_at"`
+	EndedAt   time.Time    `json:"ended_at,omitempty"`
+	Task      string       `json:"task"`
+	Events    []DebugEvent `json:"events"`
+	Status    string       `json:"status"`
+	Config    DebugConfig  `json:"config"`
+	mu        sync.RWMutex
 }
 
 // DebugConfig configures the debug mode
 type DebugConfig struct {
-	Enabled         bool            `json:"enabled"`
-	Level           DebugLevel      `json:"level"`
-	Categories      []DebugCategory `json:"categories"`
-	OutputFormat    string          `json:"output_format"` // "text", "json", "markdown"
-	IncludeStack    bool            `json:"include_stack"`
-	MaxEvents       int             `json:"max_events"`
-	SlowThreshold   time.Duration   `json:"slow_threshold"`
-	PauseOnError    bool            `json:"pause_on_error"`
-	LogFile         string          `json:"log_file"`
-	RealTimeOutput  bool            `json:"real_time_output"`
+	Enabled        bool            `json:"enabled"`
+	Level          DebugLevel      `json:"level"`
+	Categories     []DebugCategory `json:"categories"`
+	OutputFormat   string          `json:"output_format"` // "text", "json", "markdown"
+	IncludeStack   bool            `json:"include_stack"`
+	MaxEvents      int             `json:"max_events"`
+	SlowThreshold  time.Duration   `json:"slow_threshold"`
+	PauseOnError   bool            `json:"pause_on_error"`
+	LogFile        string          `json:"log_file"`
+	RealTimeOutput bool            `json:"real_time_output"`
 }
 
 // DefaultDebugConfig returns default debug configuration
@@ -108,18 +108,18 @@ func NewDebugMode(config DebugConfig) *DebugMode {
 		pauseChan:  make(chan struct{}),
 		resumeChan: make(chan struct{}),
 	}
-	
+
 	if config.LogFile != "" {
 		f, err := os.OpenFile(config.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			dm.outputWriter = f
 		}
 	}
-	
+
 	if dm.outputWriter == nil {
 		dm.outputWriter = os.Stderr
 	}
-	
+
 	return dm
 }
 
@@ -127,7 +127,7 @@ func NewDebugMode(config DebugConfig) *DebugMode {
 func (dm *DebugMode) StartSession(task string) *DebugSession {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
-	
+
 	session := &DebugSession{
 		ID:        fmt.Sprintf("debug_%d", time.Now().UnixNano()),
 		StartedAt: time.Now(),
@@ -136,14 +136,14 @@ func (dm *DebugMode) StartSession(task string) *DebugSession {
 		Status:    "running",
 		Config:    dm.config,
 	}
-	
+
 	dm.session = session
-	
+
 	// Start event processor if real-time output is enabled
 	if dm.config.RealTimeOutput {
 		go dm.processEvents()
 	}
-	
+
 	// Use logLocked since we already hold the mutex
 	dm.logLocked(DebugEvent{
 		Timestamp: time.Now(),
@@ -152,7 +152,7 @@ func (dm *DebugMode) StartSession(task string) *DebugSession {
 		Message:   "Debug session started",
 		Details:   map[string]any{"task": task, "id": session.ID},
 	})
-	
+
 	return session
 }
 
@@ -160,14 +160,14 @@ func (dm *DebugMode) StartSession(task string) *DebugSession {
 func (dm *DebugMode) EndSession(status string) {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
-	
+
 	if dm.session == nil {
 		return
 	}
-	
+
 	dm.session.EndedAt = time.Now()
 	dm.session.Status = status
-	
+
 	// Use logLocked since we already hold the mutex
 	dm.logLocked(DebugEvent{
 		Timestamp: time.Now(),
@@ -192,12 +192,12 @@ func (dm *DebugMode) log(level DebugLevel, category DebugCategory, message strin
 	if !dm.config.Enabled || level > dm.config.Level {
 		return
 	}
-	
+
 	// Check if category is enabled
 	if !dm.isCategoryEnabled(category) {
 		return
 	}
-	
+
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Level:     level,
@@ -205,15 +205,15 @@ func (dm *DebugMode) log(level DebugLevel, category DebugCategory, message strin
 		Message:   message,
 		Details:   details,
 	}
-	
+
 	if dm.config.IncludeStack && level <= DebugLevelError {
 		event.StackTrace = getStackTrace()
 	}
-	
+
 	dm.mu.Lock()
 	dm.logLocked(event)
 	dm.mu.Unlock()
-	
+
 	// Send to channel for real-time output or write directly
 	if dm.config.RealTimeOutput {
 		select {
@@ -224,7 +224,7 @@ func (dm *DebugMode) log(level DebugLevel, category DebugCategory, message strin
 	} else {
 		dm.writeEvent(event)
 	}
-	
+
 	// Pause on error if configured
 	if dm.config.PauseOnError && level == DebugLevelError {
 		dm.Pause()
@@ -271,7 +271,7 @@ func (dm *DebugMode) processEvents() {
 // writeEvent writes an event to the output
 func (dm *DebugMode) writeEvent(event DebugEvent) {
 	var output string
-	
+
 	switch dm.config.OutputFormat {
 	case "json":
 		output = dm.formatJSON(event)
@@ -280,7 +280,7 @@ func (dm *DebugMode) writeEvent(event DebugEvent) {
 	default:
 		output = dm.formatText(event)
 	}
-	
+
 	dm.outputWriter.WriteString(output + "\n")
 }
 
@@ -288,7 +288,7 @@ func (dm *DebugMode) writeEvent(event DebugEvent) {
 func (dm *DebugMode) formatText(event DebugEvent) string {
 	levelStr := levelToString(event.Level)
 	categoryStr := string(event.Category)
-	
+
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("[%s] %s/%s: %s",
 		event.Timestamp.Format("15:04:05.000"),
@@ -296,23 +296,23 @@ func (dm *DebugMode) formatText(event DebugEvent) string {
 		categoryStr,
 		event.Message,
 	))
-	
+
 	if event.Duration > 0 {
 		sb.WriteString(fmt.Sprintf(" (%s)", event.Duration))
 	}
-	
+
 	if event.TaskID != "" {
 		sb.WriteString(fmt.Sprintf(" [task:%s]", event.TaskID))
 	}
-	
+
 	if event.StepID != "" {
 		sb.WriteString(fmt.Sprintf(" [step:%s]", event.StepID))
 	}
-	
+
 	if event.Iteration > 0 {
 		sb.WriteString(fmt.Sprintf(" [iter:%d]", event.Iteration))
 	}
-	
+
 	return sb.String()
 }
 
@@ -352,18 +352,18 @@ func (dm *DebugMode) LogExecution(stepID, action string, duration time.Duration,
 		"action":   action,
 		"duration": duration.String(),
 	}
-	
+
 	level := DebugLevelInfo
 	if err != nil {
 		level = DebugLevelError
 		details["error"] = err.Error()
 	}
-	
+
 	if duration > dm.config.SlowThreshold {
 		level = DebugLevelWarn
 		details["slow"] = true
 	}
-	
+
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Level:     level,
@@ -373,7 +373,7 @@ func (dm *DebugMode) LogExecution(stepID, action string, duration time.Duration,
 		Duration:  duration,
 		StepID:    stepID,
 	}
-	
+
 	dm.logEvent(event)
 }
 
@@ -385,9 +385,9 @@ func (dm *DebugMode) LogVerification(stepID string, passed bool, details map[str
 		level = DebugLevelWarn
 		message = "Verification failed"
 	}
-	
+
 	details["passed"] = passed
-	
+
 	event := DebugEvent{
 		Timestamp: time.Now(),
 		Level:     level,
@@ -396,7 +396,7 @@ func (dm *DebugMode) LogVerification(stepID string, passed bool, details map[str
 		Details:   details,
 		StepID:    stepID,
 	}
-	
+
 	dm.logEvent(event)
 }
 
@@ -408,7 +408,7 @@ func (dm *DebugMode) LogRetry(iteration int, reason string, willRetry bool) {
 		level = DebugLevelError
 		message = fmt.Sprintf("Retry %d exhausted: %s", iteration, reason)
 	}
-	
+
 	dm.log(level, DebugCategoryRetry, message, map[string]any{
 		"iteration":  iteration,
 		"reason":     reason,
@@ -442,7 +442,7 @@ func (dm *DebugMode) logEvent(event DebugEvent) {
 	if !dm.isCategoryEnabled(event.Category) {
 		return
 	}
-	
+
 	dm.mu.Lock()
 	if dm.session != nil {
 		if len(dm.session.Events) >= dm.config.MaxEvents {
@@ -451,7 +451,7 @@ func (dm *DebugMode) logEvent(event DebugEvent) {
 		dm.session.Events = append(dm.session.Events, event)
 	}
 	dm.mu.Unlock()
-	
+
 	if dm.config.RealTimeOutput {
 		select {
 		case dm.eventChan <- event:
@@ -483,7 +483,7 @@ func (dm *DebugMode) GetSession() *DebugSession {
 func (dm *DebugMode) GetEvents() []DebugEvent {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return nil
 	}
@@ -494,11 +494,11 @@ func (dm *DebugMode) GetEvents() []DebugEvent {
 func (dm *DebugMode) GetEventsByLevel(level DebugLevel) []DebugEvent {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return nil
 	}
-	
+
 	var result []DebugEvent
 	for _, e := range dm.session.Events {
 		if e.Level == level {
@@ -512,11 +512,11 @@ func (dm *DebugMode) GetEventsByLevel(level DebugLevel) []DebugEvent {
 func (dm *DebugMode) GetEventsByCategory(category DebugCategory) []DebugEvent {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return nil
 	}
-	
+
 	var result []DebugEvent
 	for _, e := range dm.session.Events {
 		if e.Category == category {
@@ -540,11 +540,11 @@ func (dm *DebugMode) GetWarnings() []DebugEvent {
 func (dm *DebugMode) GetSlowOperations() []DebugEvent {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return nil
 	}
-	
+
 	var result []DebugEvent
 	for _, e := range dm.session.Events {
 		if e.Duration > dm.config.SlowThreshold {
@@ -558,56 +558,56 @@ func (dm *DebugMode) GetSlowOperations() []DebugEvent {
 func (dm *DebugMode) GenerateReport() string {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return "No debug session"
 	}
-	
+
 	var sb strings.Builder
-	
+
 	sb.WriteString("# Debug Session Report\n\n")
 	sb.WriteString(fmt.Sprintf("**Session ID:** %s\n", dm.session.ID))
 	sb.WriteString(fmt.Sprintf("**Task:** %s\n", dm.session.Task))
 	sb.WriteString(fmt.Sprintf("**Status:** %s\n", dm.session.Status))
 	sb.WriteString(fmt.Sprintf("**Started:** %s\n", dm.session.StartedAt.Format(time.RFC3339)))
-	
+
 	if !dm.session.EndedAt.IsZero() {
 		sb.WriteString(fmt.Sprintf("**Ended:** %s\n", dm.session.EndedAt.Format(time.RFC3339)))
 		sb.WriteString(fmt.Sprintf("**Duration:** %s\n", dm.session.EndedAt.Sub(dm.session.StartedAt)))
 	}
-	
+
 	sb.WriteString("\n## Statistics\n\n")
-	
+
 	errors := dm.GetErrors()
 	warnings := dm.GetWarnings()
 	slowOps := dm.GetSlowOperations()
-	
+
 	sb.WriteString(fmt.Sprintf("- **Total Events:** %d\n", len(dm.session.Events)))
 	sb.WriteString(fmt.Sprintf("- **Errors:** %d\n", len(errors)))
 	sb.WriteString(fmt.Sprintf("- **Warnings:** %d\n", len(warnings)))
 	sb.WriteString(fmt.Sprintf("- **Slow Operations:** %d\n", len(slowOps)))
-	
+
 	if len(errors) > 0 {
 		sb.WriteString("\n## Errors\n\n")
 		for _, e := range errors {
 			sb.WriteString(fmt.Sprintf("- %s\n", e.Message))
 		}
 	}
-	
+
 	if len(warnings) > 0 {
 		sb.WriteString("\n## Warnings\n\n")
 		for _, e := range warnings {
 			sb.WriteString(fmt.Sprintf("- %s\n", e.Message))
 		}
 	}
-	
+
 	if len(slowOps) > 0 {
 		sb.WriteString("\n## Slow Operations\n\n")
 		for _, e := range slowOps {
 			sb.WriteString(fmt.Sprintf("- %s (%s)\n", e.Message, e.Duration))
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -615,22 +615,22 @@ func (dm *DebugMode) GenerateReport() string {
 func (dm *DebugMode) ExportJSON() string {
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
-	
+
 	if dm.session == nil {
 		return "{}"
 	}
-	
+
 	var sb strings.Builder
 	sb.WriteString("{\n")
 	sb.WriteString(fmt.Sprintf("  \"id\": \"%s\",\n", dm.session.ID))
 	sb.WriteString(fmt.Sprintf("  \"task\": \"%s\",\n", escapeJSON(dm.session.Task)))
 	sb.WriteString(fmt.Sprintf("  \"status\": \"%s\",\n", dm.session.Status))
 	sb.WriteString(fmt.Sprintf("  \"started_at\": \"%s\",\n", dm.session.StartedAt.Format(time.RFC3339)))
-	
+
 	if !dm.session.EndedAt.IsZero() {
 		sb.WriteString(fmt.Sprintf("  \"ended_at\": \"%s\",\n", dm.session.EndedAt.Format(time.RFC3339)))
 	}
-	
+
 	sb.WriteString("  \"events\": [\n")
 	for i, e := range dm.session.Events {
 		sb.WriteString("    " + dm.formatJSON(e))
@@ -641,7 +641,7 @@ func (dm *DebugMode) ExportJSON() string {
 	}
 	sb.WriteString("  ]\n")
 	sb.WriteString("}")
-	
+
 	return sb.String()
 }
 

@@ -19,13 +19,13 @@ import (
 
 // FileChange represents a change to a file.
 type FileChange struct {
-	Path         string    `json:"path"`
-	OldHash      string    `json:"old_hash,omitempty"`
-	NewHash      string    `json:"new_hash,omitempty"`
-	ChangeType   string    `json:"change_type"` // "added", "modified", "deleted"
-	OldModTime   time.Time `json:"old_mod_time,omitempty"`
-	NewModTime   time.Time `json:"new_mod_time,omitempty"`
-	TokensDiff   int       `json:"tokens_diff"` // Token difference
+	Path       string    `json:"path"`
+	OldHash    string    `json:"old_hash,omitempty"`
+	NewHash    string    `json:"new_hash,omitempty"`
+	ChangeType string    `json:"change_type"` // "added", "modified", "deleted"
+	OldModTime time.Time `json:"old_mod_time,omitempty"`
+	NewModTime time.Time `json:"new_mod_time,omitempty"`
+	TokensDiff int       `json:"tokens_diff"` // Token difference
 }
 
 // RefreshResult contains the result of an incremental refresh.
@@ -44,22 +44,22 @@ type RefreshResult struct {
 
 // FileSnapshot represents a snapshot of file state.
 type FileSnapshot struct {
-	Path      string    `json:"path"`
-	Hash      string    `json:"hash"`
-	ModTime   time.Time `json:"mod_time"`
-	Size      int64     `json:"size"`
-	TokenEst  int       `json:"token_est"`
+	Path     string    `json:"path"`
+	Hash     string    `json:"hash"`
+	ModTime  time.Time `json:"mod_time"`
+	Size     int64     `json:"size"`
+	TokenEst int       `json:"token_est"`
 }
 
 // IncrementalRefreshConfig holds configuration for incremental refresh.
 type IncrementalRefreshConfig struct {
-	HashAlgorithm     string        `json:"hash_algorithm"`     // "sha256", "modtime", "size"
-	MaxCacheAge       time.Duration `json:"max_cache_age"`      // Max age before full refresh
-	IncludeHidden     bool          `json:"include_hidden"`     // Include hidden files
-	FollowSymlinks    bool          `json:"follow_symlinks"`    // Follow symbolic links
-	MaxFileSize       int64         `json:"max_file_size"`      // Max file size in bytes
-	ExcludePatterns   []string      `json:"exclude_patterns"`   // Files to exclude
-	TokenEstimator    func(string) int `json:"-"`               // Token estimation function
+	HashAlgorithm   string           `json:"hash_algorithm"`   // "sha256", "modtime", "size"
+	MaxCacheAge     time.Duration    `json:"max_cache_age"`    // Max age before full refresh
+	IncludeHidden   bool             `json:"include_hidden"`   // Include hidden files
+	FollowSymlinks  bool             `json:"follow_symlinks"`  // Follow symbolic links
+	MaxFileSize     int64            `json:"max_file_size"`    // Max file size in bytes
+	ExcludePatterns []string         `json:"exclude_patterns"` // Files to exclude
+	TokenEstimator  func(string) int `json:"-"`                // Token estimation function
 }
 
 // DefaultIncrementalRefreshConfig returns default configuration.
@@ -77,14 +77,14 @@ func DefaultIncrementalRefreshConfig() *IncrementalRefreshConfig {
 
 // IncrementalRefresher manages incremental context refreshes.
 type IncrementalRefresher struct {
-	config     *IncrementalRefreshConfig
-	logger     *slog.Logger
-	mu         sync.RWMutex
-	
+	config *IncrementalRefreshConfig
+	logger *slog.Logger
+	mu     sync.RWMutex
+
 	// File state cache
-	snapshots  map[string]*FileSnapshot
-	lastFull   time.Time
-	cacheDir   string
+	snapshots map[string]*FileSnapshot
+	lastFull  time.Time
+	cacheDir  string
 }
 
 // NewIncrementalRefresher creates a new incremental refresher.
@@ -95,7 +95,7 @@ func NewIncrementalRefresher(config *IncrementalRefreshConfig, logger *slog.Logg
 	if config == nil {
 		config = DefaultIncrementalRefreshConfig()
 	}
-	
+
 	return &IncrementalRefresher{
 		config:    config,
 		logger:    logger.With("component", "incremental_refresher"),
@@ -107,24 +107,24 @@ func NewIncrementalRefresher(config *IncrementalRefreshConfig, logger *slog.Logg
 // Refresh performs an incremental refresh of the given files.
 func (ir *IncrementalRefresher) Refresh(ctx context.Context, files []string) (*RefreshResult, error) {
 	start := time.Now()
-	
+
 	ir.mu.Lock()
 	defer ir.mu.Unlock()
-	
+
 	result := &RefreshResult{
 		Changes:     make([]*FileChange, 0),
 		FullRefresh: false,
 	}
-	
+
 	// Check if we need a full refresh
 	if time.Since(ir.lastFull) > ir.config.MaxCacheAge {
 		result.FullRefresh = true
 		ir.lastFull = time.Now()
 	}
-	
+
 	// Build new snapshot map
 	newSnapshots := make(map[string]*FileSnapshot)
-	
+
 	// Process each file
 	for _, file := range files {
 		select {
@@ -132,7 +132,7 @@ func (ir *IncrementalRefresher) Refresh(ctx context.Context, files []string) (*R
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		change := ir.processFile(file, newSnapshots)
 		if change != nil {
 			result.Changes = append(result.Changes, change)
@@ -148,7 +148,7 @@ func (ir *IncrementalRefresher) Refresh(ctx context.Context, files []string) (*R
 			result.FilesUnchanged++
 		}
 	}
-	
+
 	// Check for deleted files (in old snapshots but not in new)
 	for path, oldSnap := range ir.snapshots {
 		if _, exists := newSnapshots[path]; !exists {
@@ -162,17 +162,17 @@ func (ir *IncrementalRefresher) Refresh(ctx context.Context, files []string) (*R
 			result.FilesDeleted++
 		}
 	}
-	
+
 	// Update snapshots
 	ir.snapshots = newSnapshots
-	
+
 	// Calculate token diff
 	for _, change := range result.Changes {
 		result.TotalTokenDiff += change.TokensDiff
 	}
-	
+
 	result.RefreshTime = time.Since(start)
-	
+
 	ir.logger.Debug("Incremental refresh complete",
 		"added", result.FilesAdded,
 		"modified", result.FilesModified,
@@ -180,7 +180,7 @@ func (ir *IncrementalRefresher) Refresh(ctx context.Context, files []string) (*R
 		"unchanged", result.FilesUnchanged,
 		"time", result.RefreshTime,
 	)
-	
+
 	return result, nil
 }
 
@@ -190,7 +190,7 @@ func (ir *IncrementalRefresher) processFile(file string, newSnapshots map[string
 	if ir.shouldExclude(file) {
 		return nil
 	}
-	
+
 	// Get file info
 	info, err := os.Stat(file)
 	if err != nil {
@@ -208,20 +208,20 @@ func (ir *IncrementalRefresher) processFile(file string, newSnapshots map[string
 		}
 		return nil
 	}
-	
+
 	// Check file size
 	if info.Size() > ir.config.MaxFileSize {
 		ir.logger.Debug("File too large, skipping", "file", file, "size", info.Size())
 		return nil
 	}
-	
+
 	// Create new snapshot
 	snapshot := &FileSnapshot{
 		Path:    file,
 		ModTime: info.ModTime(),
 		Size:    info.Size(),
 	}
-	
+
 	// Calculate hash
 	hash, err := ir.calculateHash(file)
 	if err != nil {
@@ -229,7 +229,7 @@ func (ir *IncrementalRefresher) processFile(file string, newSnapshots map[string
 		return nil
 	}
 	snapshot.Hash = hash
-	
+
 	// Estimate tokens
 	content, err := os.ReadFile(file)
 	if err == nil && ir.config.TokenEstimator != nil {
@@ -237,9 +237,9 @@ func (ir *IncrementalRefresher) processFile(file string, newSnapshots map[string
 	} else {
 		snapshot.TokenEst = int(info.Size() / 4) // Fallback estimation
 	}
-	
+
 	newSnapshots[file] = snapshot
-	
+
 	// Check if file is new or modified
 	if oldSnap, exists := ir.snapshots[file]; exists {
 		if oldSnap.Hash != snapshot.Hash {
@@ -255,7 +255,7 @@ func (ir *IncrementalRefresher) processFile(file string, newSnapshots map[string
 		}
 		return nil // Unchanged
 	}
-	
+
 	// New file
 	return &FileChange{
 		Path:       file,
@@ -275,14 +275,14 @@ func (ir *IncrementalRefresher) calculateHash(file string) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf("%d", info.ModTime().UnixNano()), nil
-		
+
 	case "size":
 		info, err := os.Stat(file)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%d", info.Size()), nil
-		
+
 	default: // "sha256"
 		content, err := os.ReadFile(file)
 		if err != nil {
@@ -308,7 +308,7 @@ func (ir *IncrementalRefresher) shouldExclude(file string) bool {
 			}
 		}
 	}
-	
+
 	// Check for hidden files
 	if !ir.config.IncludeHidden {
 		base := filepath.Base(file)
@@ -316,7 +316,7 @@ func (ir *IncrementalRefresher) shouldExclude(file string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -338,7 +338,7 @@ func (ir *IncrementalRefresher) GetSnapshot(file string) *FileSnapshot {
 func (ir *IncrementalRefresher) GetAllSnapshots() map[string]*FileSnapshot {
 	ir.mu.RLock()
 	defer ir.mu.RUnlock()
-	
+
 	result := make(map[string]*FileSnapshot, len(ir.snapshots))
 	for k, v := range ir.snapshots {
 		result[k] = v
@@ -357,38 +357,38 @@ func (ir *IncrementalRefresher) ClearSnapshots() {
 func (ir *IncrementalRefresher) GetChangedFiles(files []string) ([]string, error) {
 	ir.mu.RLock()
 	defer ir.mu.RUnlock()
-	
+
 	changed := make([]string, 0)
-	
+
 	for _, file := range files {
 		if ir.shouldExclude(file) {
 			continue
 		}
-		
+
 		// Check if file exists in snapshots
 		oldSnap, exists := ir.snapshots[file]
 		if !exists {
 			changed = append(changed, file)
 			continue
 		}
-		
+
 		// Check mod time first (faster)
 		info, err := os.Stat(file)
 		if err != nil {
 			continue
 		}
-		
+
 		if info.ModTime().After(oldSnap.ModTime) {
 			changed = append(changed, file)
 			continue
 		}
-		
+
 		// Check if file was deleted
 		if os.IsNotExist(err) {
 			changed = append(changed, file)
 		}
 	}
-	
+
 	return changed, nil
 }
 
@@ -409,7 +409,7 @@ func (ir *IncrementalRefresher) GetConfig() *IncrementalRefreshConfig {
 // ToMarkdown generates a markdown representation of the refresh result.
 func (r *RefreshResult) ToMarkdown() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("# Incremental Refresh Result\n\n")
 	sb.WriteString(fmt.Sprintf("**Full refresh:** %v | **Time:** %v\n\n", r.FullRefresh, r.RefreshTime))
 	sb.WriteString(fmt.Sprintf("- **Added:** %d\n", r.FilesAdded))
@@ -417,12 +417,12 @@ func (r *RefreshResult) ToMarkdown() string {
 	sb.WriteString(fmt.Sprintf("- **Deleted:** %d\n", r.FilesDeleted))
 	sb.WriteString(fmt.Sprintf("- **Unchanged:** %d\n", r.FilesUnchanged))
 	sb.WriteString(fmt.Sprintf("- **Token diff:** %+d\n\n", r.TotalTokenDiff))
-	
+
 	if len(r.Changes) > 0 {
 		sb.WriteString("## Changes\n\n")
 		sb.WriteString("| File | Type | Token Diff |\n")
 		sb.WriteString("|------|------|------------|\n")
-		
+
 		// Sort changes by type then path
 		sort.Slice(r.Changes, func(i, j int) bool {
 			if r.Changes[i].ChangeType != r.Changes[j].ChangeType {
@@ -430,12 +430,12 @@ func (r *RefreshResult) ToMarkdown() string {
 			}
 			return r.Changes[i].Path < r.Changes[j].Path
 		})
-		
+
 		for _, change := range r.Changes {
 			sb.WriteString(fmt.Sprintf("| %s | %s | %+d |\n",
 				change.Path, change.ChangeType, change.TokensDiff))
 		}
 	}
-	
+
 	return sb.String()
 }

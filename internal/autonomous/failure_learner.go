@@ -29,26 +29,26 @@ type FailureLearner struct {
 
 // FailureLearning represents a learned lesson from a failure.
 type FailureLearning struct {
-	ID           string            `json:"id"`
-	Timestamp    time.Time         `json:"timestamp"`
-	TaskType     string            `json:"task_type"`
-	TaskID       string            `json:"task_id"`
-	ErrorMessage string            `json:"error_message"`
-	ErrorHash    string            `json:"error_hash"`
-	Category     ErrorCategory     `json:"category"`
-	Context      map[string]any    `json:"context,omitempty"`
-	Solution     string            `json:"solution"`
-	SuccessRate  float64           `json:"success_rate"`
-	Attempts     int               `json:"attempts"`
-	FilePatterns []string          `json:"file_patterns,omitempty"`
-	Actions      []LearningAction  `json:"actions,omitempty"`
-	Verified     bool              `json:"verified"`
-	VerifiedAt   time.Time         `json:"verified_at,omitempty"`
+	ID           string           `json:"id"`
+	Timestamp    time.Time        `json:"timestamp"`
+	TaskType     string           `json:"task_type"`
+	TaskID       string           `json:"task_id"`
+	ErrorMessage string           `json:"error_message"`
+	ErrorHash    string           `json:"error_hash"`
+	Category     ErrorCategory    `json:"category"`
+	Context      map[string]any   `json:"context,omitempty"`
+	Solution     string           `json:"solution"`
+	SuccessRate  float64          `json:"success_rate"`
+	Attempts     int              `json:"attempts"`
+	FilePatterns []string         `json:"file_patterns,omitempty"`
+	Actions      []LearningAction `json:"actions,omitempty"`
+	Verified     bool             `json:"verified"`
+	VerifiedAt   time.Time        `json:"verified_at,omitempty"`
 }
 
 // LearningAction represents an action taken to resolve a failure.
 type LearningAction struct {
-	Type        string `json:"type"`        // "code_change", "config_change", "retry", "skip", "alternative"
+	Type        string `json:"type"` // "code_change", "config_change", "retry", "skip", "alternative"
 	Description string `json:"description"`
 	Command     string `json:"command,omitempty"`
 	File        string `json:"file,omitempty"`
@@ -58,12 +58,12 @@ type LearningAction struct {
 // LearnedPattern represents a pattern extracted from multiple failures.
 type LearnedPattern struct {
 	ID              string        `json:"id"`
-	Pattern         string        `json:"pattern"`          // Regex pattern
+	Pattern         string        `json:"pattern"` // Regex pattern
 	Description     string        `json:"description"`
 	Category        ErrorCategory `json:"category"`
 	OccurrenceCount int           `json:"occurrence_count"`
-	SuccessActions  []string      `json:"success_actions"`  // Actions that worked
-	FailActions     []string      `json:"fail_actions"`     // Actions that didn't work
+	SuccessActions  []string      `json:"success_actions"` // Actions that worked
+	FailActions     []string      `json:"fail_actions"`    // Actions that didn't work
 	AutoFixable     bool          `json:"auto_fixable"`
 	FixTemplate     string        `json:"fix_template,omitempty"`
 	Confidence      float64       `json:"confidence"`
@@ -72,14 +72,14 @@ type LearnedPattern struct {
 
 // LearnerStats tracks overall learning statistics.
 type LearnerStats struct {
-	TotalFailures     int                    `json:"total_failures"`
-	TotalLearnings    int                    `json:"total_learnings"`
-	PatternsLearned   int                    `json:"patterns_learned"`
-	SuccessfulApplies int                    `json:"successful_applies"`
-	FailedApplies     int                    `json:"failed_applies"`
-	ByCategory        map[ErrorCategory]int  `json:"by_category"`
-	ByTaskType        map[string]int         `json:"by_task_type"`
-	LastLearning      time.Time              `json:"last_learning"`
+	TotalFailures     int                   `json:"total_failures"`
+	TotalLearnings    int                   `json:"total_learnings"`
+	PatternsLearned   int                   `json:"patterns_learned"`
+	SuccessfulApplies int                   `json:"successful_applies"`
+	FailedApplies     int                   `json:"failed_applies"`
+	ByCategory        map[ErrorCategory]int `json:"by_category"`
+	ByTaskType        map[string]int        `json:"by_task_type"`
+	LastLearning      time.Time             `json:"last_learning"`
 }
 
 // FailureLearnerConfig configures the failure learner.
@@ -95,7 +95,7 @@ func NewFailureLearner(config FailureLearnerConfig) *FailureLearner {
 	if config.MaxLearnings == 0 {
 		config.MaxLearnings = 10000
 	}
-	
+
 	fl := &FailureLearner{
 		storagePath:  config.StoragePath,
 		learnings:    make([]*FailureLearning, 0),
@@ -108,12 +108,12 @@ func NewFailureLearner(config FailureLearnerConfig) *FailureLearner {
 			ByTaskType: make(map[string]int),
 		},
 	}
-	
+
 	// Load existing learnings
 	if config.StoragePath != "" {
 		fl.loadLearnings()
 	}
-	
+
 	return fl
 }
 
@@ -121,11 +121,11 @@ func NewFailureLearner(config FailureLearnerConfig) *FailureLearner {
 func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, context map[string]any) *FailureLearning {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
-	
+
 	if !fl.enabled {
 		return nil
 	}
-	
+
 	// Analyze with SmartRetry if available
 	category := CategoryUnknown
 	var analysis *FailureAnalysis
@@ -133,7 +133,7 @@ func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, conte
 		analysis = fl.smartRetry.AnalyzeFailure(errorMsg)
 		category = analysis.Category
 	}
-	
+
 	learning := &FailureLearning{
 		ID:           fmt.Sprintf("learn_%d", time.Now().UnixNano()),
 		Timestamp:    time.Now(),
@@ -146,7 +146,7 @@ func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, conte
 		Attempts:     1,
 		SuccessRate:  0.0,
 	}
-	
+
 	// Check for existing similar failure
 	existing := fl.findSimilarFailure(learning.ErrorHash)
 	if existing != nil {
@@ -156,14 +156,14 @@ func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, conte
 		fl.stats.ByTaskType[taskType]++
 		return existing
 	}
-	
+
 	fl.learnings = append(fl.learnings, learning)
 	fl.stats.TotalFailures++
 	fl.stats.TotalLearnings++
 	fl.stats.ByCategory[category]++
 	fl.stats.ByTaskType[taskType]++
 	fl.stats.LastLearning = time.Now()
-	
+
 	// Trim if needed
 	if len(fl.learnings) > fl.maxLearnings {
 		trimCount := fl.maxLearnings / 10
@@ -175,10 +175,10 @@ func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, conte
 		}
 		fl.learnings = fl.learnings[trimCount:]
 	}
-	
+
 	// Extract patterns
 	fl.extractPatterns(learning)
-	
+
 	return learning
 }
 
@@ -186,12 +186,12 @@ func (fl *FailureLearner) RecordFailure(taskType, taskID, errorMsg string, conte
 func (fl *FailureLearner) RecordSolution(learningID, solution string, actions []LearningAction) {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
-	
+
 	for _, learning := range fl.learnings {
 		if learning.ID == learningID {
 			learning.Solution = solution
 			learning.Actions = actions
-			
+
 			// Update success rate based on actions
 			successCount := 0
 			for _, a := range actions {
@@ -202,10 +202,10 @@ func (fl *FailureLearner) RecordSolution(learningID, solution string, actions []
 			if len(actions) > 0 {
 				learning.SuccessRate = float64(successCount) / float64(len(actions))
 			}
-			
+
 			// Update patterns with successful actions
 			fl.updatePatternActions(learning)
-			
+
 			break
 		}
 	}
@@ -215,7 +215,7 @@ func (fl *FailureLearner) RecordSolution(learningID, solution string, actions []
 func (fl *FailureLearner) GetRecommendation(errorMsg string) *FailureRecommendation {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	rec := &FailureRecommendation{
 		ErrorHash:    hashError(errorMsg),
 		Category:     CategoryUnknown,
@@ -224,7 +224,7 @@ func (fl *FailureLearner) GetRecommendation(errorMsg string) *FailureRecommendat
 		Actions:      []LearningAction{},
 		SimilarCases: []*FailureLearning{},
 	}
-	
+
 	// Find similar failures
 	for _, learning := range fl.learnings {
 		if learning.ErrorHash == rec.ErrorHash {
@@ -235,18 +235,18 @@ func (fl *FailureLearner) GetRecommendation(errorMsg string) *FailureRecommendat
 			rec.Actions = append(rec.Actions, learning.Actions...)
 		}
 	}
-	
+
 	// Match learned patterns
 	for _, pattern := range fl.patterns {
 		if matched, _ := regexp.MatchString(pattern.Pattern, errorMsg); matched {
 			rec.Category = pattern.Category
 			rec.Confidence = pattern.Confidence
 			rec.PatternID = pattern.ID
-			
+
 			for _, action := range pattern.SuccessActions {
 				rec.Suggestions = append(rec.Suggestions, action)
 			}
-			
+
 			// Add fix template if available
 			if pattern.AutoFixable && pattern.FixTemplate != "" {
 				rec.AutoFixable = true
@@ -255,7 +255,7 @@ func (fl *FailureLearner) GetRecommendation(errorMsg string) *FailureRecommendat
 			break
 		}
 	}
-	
+
 	// Use SmartRetry analysis if available
 	if fl.smartRetry != nil {
 		analysis := fl.smartRetry.AnalyzeFailure(errorMsg)
@@ -269,7 +269,7 @@ func (fl *FailureLearner) GetRecommendation(errorMsg string) *FailureRecommendat
 			rec.Suggestions = analysis.Suggestions
 		}
 	}
-	
+
 	return rec
 }
 
@@ -291,7 +291,7 @@ func (fl *FailureLearner) ApplyLearning(rec *FailureRecommendation) bool {
 	if len(rec.SimilarCases) == 0 {
 		return false
 	}
-	
+
 	// Find the most successful similar case
 	bestCase := rec.SimilarCases[0]
 	for _, c := range rec.SimilarCases {
@@ -299,7 +299,7 @@ func (fl *FailureLearner) ApplyLearning(rec *FailureRecommendation) bool {
 			bestCase = c
 		}
 	}
-	
+
 	// Check if we have successful actions
 	successCount := 0
 	for _, a := range bestCase.Actions {
@@ -307,7 +307,7 @@ func (fl *FailureLearner) ApplyLearning(rec *FailureRecommendation) bool {
 			successCount++
 		}
 	}
-	
+
 	fl.mu.Lock()
 	if successCount > 0 {
 		fl.stats.SuccessfulApplies++
@@ -315,7 +315,7 @@ func (fl *FailureLearner) ApplyLearning(rec *FailureRecommendation) bool {
 		fl.stats.FailedApplies++
 	}
 	fl.mu.Unlock()
-	
+
 	return successCount > 0
 }
 
@@ -330,7 +330,7 @@ func (fl *FailureLearner) GetStats() LearnerStats {
 func (fl *FailureLearner) GetPatterns() []LearnedPattern {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	result := make([]LearnedPattern, len(fl.patterns))
 	for i, p := range fl.patterns {
 		result[i] = *p
@@ -342,17 +342,17 @@ func (fl *FailureLearner) GetPatterns() []LearnedPattern {
 func (fl *FailureLearner) GetRecentLearnings(limit int) []*FailureLearning {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	if limit <= 0 || limit > len(fl.learnings) {
 		limit = len(fl.learnings)
 	}
-	
+
 	// Return most recent
 	start := len(fl.learnings) - limit
 	if start < 0 {
 		start = 0
 	}
-	
+
 	result := make([]*FailureLearning, limit)
 	copy(result, fl.learnings[start:])
 	return result
@@ -362,7 +362,7 @@ func (fl *FailureLearner) GetRecentLearnings(limit int) []*FailureLearning {
 func (fl *FailureLearner) ExportLearnings() (string, error) {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	data := struct {
 		Learnings []*FailureLearning
 		Patterns  []*LearnedPattern
@@ -372,7 +372,7 @@ func (fl *FailureLearner) ExportLearnings() (string, error) {
 		Patterns:  fl.patterns,
 		Stats:     fl.stats,
 	}
-	
+
 	b, err := json.MarshalIndent(data, "", "  ")
 	return string(b), err
 }
@@ -382,21 +382,21 @@ func (fl *FailureLearner) Save() error {
 	if fl.storagePath == "" {
 		return nil
 	}
-	
+
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	// Ensure directory exists
 	dir := filepath.Dir(fl.storagePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	
+
 	data, err := fl.ExportLearnings()
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(fl.storagePath, []byte(data), 0644)
 }
 
@@ -405,7 +405,7 @@ func (fl *FailureLearner) loadLearnings() error {
 	if fl.storagePath == "" {
 		return nil
 	}
-	
+
 	data, err := os.ReadFile(fl.storagePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -413,28 +413,28 @@ func (fl *FailureLearner) loadLearnings() error {
 		}
 		return err
 	}
-	
+
 	var loaded struct {
 		Learnings []*FailureLearning
 		Patterns  []*LearnedPattern
 		Stats     LearnerStats
 	}
-	
+
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return err
 	}
-	
+
 	fl.learnings = loaded.Learnings
 	fl.patterns = loaded.Patterns
 	fl.stats = loaded.Stats
-	
+
 	if fl.stats.ByCategory == nil {
 		fl.stats.ByCategory = make(map[ErrorCategory]int)
 	}
 	if fl.stats.ByTaskType == nil {
 		fl.stats.ByTaskType = make(map[string]int)
 	}
-	
+
 	return nil
 }
 
@@ -454,13 +454,13 @@ func (fl *FailureLearner) extractPatterns(learning *FailureLearning) {
 	if files, ok := learning.Context["files"].([]string); ok {
 		learning.FilePatterns = files
 	}
-	
+
 	// Try to extract a pattern from the error message
 	pattern := extractErrorPattern(learning.ErrorMessage)
 	if pattern == "" {
 		return
 	}
-	
+
 	// Check if pattern already exists
 	for _, p := range fl.patterns {
 		if p.Pattern == pattern {
@@ -469,7 +469,7 @@ func (fl *FailureLearner) extractPatterns(learning *FailureLearning) {
 			return
 		}
 	}
-	
+
 	// Add new pattern
 	fl.patterns = append(fl.patterns, &LearnedPattern{
 		ID:              fmt.Sprintf("pattern_%d", time.Now().UnixNano()),
@@ -497,13 +497,13 @@ func (fl *FailureLearner) updatePatternActions(learning *FailureLearning) {
 					pattern.FailActions = appendIfNotContains(pattern.FailActions, action.Description)
 				}
 			}
-			
+
 			// Update auto-fixable status
 			if len(pattern.SuccessActions) >= 3 {
 				pattern.AutoFixable = true
 				pattern.Confidence = float64(len(pattern.SuccessActions)) / float64(len(pattern.SuccessActions)+len(pattern.FailActions))
 			}
-			
+
 			break
 		}
 	}
@@ -521,22 +521,22 @@ func hashError(errorMsg string) string {
 func normalizeError(errorMsg string) string {
 	// Remove specific values (file paths, line numbers, etc.)
 	normalized := errorMsg
-	
+
 	// Remove file paths
 	normalized = regexp.MustCompile(`/[^\s:]+`).ReplaceAllString(normalized, "<PATH>")
-	
+
 	// Remove line numbers
 	normalized = regexp.MustCompile(`:\d+`).ReplaceAllString(normalized, ":<LINE>")
-	
+
 	// Remove numbers
 	normalized = regexp.MustCompile(`\b\d+\b`).ReplaceAllString(normalized, "<NUM>")
-	
+
 	// Remove hex values
 	normalized = regexp.MustCompile(`0x[a-fA-F0-9]+`).ReplaceAllString(normalized, "<HEX>")
-	
+
 	// Remove UUIDs
 	normalized = regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`).ReplaceAllString(normalized, "<UUID>")
-	
+
 	return strings.ToLower(normalized)
 }
 
@@ -559,13 +559,13 @@ func extractErrorPattern(errorMsg string) string {
 		{`connection refused`, `connection refused`},
 		{`DATA RACE`, `DATA RACE`},
 	}
-	
+
 	for _, p := range patterns {
 		if matched, _ := regexp.MatchString(p.regex, errorMsg); matched {
 			return p.pattern
 		}
 	}
-	
+
 	return ""
 }
 
@@ -635,7 +635,7 @@ func (b *FailureLearnerBuilder) Build() *FailureLearner {
 func (fl *FailureLearner) VerifyLearning(learningID string) {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
-	
+
 	for _, learning := range fl.learnings {
 		if learning.ID == learningID {
 			learning.Verified = true
@@ -649,7 +649,7 @@ func (fl *FailureLearner) VerifyLearning(learningID string) {
 func (fl *FailureLearner) GetUnverifiedLearnings() []*FailureLearning {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	var result []*FailureLearning
 	for _, learning := range fl.learnings {
 		if !learning.Verified {
@@ -663,7 +663,7 @@ func (fl *FailureLearner) GetUnverifiedLearnings() []*FailureLearning {
 func (fl *FailureLearner) Clear() {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
-	
+
 	fl.learnings = make([]*FailureLearning, 0)
 	fl.patterns = make([]*LearnedPattern, 0)
 	fl.stats = LearnerStats{
@@ -676,7 +676,7 @@ func (fl *FailureLearner) Clear() {
 func (fl *FailureLearner) GenerateReport() string {
 	fl.mu.RLock()
 	defer fl.mu.RUnlock()
-	
+
 	var sb strings.Builder
 	sb.WriteString("# Failure Learning Report\n\n")
 	sb.WriteString(fmt.Sprintf("**Total Failures Recorded:** %d\n", fl.stats.TotalFailures))
@@ -684,12 +684,12 @@ func (fl *FailureLearner) GenerateReport() string {
 	sb.WriteString(fmt.Sprintf("**Patterns Learned:** %d\n", fl.stats.PatternsLearned))
 	sb.WriteString(fmt.Sprintf("**Successful Applications:** %d\n", fl.stats.SuccessfulApplies))
 	sb.WriteString(fmt.Sprintf("**Failed Applications:** %d\n", fl.stats.FailedApplies))
-	
+
 	if fl.stats.TotalFailures > 0 {
 		sb.WriteString(fmt.Sprintf("**Apply Success Rate:** %.1f%%\n",
 			float64(fl.stats.SuccessfulApplies)/float64(fl.stats.TotalFailures)*100))
 	}
-	
+
 	if len(fl.patterns) > 0 {
 		sb.WriteString("\n## Learned Patterns\n\n")
 		for _, p := range fl.patterns {
@@ -703,13 +703,13 @@ func (fl *FailureLearner) GenerateReport() string {
 			}
 		}
 	}
-	
+
 	if len(fl.stats.ByCategory) > 0 {
 		sb.WriteString("\n## Failures by Category\n\n")
 		for cat, count := range fl.stats.ByCategory {
 			sb.WriteString(fmt.Sprintf("- %s: %d\n", cat, count))
 		}
 	}
-	
+
 	return sb.String()
 }

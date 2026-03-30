@@ -153,8 +153,8 @@ func TestCmdChain_NoAgent(t *testing.T) {
 func TestCmdChain_NoArgs(t *testing.T) {
 	called := 0
 	ctx := Context{
-		Parts:  []string{"/chain"},
-		Agent:  &iteragent.Agent{},
+		Parts: []string{"/chain"},
+		Agent: &iteragent.Agent{},
 		REPL: REPLCallbacks{
 			StreamAndPrint: func(_ context.Context, _ *iteragent.Agent, _ string, _ string) {
 				called++

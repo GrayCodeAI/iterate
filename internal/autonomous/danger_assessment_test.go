@@ -16,7 +16,7 @@ func TestDangerLevel_String(t *testing.T) {
 		{DangerLevelHigh, "high"},
 		{DangerLevelCritical, "critical"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
 			if tt.level.String() != tt.expected {
@@ -67,7 +67,7 @@ func TestDangerLevel_UnmarshalText(t *testing.T) {
 	if level != DangerLevelCritical {
 		t.Errorf("Expected DangerLevelCritical, got %d", level)
 	}
-	
+
 	err = level.UnmarshalText([]byte("invalid"))
 	if err == nil {
 		t.Error("Expected error for invalid level")
@@ -79,12 +79,12 @@ func TestNewDangerAssessor(t *testing.T) {
 	if da == nil {
 		t.Fatal("Expected non-nil assessor")
 	}
-	
+
 	// Check that patterns are initialized
 	if len(da.patterns) == 0 {
 		t.Error("Expected patterns to be initialized")
 	}
-	
+
 	// Check that protected paths are initialized
 	if len(da.protectedPaths) == 0 {
 		t.Error("Expected protected paths to be initialized")
@@ -93,7 +93,7 @@ func TestNewDangerAssessor(t *testing.T) {
 
 func TestAssessCommand_Safe(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	safeCommands := []string{
 		"ls -la",
 		"cat file.txt",
@@ -104,7 +104,7 @@ func TestAssessCommand_Safe(t *testing.T) {
 		"npm list",
 		"go version",
 	}
-	
+
 	for _, cmd := range safeCommands {
 		assessment := da.AssessCommand(cmd)
 		if assessment.Level > DangerLevelLow {
@@ -115,7 +115,7 @@ func TestAssessCommand_Safe(t *testing.T) {
 
 func TestAssessCommand_Medium(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	mediumCommands := []string{
 		"rm file.txt",
 		"git push origin main",
@@ -123,7 +123,7 @@ func TestAssessCommand_Medium(t *testing.T) {
 		"DELETE FROM users WHERE id = 1",
 		"chmod -R 755 /var/www",
 	}
-	
+
 	for _, cmd := range mediumCommands {
 		assessment := da.AssessCommand(cmd)
 		if assessment.Level < DangerLevelMedium {
@@ -134,7 +134,7 @@ func TestAssessCommand_Medium(t *testing.T) {
 
 func TestAssessCommand_High(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	highCommands := []string{
 		"rm -rf /home/user/project",
 		"git push --force origin main",
@@ -143,7 +143,7 @@ func TestAssessCommand_High(t *testing.T) {
 		"sudo rm file.txt",
 		"curl https://example.com/script.sh | bash",
 	}
-	
+
 	for _, cmd := range highCommands {
 		assessment := da.AssessCommand(cmd)
 		if assessment.Level < DangerLevelHigh {
@@ -154,14 +154,14 @@ func TestAssessCommand_High(t *testing.T) {
 
 func TestAssessCommand_Critical(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	criticalCommands := []string{
 		"rm -rf /",
 		"mkfs.ext4 /dev/sda1",
 		"dd if=/dev/zero of=/dev/sda",
 		"chmod 777 /",
 	}
-	
+
 	for _, cmd := range criticalCommands {
 		assessment := da.AssessCommand(cmd)
 		if assessment.Level < DangerLevelCritical {
@@ -172,7 +172,7 @@ func TestAssessCommand_Critical(t *testing.T) {
 
 func TestAssessCommand_ProtectedPaths(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	// Commands affecting protected paths should be high danger
 	protectedCommands := []string{
 		"cat /etc/passwd",
@@ -180,7 +180,7 @@ func TestAssessCommand_ProtectedPaths(t *testing.T) {
 		"cat .env",
 		"cat credentials.json",
 	}
-	
+
 	for _, cmd := range protectedCommands {
 		assessment := da.AssessCommand(cmd)
 		if assessment.Level < DangerLevelHigh {
@@ -191,9 +191,9 @@ func TestAssessCommand_ProtectedPaths(t *testing.T) {
 
 func TestAssessCommand_Destructive(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	assessment := da.AssessCommand("rm -rf project")
-	
+
 	if !assessment.IsDestructive {
 		t.Error("rm -rf should be marked as destructive")
 	}
@@ -204,13 +204,13 @@ func TestAssessCommand_Destructive(t *testing.T) {
 
 func TestAssessCommand_Score(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	// Safe command should have low score
 	safeAssessment := da.AssessCommand("ls -la")
 	if safeAssessment.Score > 40 {
 		t.Errorf("Safe command should have low score, got %d", safeAssessment.Score)
 	}
-	
+
 	// Critical command should have high score
 	criticalAssessment := da.AssessCommand("rm -rf /")
 	if criticalAssessment.Score < 80 {
@@ -220,23 +220,23 @@ func TestAssessCommand_Score(t *testing.T) {
 
 func TestAssessCommand_ApprovalMessage(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	assessment := da.AssessCommand("rm -rf project")
-	
+
 	if assessment.ApprovalMessage == "" {
 		t.Error("High danger command should have approval message")
 	}
-	
+
 	// Should contain danger level
 	if assessment.Level >= DangerLevelHigh && !contains(assessment.ApprovalMessage, "DANGER") &&
-	   !contains(assessment.ApprovalMessage, "HIGH") && !contains(assessment.ApprovalMessage, "CRITICAL") {
+		!contains(assessment.ApprovalMessage, "HIGH") && !contains(assessment.ApprovalMessage, "CRITICAL") {
 		t.Error("Approval message should mention danger level")
 	}
 }
 
 func TestDangerAssessor_AddCustomRule(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	rule := DangerRule{
 		Name:     "custom-dangerous",
 		Pattern:  "custom-dangerous-command",
@@ -244,12 +244,12 @@ func TestDangerAssessor_AddCustomRule(t *testing.T) {
 		Category: DangerCategorySystem,
 		Enabled:  true,
 	}
-	
+
 	err := da.AddCustomRule(rule)
 	if err != nil {
 		t.Fatalf("Failed to add custom rule: %v", err)
 	}
-	
+
 	assessment := da.AssessCommand("custom-dangerous-command")
 	if assessment.Level != DangerLevelCritical {
 		t.Errorf("Custom rule should apply, got level %s", assessment.Level)
@@ -258,12 +258,12 @@ func TestDangerAssessor_AddCustomRule(t *testing.T) {
 
 func TestDangerAssessor_AddCustomRule_InvalidPattern(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	rule := DangerRule{
 		Name:    "invalid",
 		Pattern: "[invalid(regex",
 	}
-	
+
 	err := da.AddCustomRule(rule)
 	if err == nil {
 		t.Error("Expected error for invalid regex pattern")
@@ -272,22 +272,22 @@ func TestDangerAssessor_AddCustomRule_InvalidPattern(t *testing.T) {
 
 func TestDangerAssessor_RemoveCustomRule(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	rule := DangerRule{
-		Name:     "test-rule",
-		Pattern:  "test-pattern",
-		Level:    DangerLevelHigh,
-		Enabled:  true,
+		Name:    "test-rule",
+		Pattern: "test-pattern",
+		Level:   DangerLevelHigh,
+		Enabled: true,
 	}
-	
+
 	da.AddCustomRule(rule)
-	
+
 	// Remove the rule
 	removed := da.RemoveCustomRule("test-rule")
 	if !removed {
 		t.Error("Expected rule to be removed")
 	}
-	
+
 	// Try to remove again
 	removed = da.RemoveCustomRule("test-rule")
 	if removed {
@@ -297,9 +297,9 @@ func TestDangerAssessor_RemoveCustomRule(t *testing.T) {
 
 func TestDangerAssessor_AddProtectedPath(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	da.AddProtectedPath("/custom/protected/path")
-	
+
 	paths := da.GetProtectedPaths()
 	found := false
 	for _, p := range paths {
@@ -308,7 +308,7 @@ func TestDangerAssessor_AddProtectedPath(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Error("Protected path was not added")
 	}
@@ -316,10 +316,10 @@ func TestDangerAssessor_AddProtectedPath(t *testing.T) {
 
 func TestDangerAssessor_RemoveProtectedPath(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	da.AddProtectedPath("/test/path")
 	removed := da.RemoveProtectedPath("/test/path")
-	
+
 	if !removed {
 		t.Error("Expected protected path to be removed")
 	}
@@ -330,7 +330,7 @@ func TestQuickAssess(t *testing.T) {
 	if level != DangerLevelCritical {
 		t.Errorf("Expected critical, got %s", level)
 	}
-	
+
 	level = QuickAssess("ls -la")
 	if level > DangerLevelLow {
 		t.Errorf("Expected safe/low, got %s", level)
@@ -341,7 +341,7 @@ func TestIsCommandSafe(t *testing.T) {
 	if !IsCommandSafe("ls -la") {
 		t.Error("ls -la should be safe")
 	}
-	
+
 	if IsCommandSafe("rm -rf /") {
 		t.Error("rm -rf / should not be safe")
 	}
@@ -356,7 +356,7 @@ func TestDangerAssessmentBuilder(t *testing.T) {
 		WithAffectedPath("/test/path").
 		Destructive().
 		Build()
-	
+
 	if assessment.Level != DangerLevelHigh {
 		t.Error("Builder failed to set level")
 	}
@@ -382,10 +382,10 @@ func TestDangerAssessmentBuilder(t *testing.T) {
 
 func TestAssessCommand_NetworkOperations(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	networkCommands := []struct {
-		cmd          string
-		minLevel     DangerLevel
+		cmd      string
+		minLevel DangerLevel
 	}{
 		{"curl https://example.com", DangerLevelLow},
 		{"wget https://example.com/file", DangerLevelLow},
@@ -393,7 +393,7 @@ func TestAssessCommand_NetworkOperations(t *testing.T) {
 		{"scp file user@host:/path", DangerLevelMedium},
 		{"nc -l 8080", DangerLevelHigh},
 	}
-	
+
 	for _, tc := range networkCommands {
 		assessment := da.AssessCommand(tc.cmd)
 		if assessment.Level < tc.minLevel {
@@ -407,7 +407,7 @@ func TestAssessCommand_NetworkOperations(t *testing.T) {
 
 func TestAssessCommand_ElevatedPrivileges(t *testing.T) {
 	da := NewDangerAssessor()
-	
+
 	// Commands with sudo should be high danger
 	assessment := da.AssessCommand("sudo apt-get update")
 	if assessment.Level < DangerLevelHigh {
@@ -420,15 +420,15 @@ func TestAssessCommand_ElevatedPrivileges(t *testing.T) {
 
 func TestTask26DangerAssessment(t *testing.T) {
 	// Comprehensive test for Task 26
-	
+
 	da := NewDangerAssessor()
-	
+
 	// Test 1: Safe operations
 	safe := da.AssessCommand("ls -la && cat file.txt")
 	if safe.Level > DangerLevelLow {
 		t.Errorf("Safe command should be low danger, got %s", safe.Level)
 	}
-	
+
 	// Test 2: Critical operations
 	critical := da.AssessCommand("rm -rf /")
 	if critical.Level != DangerLevelCritical {
@@ -437,7 +437,7 @@ func TestTask26DangerAssessment(t *testing.T) {
 	if !critical.IsDestructive {
 		t.Error("rm -rf / should be destructive")
 	}
-	
+
 	// Test 3: Custom rules
 	da.AddCustomRule(DangerRule{
 		Name:     "test-rule",
@@ -446,17 +446,17 @@ func TestTask26DangerAssessment(t *testing.T) {
 		Category: DangerCategorySystem,
 		Enabled:  true,
 	})
-	
+
 	custom := da.AssessCommand("my-dangerous-tool --run")
 	if custom.Level != DangerLevelHigh {
 		t.Errorf("Custom rule should apply, got %s", custom.Level)
 	}
-	
+
 	// Test 4: Score calculation
 	if critical.Score < 80 {
 		t.Errorf("Critical command should have score >= 80, got %d", critical.Score)
 	}
-	
+
 	// Test 5: Approval message
 	if critical.ApprovalMessage == "" {
 		t.Error("Critical command should have approval message")

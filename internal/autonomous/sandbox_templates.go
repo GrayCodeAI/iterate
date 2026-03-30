@@ -9,13 +9,13 @@ import (
 
 // SandboxTemplate provides a pre-configured sandbox setup for a specific language/runtime.
 type SandboxTemplate struct {
-	Name            string              `json:"name"`
-	Image           string              `json:"image"`
-	Description     string              `json:"description"`
-	DefaultWorkDir  string              `json:"default_work_dir"`
+	Name            string                `json:"name"`
+	Image           string                `json:"image"`
+	Description     string                `json:"description"`
+	DefaultWorkDir  string                `json:"default_work_dir"`
 	ResourceLimits  SandboxResourceLimits `json:"resource_limits"`
-	EnvVars         map[string]string   `json:"env_vars"`
-	DefaultPackages []string            `json:"default_packages"`
+	EnvVars         map[string]string     `json:"env_vars"`
+	DefaultPackages []string              `json:"default_packages"`
 }
 
 // Predefined sandbox templates for common development environments.
@@ -95,7 +95,7 @@ var sandboxTemplates = map[string]SandboxTemplate{
 			Timeout:   10 * time.Minute,
 		},
 		EnvVars: map[string]string{
-			"GOCACHE":   "/tmp/go-cache",
+			"GOCACHE":    "/tmp/go-cache",
 			"GOMODCACHE": "/tmp/go-mod-cache",
 		},
 	},
@@ -111,7 +111,7 @@ var sandboxTemplates = map[string]SandboxTemplate{
 			Timeout:   10 * time.Minute,
 		},
 		EnvVars: map[string]string{
-			"GOCACHE":   "/tmp/go-cache",
+			"GOCACHE":    "/tmp/go-cache",
 			"GOMODCACHE": "/tmp/go-mod-cache",
 		},
 	},
@@ -246,8 +246,8 @@ func NewSandboxFromTemplate(templateName string, repoPath string) (*Sandbox, err
 	}
 
 	config := SandboxConfig{
-		Image:          template.Image,
-		WorkDir:        template.DefaultWorkDir,
+		Image:   template.Image,
+		WorkDir: template.DefaultWorkDir,
 		VolumeMounts: []VolumeMount{
 			{
 				HostPath:      repoPath,

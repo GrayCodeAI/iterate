@@ -14,16 +14,16 @@ type DangerLevel int
 const (
 	// DangerLevelSafe - No risk, safe to execute automatically
 	DangerLevelSafe DangerLevel = iota
-	
+
 	// DangerLevelLow - Minimal risk, standard operations
 	DangerLevelLow
-	
+
 	// DangerLevelMedium - Moderate risk, may need review
 	DangerLevelMedium
-	
+
 	// DangerLevelHigh - Significant risk, requires approval
 	DangerLevelHigh
-	
+
 	// DangerLevelCritical - Maximum risk, requires explicit approval
 	DangerLevelCritical
 )
@@ -84,50 +84,50 @@ func (d DangerLevel) RequiresConfirmation() bool {
 type DangerCategory string
 
 const (
-	DangerCategoryFileSystem   DangerCategory = "filesystem"
-	DangerCategoryNetwork      DangerCategory = "network"
-	DangerCategoryProcess      DangerCategory = "process"
-	DangerCategorySystem       DangerCategory = "system"
-	DangerCategorySecurity     DangerCategory = "security"
-	DangerCategoryData         DangerCategory = "data"
-	DangerCategoryGit          DangerCategory = "git"
-	DangerCategoryPackage      DangerCategory = "package"
-	DangerCategoryConfig       DangerCategory = "config"
-	DangerCategoryUnknown      DangerCategory = "unknown"
+	DangerCategoryFileSystem DangerCategory = "filesystem"
+	DangerCategoryNetwork    DangerCategory = "network"
+	DangerCategoryProcess    DangerCategory = "process"
+	DangerCategorySystem     DangerCategory = "system"
+	DangerCategorySecurity   DangerCategory = "security"
+	DangerCategoryData       DangerCategory = "data"
+	DangerCategoryGit        DangerCategory = "git"
+	DangerCategoryPackage    DangerCategory = "package"
+	DangerCategoryConfig     DangerCategory = "config"
+	DangerCategoryUnknown    DangerCategory = "unknown"
 )
 
 // DangerAssessment contains the result of a danger assessment.
 type DangerAssessment struct {
 	// Level is the overall danger level
 	Level DangerLevel `json:"level"`
-	
+
 	// Category is the primary danger category
 	Category DangerCategory `json:"category"`
-	
+
 	// Score is a numeric risk score (0-100)
 	Score int `json:"score"`
-	
+
 	// Confidence is the confidence in the assessment (0-1)
 	Confidence float64 `json:"confidence"`
-	
+
 	// Reasons are the factors that contributed to the assessment
 	Reasons []string `json:"reasons"`
-	
+
 	// Mitigations are suggested mitigations for the risks
 	Mitigations []string `json:"mitigations"`
-	
+
 	// AffectedPaths are file paths that would be affected
 	AffectedPaths []string `json:"affected_paths"`
-	
+
 	// IsDestructive indicates if the operation is destructive
 	IsDestructive bool `json:"is_destructive"`
-	
+
 	// IsReversible indicates if the operation can be undone
 	IsReversible bool `json:"is_reversible"`
-	
+
 	// RequiresSandbox indicates if sandboxing is recommended
 	RequiresSandbox bool `json:"requires_sandbox"`
-	
+
 	// ApprovalMessage is a message to show when requesting approval
 	ApprovalMessage string `json:"approval_message"`
 }
@@ -135,19 +135,19 @@ type DangerAssessment struct {
 // DangerAssessor assesses the danger level of commands and operations.
 type DangerAssessor struct {
 	mu sync.RWMutex
-	
+
 	// patterns maps danger levels to command patterns
 	patterns map[DangerLevel][]DangerPattern
-	
+
 	// destructiveCommands are commands that are always destructive
 	destructiveCommands map[string]bool
-	
+
 	// safeCommands are commands that are always safe
 	safeCommands map[string]bool
-	
+
 	// protectedPaths are paths that require extra caution
 	protectedPaths []string
-	
+
 	// customRules are user-defined rules
 	customRules []DangerRule
 }
@@ -156,34 +156,34 @@ type DangerAssessor struct {
 type DangerPattern struct {
 	// Pattern is the regex pattern to match
 	Pattern *regexp.Regexp `json:"-"`
-	
+
 	// PatternStr is the string representation of the pattern
 	PatternStr string `json:"pattern"`
-	
+
 	// Category is the danger category
 	Category DangerCategory `json:"category"`
-	
+
 	// Level is the base danger level
 	Level DangerLevel `json:"level"`
-	
+
 	// IsDestructive indicates if the matched command is destructive
 	IsDestructive bool `json:"is_destructive"`
-	
+
 	// Reason describes why this pattern is dangerous
 	Reason string `json:"reason"`
-	
+
 	// Mitigation suggests how to reduce risk
 	Mitigation string `json:"mitigation"`
 }
 
 // DangerRule is a custom rule for danger assessment.
 type DangerRule struct {
-	Name        string      `json:"name"`
-	Pattern     string      `json:"pattern"`
-	Level       DangerLevel `json:"level"`
-	Category    DangerCategory `json:"category"`
-	Enabled     bool        `json:"enabled"`
-	Priority    int         `json:"priority"`
+	Name     string         `json:"name"`
+	Pattern  string         `json:"pattern"`
+	Level    DangerLevel    `json:"level"`
+	Category DangerCategory `json:"category"`
+	Enabled  bool           `json:"enabled"`
+	Priority int            `json:"priority"`
 }
 
 // NewDangerAssessor creates a new danger assessor.
@@ -195,10 +195,10 @@ func NewDangerAssessor() *DangerAssessor {
 		protectedPaths:      make([]string, 0),
 		customRules:         make([]DangerRule, 0),
 	}
-	
+
 	da.initializePatterns()
 	da.initializeCommands()
-	
+
 	return da
 }
 
@@ -214,7 +214,7 @@ func (da *DangerAssessor) initializePatterns() {
 		{Pattern: regexp.MustCompile(`(?i)chown\s+(-R\s+)?[^\s]+\s+/`), Category: DangerCategorySecurity, Level: DangerLevelCritical, Reason: "Change root ownership", Mitigation: "Specify exact paths"},
 		{Pattern: regexp.MustCompile(`(?i)>\s*/dev/sd[a-z]`), Category: DangerCategorySystem, Level: DangerLevelCritical, IsDestructive: true, Reason: "Direct disk overwrite", Mitigation: "Never redirect to disk devices"},
 	}
-	
+
 	// High patterns - significant danger
 	da.patterns[DangerLevelHigh] = []DangerPattern{
 		{Pattern: regexp.MustCompile(`(?i)rm\s+(-rf|--recursive)`), Category: DangerCategoryFileSystem, Level: DangerLevelHigh, IsDestructive: true, Reason: "Recursive force delete", Mitigation: "Verify paths before deletion"},
@@ -228,7 +228,7 @@ func (da *DangerAssessor) initializePatterns() {
 		{Pattern: regexp.MustCompile(`(?i)curl\s+.*\|\s*(sudo\s+)?bash`), Category: DangerCategorySecurity, Level: DangerLevelHigh, Reason: "Remote script execution", Mitigation: "Download and review script first"},
 		{Pattern: regexp.MustCompile(`(?i)wget\s+.*\|\s*(sudo\s+)?bash`), Category: DangerCategorySecurity, Level: DangerLevelHigh, Reason: "Remote script execution", Mitigation: "Download and review script first"},
 	}
-	
+
 	// Medium patterns - moderate danger
 	da.patterns[DangerLevelMedium] = []DangerPattern{
 		{Pattern: regexp.MustCompile(`(?i)rm\s+`), Category: DangerCategoryFileSystem, Level: DangerLevelMedium, IsDestructive: true, Reason: "File deletion", Mitigation: "Verify file path"},
@@ -243,7 +243,7 @@ func (da *DangerAssessor) initializePatterns() {
 		{Pattern: regexp.MustCompile(`(?i)kill\s+(-9|-KILL)`), Category: DangerCategoryProcess, Level: DangerLevelMedium, Reason: "Force kill process", Mitigation: "Try graceful termination first"},
 		{Pattern: regexp.MustCompile(`(?i)chmod\s+-R`), Category: DangerCategorySecurity, Level: DangerLevelMedium, Reason: "Recursive permission change", Mitigation: "Specify exact permissions"},
 	}
-	
+
 	// Low patterns - minimal danger
 	da.patterns[DangerLevelLow] = []DangerPattern{
 		{Pattern: regexp.MustCompile(`(?i)git\s+(status|log|diff|branch)`), Category: DangerCategoryGit, Level: DangerLevelLow, Reason: "Read-only git operation", Mitigation: "None needed"},
@@ -274,7 +274,7 @@ func (da *DangerAssessor) initializeCommands() {
 	for _, cmd := range safeCmds {
 		da.safeCommands[cmd] = true
 	}
-	
+
 	// Destructive commands
 	destructiveCmds := []string{
 		"rm", "rmdir", "del", "format", "erase",
@@ -283,7 +283,7 @@ func (da *DangerAssessor) initializeCommands() {
 	for _, cmd := range destructiveCmds {
 		da.destructiveCommands[cmd] = true
 	}
-	
+
 	// Default protected paths
 	da.protectedPaths = []string{
 		"/etc/passwd",
@@ -303,7 +303,7 @@ func (da *DangerAssessor) initializeCommands() {
 func (da *DangerAssessor) AssessCommand(command string) *DangerAssessment {
 	da.mu.RLock()
 	defer da.mu.RUnlock()
-	
+
 	assessment := &DangerAssessment{
 		Level:           DangerLevelSafe,
 		Category:        DangerCategoryUnknown,
@@ -316,10 +316,10 @@ func (da *DangerAssessor) AssessCommand(command string) *DangerAssessment {
 		IsReversible:    true,
 		RequiresSandbox: false,
 	}
-	
+
 	// Check custom rules first (highest priority)
 	da.applyCustomRules(command, assessment)
-	
+
 	// Check against patterns from highest to lowest danger
 	for level := DangerLevelCritical; level >= DangerLevelSafe; level-- {
 		for _, pattern := range da.patterns[level] {
@@ -328,25 +328,25 @@ func (da *DangerAssessor) AssessCommand(command string) *DangerAssessment {
 			}
 		}
 	}
-	
+
 	// Check for destructive commands
 	da.checkDestructiveCommand(command, assessment)
-	
+
 	// Check for protected paths
 	da.checkProtectedPaths(command, assessment)
-	
+
 	// Check for network operations
 	da.checkNetworkOperations(command, assessment)
-	
+
 	// Check for elevated privileges
 	da.checkElevatedPrivileges(command, assessment)
-	
+
 	// Calculate final score
 	da.calculateScore(assessment)
-	
+
 	// Generate approval message
 	da.generateApprovalMessage(assessment)
-	
+
 	return assessment
 }
 
@@ -355,17 +355,17 @@ func (da *DangerAssessor) applyPattern(pattern DangerPattern, assessment *Danger
 	if pattern.Level > assessment.Level {
 		assessment.Level = pattern.Level
 	}
-	
+
 	assessment.Category = pattern.Category
 	assessment.IsDestructive = assessment.IsDestructive || pattern.IsDestructive
-	
+
 	if pattern.Reason != "" {
 		assessment.Reasons = append(assessment.Reasons, pattern.Reason)
 	}
 	if pattern.Mitigation != "" {
 		assessment.Mitigations = append(assessment.Mitigations, pattern.Mitigation)
 	}
-	
+
 	assessment.Confidence = 0.9
 }
 
@@ -375,18 +375,18 @@ func (da *DangerAssessor) checkDestructiveCommand(command string, assessment *Da
 	if len(cmdParts) == 0 {
 		return
 	}
-	
+
 	baseCmd := cmdParts[0]
-	
+
 	// Check if it's a known destructive command
 	if da.destructiveCommands[baseCmd] {
 		assessment.IsDestructive = true
 		assessment.IsReversible = false
-		
+
 		if assessment.Level < DangerLevelMedium {
 			assessment.Level = DangerLevelMedium
 		}
-		
+
 		assessment.Reasons = append(assessment.Reasons, fmt.Sprintf("Command '%s' is inherently destructive", baseCmd))
 	}
 }
@@ -398,7 +398,7 @@ func (da *DangerAssessor) checkProtectedPaths(command string, assessment *Danger
 			if assessment.Level < DangerLevelHigh {
 				assessment.Level = DangerLevelHigh
 			}
-			
+
 			assessment.Reasons = append(assessment.Reasons, fmt.Sprintf("Affects protected path: %s", path))
 			assessment.AffectedPaths = append(assessment.AffectedPaths, path)
 		}
@@ -419,7 +419,7 @@ func (da *DangerAssessor) checkNetworkOperations(command string, assessment *Dan
 		{`rsync\s+.*-e\s+ssh`, DangerLevelMedium, "Remote sync"},
 		{`nc\s+`, DangerLevelHigh, "Netcat - potential security risk"},
 	}
-	
+
 	for _, np := range networkPatterns {
 		matched, _ := regexp.MatchString(np.pattern, command)
 		if matched {
@@ -450,7 +450,7 @@ func (da *DangerAssessor) applyCustomRules(command string, assessment *DangerAss
 		if !rule.Enabled {
 			continue
 		}
-		
+
 		matched, _ := regexp.MatchString(rule.Pattern, command)
 		if matched {
 			if rule.Level > assessment.Level {
@@ -465,7 +465,7 @@ func (da *DangerAssessor) applyCustomRules(command string, assessment *DangerAss
 // calculateScore calculates a numeric risk score.
 func (da *DangerAssessor) calculateScore(assessment *DangerAssessment) {
 	baseScore := int(assessment.Level) * 20
-	
+
 	// Add points for additional risk factors
 	if assessment.IsDestructive {
 		baseScore += 15
@@ -479,22 +479,22 @@ func (da *DangerAssessor) calculateScore(assessment *DangerAssessment) {
 	if assessment.RequiresSandbox {
 		baseScore += 5
 	}
-	
+
 	// Cap at 100
 	if baseScore > 100 {
 		baseScore = 100
 	}
-	
+
 	assessment.Score = baseScore
 }
 
 // generateApprovalMessage creates a message for approval requests.
 func (da *DangerAssessor) generateApprovalMessage(assessment *DangerAssessment) {
 	var msg strings.Builder
-	
+
 	msg.WriteString(fmt.Sprintf("⚠️ **Danger Level: %s** (Score: %d/100)\n\n",
 		strings.ToUpper(assessment.Level.String()), assessment.Score))
-	
+
 	if len(assessment.Reasons) > 0 {
 		msg.WriteString("**Risk Factors:**\n")
 		for _, reason := range assessment.Reasons {
@@ -502,18 +502,18 @@ func (da *DangerAssessor) generateApprovalMessage(assessment *DangerAssessment) 
 		}
 		msg.WriteString("\n")
 	}
-	
+
 	if assessment.IsDestructive {
 		msg.WriteString("⛔ **This operation is DESTRUCTIVE and cannot be easily undone.**\n\n")
 	}
-	
+
 	if len(assessment.Mitigations) > 0 {
 		msg.WriteString("**Suggested Mitigations:**\n")
 		for _, mitigation := range assessment.Mitigations {
 			msg.WriteString(fmt.Sprintf("- %s\n", mitigation))
 		}
 	}
-	
+
 	assessment.ApprovalMessage = msg.String()
 }
 
@@ -521,13 +521,13 @@ func (da *DangerAssessor) generateApprovalMessage(assessment *DangerAssessment) 
 func (da *DangerAssessor) AddCustomRule(rule DangerRule) error {
 	da.mu.Lock()
 	defer da.mu.Unlock()
-	
+
 	// Validate pattern
 	_, err := regexp.Compile(rule.Pattern)
 	if err != nil {
 		return fmt.Errorf("invalid pattern: %w", err)
 	}
-	
+
 	da.customRules = append(da.customRules, rule)
 	return nil
 }
@@ -536,7 +536,7 @@ func (da *DangerAssessor) AddCustomRule(rule DangerRule) error {
 func (da *DangerAssessor) RemoveCustomRule(name string) bool {
 	da.mu.Lock()
 	defer da.mu.Unlock()
-	
+
 	for i, rule := range da.customRules {
 		if rule.Name == name {
 			da.customRules = append(da.customRules[:i], da.customRules[i+1:]...)
@@ -557,7 +557,7 @@ func (da *DangerAssessor) AddProtectedPath(path string) {
 func (da *DangerAssessor) RemoveProtectedPath(path string) bool {
 	da.mu.Lock()
 	defer da.mu.Unlock()
-	
+
 	for i, p := range da.protectedPaths {
 		if p == path {
 			da.protectedPaths = append(da.protectedPaths[:i], da.protectedPaths[i+1:]...)

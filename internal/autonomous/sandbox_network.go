@@ -17,13 +17,13 @@ type NetworkMode string
 const (
 	// NetworkModeNone - No network access (most secure)
 	NetworkModeNone NetworkMode = "none"
-	
+
 	// NetworkModeInternal - Internal network only (can communicate with other containers)
 	NetworkModeInternal NetworkMode = "internal"
-	
+
 	// NetworkModeBridge - Bridge network with controlled outbound access
 	NetworkModeBridge NetworkMode = "bridge"
-	
+
 	// NetworkModeHost - Full host network access (least secure)
 	NetworkModeHost NetworkMode = "host"
 )
@@ -32,80 +32,80 @@ const (
 type NetworkPolicy struct {
 	// AllowedHosts is a list of hosts that can be accessed
 	AllowedHosts []string `json:"allowed_hosts"`
-	
+
 	// BlockedHosts is a list of hosts that are explicitly blocked
 	BlockedHosts []string `json:"blocked_hosts"`
-	
+
 	// AllowedPorts is a list of ports that can be accessed
 	AllowedPorts []int `json:"allowed_ports"`
-	
+
 	// BlockedPorts is a list of ports that are explicitly blocked
 	BlockedPorts []int `json:"blocked_ports"`
-	
+
 	// AllowDNS allows DNS resolution
 	AllowDNS bool `json:"allow_dns"`
-	
+
 	// AllowHTTP allows HTTP (port 80)
 	AllowHTTP bool `json:"allow_http"`
-	
+
 	// AllowHTTPS allows HTTPS (port 443)
 	AllowHTTPS bool `json:"allow_https"`
-	
+
 	// AllowOutbound allows all outbound traffic
 	AllowOutbound bool `json:"allow_outbound"`
-	
+
 	// AllowInbound allows inbound connections
 	AllowInbound bool `json:"allow_inbound"`
 }
 
 // PortMapping defines a port mapping between host and container.
 type PortMapping struct {
-	HostPort        int    `json:"host_port"`
-	ContainerPort   int    `json:"container_port"`
-	Protocol        string `json:"protocol"` // tcp, udp
-	HostIP          string `json:"host_ip"`
+	HostPort      int    `json:"host_port"`
+	ContainerPort int    `json:"container_port"`
+	Protocol      string `json:"protocol"` // tcp, udp
+	HostIP        string `json:"host_ip"`
 }
 
 // DNSConfig defines DNS configuration for the sandbox.
 type DNSConfig struct {
-	Servers    []string `json:"servers"`
-	Search     []string `json:"search"`
-	Options    []string `json:"options"`
+	Servers []string `json:"servers"`
+	Search  []string `json:"search"`
+	Options []string `json:"options"`
 }
 
 // NetworkIsolation manages network settings for the sandbox.
 type NetworkIsolation struct {
 	mu sync.RWMutex
-	
+
 	// mode is the current network mode
 	mode NetworkMode
-	
+
 	// policy is the active network policy
 	policy NetworkPolicy
-	
+
 	// portMappings are active port mappings
 	portMappings []PortMapping
-	
+
 	// dnsConfig is the DNS configuration
 	dnsConfig *DNSConfig
-	
+
 	// customNetwork is the name of a custom Docker network
 	customNetwork string
-	
+
 	// networkName is the name of the network to use
 	networkName string
-	
+
 	// iptablesRules are custom iptables rules
 	iptablesRules []string
 }
 
 // NetworkIsolationConfig configures network isolation.
 type NetworkIsolationConfig struct {
-	Mode           NetworkMode     `json:"mode"`
-	Policy         NetworkPolicy   `json:"policy"`
-	PortMappings   []PortMapping   `json:"port_mappings"`
-	DNSConfig      *DNSConfig      `json:"dns_config"`
-	CustomNetwork  string          `json:"custom_network"`
+	Mode          NetworkMode   `json:"mode"`
+	Policy        NetworkPolicy `json:"policy"`
+	PortMappings  []PortMapping `json:"port_mappings"`
+	DNSConfig     *DNSConfig    `json:"dns_config"`
+	CustomNetwork string        `json:"custom_network"`
 }
 
 // DefaultNetworkPolicy returns a secure default network policy.
@@ -179,17 +179,17 @@ func NewNetworkIsolation(config NetworkIsolationConfig) *NetworkIsolation {
 		networkName:   "",
 		iptablesRules: make([]string, 0),
 	}
-	
+
 	// Set default mode if not specified
 	if ni.mode == "" {
 		ni.mode = NetworkModeNone
 	}
-	
+
 	// Set default policy if empty
 	if ni.policy.AllowedPorts == nil && !ni.policy.AllowOutbound {
 		ni.policy = DefaultNetworkPolicy()
 	}
-	
+
 	return ni
 }
 
@@ -232,7 +232,7 @@ func (ni *NetworkIsolation) AddPortMapping(mapping PortMapping) {
 func (ni *NetworkIsolation) RemovePortMapping(hostPort int) {
 	ni.mu.Lock()
 	defer ni.mu.Unlock()
-	
+
 	var newMappings []PortMapping
 	for _, m := range ni.portMappings {
 		if m.HostPort != hostPort {
@@ -260,9 +260,9 @@ func (ni *NetworkIsolation) SetDNSConfig(config *DNSConfig) {
 func (ni *NetworkIsolation) BuildDockerArgs() []string {
 	ni.mu.RLock()
 	defer ni.mu.RUnlock()
-	
+
 	var args []string
-	
+
 	// Network mode
 	switch ni.mode {
 	case NetworkModeNone:
@@ -282,7 +282,7 @@ func (ni *NetworkIsolation) BuildDockerArgs() []string {
 		}
 		// Bridge is the default, no explicit flag needed
 	}
-	
+
 	// Port mappings (only for bridge mode)
 	if ni.mode == NetworkModeBridge || ni.mode == NetworkModeInternal {
 		for _, pm := range ni.portMappings {
@@ -298,7 +298,7 @@ func (ni *NetworkIsolation) BuildDockerArgs() []string {
 			args = append(args, "-p", arg)
 		}
 	}
-	
+
 	// DNS configuration
 	if ni.dnsConfig != nil {
 		for _, server := range ni.dnsConfig.Servers {
@@ -311,7 +311,7 @@ func (ni *NetworkIsolation) BuildDockerArgs() []string {
 			args = append(args, "--dns-opt", opt)
 		}
 	}
-	
+
 	// Host entries for allowed hosts
 	if len(ni.policy.AllowedHosts) > 0 && ni.mode != NetworkModeNone {
 		for _, host := range ni.policy.AllowedHosts {
@@ -321,7 +321,7 @@ func (ni *NetworkIsolation) BuildDockerArgs() []string {
 			}
 		}
 	}
-	
+
 	return args
 }
 
@@ -329,36 +329,36 @@ func (ni *NetworkIsolation) BuildDockerArgs() []string {
 func (ni *NetworkIsolation) ValidateConnection(host string, port int) error {
 	ni.mu.RLock()
 	defer ni.mu.RUnlock()
-	
+
 	// No network mode blocks all connections
 	if ni.mode == NetworkModeNone {
 		return fmt.Errorf("network access disabled (mode: none)")
 	}
-	
+
 	// Host network mode allows all
 	if ni.mode == NetworkModeHost {
 		return nil
 	}
-	
+
 	// Check blocked hosts
 	for _, blocked := range ni.policy.BlockedHosts {
 		if blocked == "*" || blocked == host {
 			return fmt.Errorf("host '%s' is blocked by policy", host)
 		}
 	}
-	
+
 	// Check blocked ports
 	for _, blocked := range ni.policy.BlockedPorts {
 		if blocked == port {
 			return fmt.Errorf("port %d is blocked by policy", port)
 		}
 	}
-	
+
 	// If outbound allowed, permit
 	if ni.policy.AllowOutbound {
 		return nil
 	}
-	
+
 	// Check allowed hosts
 	hostAllowed := len(ni.policy.AllowedHosts) == 0 // Empty means all allowed
 	for _, allowed := range ni.policy.AllowedHosts {
@@ -370,7 +370,7 @@ func (ni *NetworkIsolation) ValidateConnection(host string, port int) error {
 	if !hostAllowed {
 		return fmt.Errorf("host '%s' is not in allowed list", host)
 	}
-	
+
 	// Check allowed ports
 	portAllowed := len(ni.policy.AllowedPorts) == 0 // Empty means all allowed
 	for _, allowed := range ni.policy.AllowedPorts {
@@ -382,7 +382,7 @@ func (ni *NetworkIsolation) ValidateConnection(host string, port int) error {
 	if !portAllowed {
 		return fmt.Errorf("port %d is not in allowed list", port)
 	}
-	
+
 	// Check specific protocol permissions
 	if port == 53 && !ni.policy.AllowDNS {
 		return fmt.Errorf("DNS access is disabled by policy")
@@ -393,7 +393,7 @@ func (ni *NetworkIsolation) ValidateConnection(host string, port int) error {
 	if port == 443 && !ni.policy.AllowHTTPS {
 		return fmt.Errorf("HTTPS access is disabled by policy")
 	}
-	
+
 	return nil
 }
 
@@ -401,14 +401,14 @@ func (ni *NetworkIsolation) ValidateConnection(host string, port int) error {
 func (ni *NetworkIsolation) CreateInternalNetwork(ctx context.Context, name string) error {
 	ni.mu.Lock()
 	defer ni.mu.Unlock()
-	
+
 	// Check if network exists
 	checkCmd := exec.CommandContext(ctx, "docker", "network", "inspect", name)
 	if checkCmd.Run() == nil {
 		ni.networkName = name
 		return nil
 	}
-	
+
 	// Create internal network
 	createCmd := exec.CommandContext(ctx, "docker", "network", "create",
 		"--internal",
@@ -419,10 +419,10 @@ func (ni *NetworkIsolation) CreateInternalNetwork(ctx context.Context, name stri
 	if err != nil {
 		return fmt.Errorf("failed to create internal network: %w, output: %s", err, string(output))
 	}
-	
+
 	ni.networkName = name
 	ni.customNetwork = name
-	
+
 	return nil
 }
 
@@ -430,17 +430,17 @@ func (ni *NetworkIsolation) CreateInternalNetwork(ctx context.Context, name stri
 func (ni *NetworkIsolation) RemoveNetwork(ctx context.Context) error {
 	ni.mu.Lock()
 	defer ni.mu.Unlock()
-	
+
 	if ni.networkName == "" {
 		return nil
 	}
-	
+
 	cmd := exec.CommandContext(ctx, "docker", "network", "rm", ni.networkName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to remove network: %w, output: %s", err, string(output))
 	}
-	
+
 	ni.networkName = ""
 	return nil
 }
@@ -449,18 +449,18 @@ func (ni *NetworkIsolation) RemoveNetwork(ctx context.Context) error {
 func (ni *NetworkIsolation) GetNetworkStats(ctx context.Context, containerID string) (map[string]interface{}, error) {
 	ni.mu.RLock()
 	defer ni.mu.RUnlock()
-	
+
 	if containerID == "" {
 		return nil, fmt.Errorf("no container ID provided")
 	}
-	
+
 	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format",
 		`{"net_io":"{{.NetIO}}"}`, containerID)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return map[string]interface{}{
 		"raw":          string(output),
 		"mode":         string(ni.mode),
@@ -473,20 +473,20 @@ func (ni *NetworkIsolation) TestConnectivity(ctx context.Context, sandbox *Sandb
 	ni.mu.RLock()
 	mode := ni.mode
 	ni.mu.RUnlock()
-	
+
 	if mode == NetworkModeNone {
 		return false, fmt.Errorf("network disabled")
 	}
-	
+
 	// Use curl or wget inside container
 	result := sandbox.Execute(ctx, "sh", "-c",
 		fmt.Sprintf("timeout 5 sh -c 'cat < /dev/null > /dev/tcp/%s/%d' 2>/dev/null && echo 'connected' || echo 'failed'",
 			host, port))
-	
+
 	if result.Success && strings.Contains(result.Output, "connected") {
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -496,27 +496,27 @@ func resolveHost(host string) string {
 	if host == "*" {
 		return ""
 	}
-	
+
 	// Check if already an IP
 	if net.ParseIP(host) != nil {
 		return host
 	}
-	
+
 	// Resolve DNS
 	ips, err := net.LookupHost(host)
 	if err != nil || len(ips) == 0 {
 		return ""
 	}
-	
+
 	return ips[0]
 }
 
 // NetworkProfile represents a predefined network configuration.
 type NetworkProfile struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Mode        NetworkMode      `json:"mode"`
-	Policy      NetworkPolicy    `json:"policy"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Mode        NetworkMode   `json:"mode"`
+	Policy      NetworkPolicy `json:"policy"`
 }
 
 // Predefined network profiles
@@ -574,10 +574,10 @@ func ApplyNetworkProfile(config *SandboxConfig, profileName string) error {
 	if !ok {
 		return fmt.Errorf("unknown network profile: %s", profileName)
 	}
-	
+
 	// Update sandbox config
 	config.NetworkEnabled = profile.Mode != NetworkModeNone
-	
+
 	return nil
 }
 

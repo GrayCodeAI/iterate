@@ -17,19 +17,19 @@ type ApprovalStatus string
 const (
 	// ApprovalStatusPending - Request is awaiting approval
 	ApprovalStatusPending ApprovalStatus = "pending"
-	
+
 	// ApprovalStatusApproved - Request has been approved
 	ApprovalStatusApproved ApprovalStatus = "approved"
-	
+
 	// ApprovalStatusDenied - Request has been denied
 	ApprovalStatusDenied ApprovalStatus = "denied"
-	
+
 	// ApprovalStatusExpired - Request has expired without decision
 	ApprovalStatusExpired ApprovalStatus = "expired"
-	
+
 	// ApprovalStatusCancelled - Request was cancelled
 	ApprovalStatusCancelled ApprovalStatus = "cancelled"
-	
+
 	// ApprovalStatusAutoApproved - Request was auto-approved (safe operation)
 	ApprovalStatusAutoApproved ApprovalStatus = "auto_approved"
 )
@@ -40,13 +40,13 @@ type ApprovalMode string
 const (
 	// ApprovalModeStrict - All operations require approval
 	ApprovalModeStrict ApprovalMode = "strict"
-	
+
 	// ApprovalModeBalanced - Only risky operations require approval (default)
 	ApprovalModeBalanced ApprovalMode = "balanced"
-	
+
 	// ApprovalModePermissive - Only critical operations require approval
 	ApprovalModePermissive ApprovalMode = "permissive"
-	
+
 	// ApprovalModeAuto - Auto-approve everything (dangerous!)
 	ApprovalModeAuto ApprovalMode = "auto"
 )
@@ -55,40 +55,40 @@ const (
 type ApprovalRequest struct {
 	// ID is the unique request identifier
 	ID string `json:"id"`
-	
+
 	// Command is the command to be executed
 	Command string `json:"command"`
-	
+
 	// Args are the command arguments
 	Args []string `json:"args,omitempty"`
-	
+
 	// WorkingDir is the working directory
 	WorkingDir string `json:"working_dir,omitempty"`
-	
+
 	// Assessment is the danger assessment
 	Assessment *DangerAssessment `json:"assessment"`
-	
+
 	// Status is the current approval status
 	Status ApprovalStatus `json:"status"`
-	
+
 	// CreatedAt is when the request was created
 	CreatedAt time.Time `json:"created_at"`
-	
+
 	// ExpiresAt is when the request expires
 	ExpiresAt time.Time `json:"expires_at"`
-	
+
 	// DecidedAt is when a decision was made
 	DecidedAt *time.Time `json:"decided_at,omitempty"`
-	
+
 	// ApprovedBy is who approved (if applicable)
 	ApprovedBy string `json:"approved_by,omitempty"`
-	
+
 	// DenialReason is why it was denied (if applicable)
 	DenialReason string `json:"denial_reason,omitempty"`
-	
+
 	// Metadata contains additional context
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	
+
 	// Checksum for request integrity
 	Checksum string `json:"checksum"`
 }
@@ -97,16 +97,16 @@ type ApprovalRequest struct {
 type ApprovalDecision struct {
 	// RequestID is the request being decided
 	RequestID string `json:"request_id"`
-	
+
 	// Approved indicates if the request is approved
 	Approved bool `json:"approved"`
-	
+
 	// Reason for the decision
 	Reason string `json:"reason,omitempty"`
-	
+
 	// ApprovedBy is who made the decision
 	ApprovedBy string `json:"approved_by,omitempty"`
-	
+
 	// Timestamp of the decision
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -115,50 +115,50 @@ type ApprovalDecision struct {
 type ApprovalPolicy struct {
 	// Mode is the approval mode
 	Mode ApprovalMode `json:"mode"`
-	
+
 	// AutoApproveSafe auto-approves safe operations
 	AutoApproveSafe bool `json:"auto_approve_safe"`
-	
+
 	// AutoApproveLow auto-approves low-risk operations
 	AutoApproveLow bool `json:"auto_approve_low"`
-	
+
 	// RequireApprovalMedium requires approval for medium risk
 	RequireApprovalMedium bool `json:"require_approval_medium"`
-	
+
 	// RequireApprovalHigh requires approval for high risk
 	RequireApprovalHigh bool `json:"require_approval_high"`
-	
+
 	// RequireApprovalCritical requires approval for critical risk
 	RequireApprovalCritical bool `json:"require_approval_critical"`
-	
+
 	// Timeout is the default approval timeout
 	Timeout time.Duration `json:"timeout"`
-	
+
 	// MaxPendingRequests is the maximum pending requests allowed
 	MaxPendingRequests int `json:"max_pending_requests"`
-	
+
 	// AllowedApprovers is a list of who can approve (empty = anyone)
 	AllowedApprovers []string `json:"allowed_approvers,omitempty"`
-	
+
 	// Blocklist are commands that always require approval
 	Blocklist []string `json:"blocklist,omitempty"`
-	
+
 	// Allowlist are commands that can be auto-approved
 	Allowlist []string `json:"allowlist,omitempty"`
 }
 
 // ApprovalStats tracks approval workflow statistics.
 type ApprovalStats struct {
-	TotalRequests     int            `json:"total_requests"`
-	PendingRequests   int            `json:"pending_requests"`
-	ApprovedRequests  int            `json:"approved_requests"`
-	DeniedRequests    int            `json:"denied_requests"`
-	ExpiredRequests   int            `json:"expired_requests"`
-	AutoApproved      int            `json:"auto_approved"`
-	AverageWaitTime   time.Duration  `json:"average_wait_time"`
-	ApprovalRate      float64        `json:"approval_rate"`
-	ByDangerLevel     map[string]int `json:"by_danger_level"`
-	LastRequestTime   *time.Time     `json:"last_request_time,omitempty"`
+	TotalRequests    int            `json:"total_requests"`
+	PendingRequests  int            `json:"pending_requests"`
+	ApprovedRequests int            `json:"approved_requests"`
+	DeniedRequests   int            `json:"denied_requests"`
+	ExpiredRequests  int            `json:"expired_requests"`
+	AutoApproved     int            `json:"auto_approved"`
+	AverageWaitTime  time.Duration  `json:"average_wait_time"`
+	ApprovalRate     float64        `json:"approval_rate"`
+	ByDangerLevel    map[string]int `json:"by_danger_level"`
+	LastRequestTime  *time.Time     `json:"last_request_time,omitempty"`
 }
 
 // ApprovalCallback is called when a decision is needed.
@@ -167,31 +167,31 @@ type ApprovalCallback func(request *ApprovalRequest) (*ApprovalDecision, error)
 // CommandApprovalManager manages the approval workflow for commands.
 type CommandApprovalManager struct {
 	mu sync.RWMutex
-	
+
 	// assessor is the danger assessor
 	assessor *DangerAssessor
-	
+
 	// policy is the current approval policy
 	policy ApprovalPolicy
-	
+
 	// requests stores all approval requests
 	requests map[string]*ApprovalRequest
-	
+
 	// pending stores pending request IDs in order
 	pending []string
-	
+
 	// history stores completed request IDs
 	history []string
-	
+
 	// maxHistory is the maximum history to keep
 	maxHistory int
-	
+
 	// callback is called for approval decisions
 	callback ApprovalCallback
-	
+
 	// timeNow is a function to get current time (for testing)
 	timeNow func() time.Time
-	
+
 	// stats tracks approval statistics
 	stats ApprovalStats
 }
@@ -255,7 +255,7 @@ func (cam *CommandApprovalManager) RequestApproval(ctx context.Context, command 
 		fullCommand = command + " " + joinArgs(args)
 	}
 	assessment := cam.assessor.AssessCommand(fullCommand)
-	
+
 	// Create the request
 	now := cam.timeNow()
 	request := &ApprovalRequest{
@@ -270,18 +270,18 @@ func (cam *CommandApprovalManager) RequestApproval(ctx context.Context, command 
 		Metadata:   make(map[string]interface{}),
 		Checksum:   calculateChecksum(command, args),
 	}
-	
+
 	cam.mu.Lock()
 	defer cam.mu.Unlock()
-	
+
 	// Check max pending
 	if len(cam.pending) >= cam.policy.MaxPendingRequests {
 		return nil, fmt.Errorf("maximum pending requests (%d) reached", cam.policy.MaxPendingRequests)
 	}
-	
+
 	// Store the request
 	cam.requests[request.ID] = request
-	
+
 	// Check if auto-approval applies
 	if cam.shouldAutoApprove(request) {
 		request.Status = ApprovalStatusAutoApproved
@@ -291,12 +291,12 @@ func (cam *CommandApprovalManager) RequestApproval(ctx context.Context, command 
 		// Add to pending queue
 		cam.pending = append(cam.pending, request.ID)
 	}
-	
+
 	// Update stats
 	cam.stats.TotalRequests++
 	cam.stats.ByDangerLevel[assessment.Level.String()]++
 	cam.stats.LastRequestTime = &now
-	
+
 	return request, nil
 }
 
@@ -304,21 +304,21 @@ func (cam *CommandApprovalManager) RequestApproval(ctx context.Context, command 
 func (cam *CommandApprovalManager) shouldAutoApprove(request *ApprovalRequest) bool {
 	policy := cam.policy
 	assessment := request.Assessment
-	
+
 	// Check allowlist first (overrides mode)
 	for _, allowed := range policy.Allowlist {
 		if request.Command == allowed {
 			return true
 		}
 	}
-	
+
 	// Check blocklist
 	for _, blocked := range policy.Blocklist {
 		if request.Command == blocked {
 			return false
 		}
 	}
-	
+
 	// Check mode
 	switch policy.Mode {
 	case ApprovalModeAuto:
@@ -331,7 +331,7 @@ func (cam *CommandApprovalManager) shouldAutoApprove(request *ApprovalRequest) b
 	case ApprovalModeBalanced:
 		// Fall through to detailed checks
 	}
-	
+
 	// Check by danger level
 	switch assessment.Level {
 	case DangerLevelSafe:
@@ -353,24 +353,24 @@ func (cam *CommandApprovalManager) shouldAutoApprove(request *ApprovalRequest) b
 func (cam *CommandApprovalManager) Approve(requestID string, approvedBy string) error {
 	cam.mu.Lock()
 	defer cam.mu.Unlock()
-	
+
 	request, exists := cam.requests[requestID]
 	if !exists {
 		return fmt.Errorf("request %s not found", requestID)
 	}
-	
+
 	if request.Status != ApprovalStatusPending {
 		return fmt.Errorf("request %s is not pending (status: %s)", requestID, request.Status)
 	}
-	
+
 	now := cam.timeNow()
 	request.Status = ApprovalStatusApproved
 	request.DecidedAt = &now
 	request.ApprovedBy = approvedBy
-	
+
 	cam.moveToHistory(requestID)
 	cam.stats.ApprovedRequests++
-	
+
 	return nil
 }
 
@@ -378,24 +378,24 @@ func (cam *CommandApprovalManager) Approve(requestID string, approvedBy string) 
 func (cam *CommandApprovalManager) Deny(requestID string, reason string) error {
 	cam.mu.Lock()
 	defer cam.mu.Unlock()
-	
+
 	request, exists := cam.requests[requestID]
 	if !exists {
 		return fmt.Errorf("request %s not found", requestID)
 	}
-	
+
 	if request.Status != ApprovalStatusPending {
 		return fmt.Errorf("request %s is not pending (status: %s)", requestID, request.Status)
 	}
-	
+
 	now := cam.timeNow()
 	request.Status = ApprovalStatusDenied
 	request.DecidedAt = &now
 	request.DenialReason = reason
-	
+
 	cam.moveToHistory(requestID)
 	cam.stats.DeniedRequests++
-	
+
 	return nil
 }
 
@@ -403,22 +403,22 @@ func (cam *CommandApprovalManager) Deny(requestID string, reason string) error {
 func (cam *CommandApprovalManager) Cancel(requestID string) error {
 	cam.mu.Lock()
 	defer cam.mu.Unlock()
-	
+
 	request, exists := cam.requests[requestID]
 	if !exists {
 		return fmt.Errorf("request %s not found", requestID)
 	}
-	
+
 	if request.Status != ApprovalStatusPending {
 		return fmt.Errorf("request %s is not pending (status: %s)", requestID, request.Status)
 	}
-	
+
 	now := cam.timeNow()
 	request.Status = ApprovalStatusCancelled
 	request.DecidedAt = &now
-	
+
 	cam.moveToHistory(requestID)
-	
+
 	return nil
 }
 
@@ -426,10 +426,10 @@ func (cam *CommandApprovalManager) Cancel(requestID string) error {
 func (cam *CommandApprovalManager) ExpirePending() int {
 	cam.mu.Lock()
 	defer cam.mu.Unlock()
-	
+
 	now := cam.timeNow()
 	expired := 0
-	
+
 	for _, requestID := range cam.pending {
 		request := cam.requests[requestID]
 		if request != nil && request.Status == ApprovalStatusPending && now.After(request.ExpiresAt) {
@@ -440,7 +440,7 @@ func (cam *CommandApprovalManager) ExpirePending() int {
 			expired++
 		}
 	}
-	
+
 	return expired
 }
 
@@ -448,14 +448,14 @@ func (cam *CommandApprovalManager) ExpirePending() int {
 func (cam *CommandApprovalManager) GetPending() []*ApprovalRequest {
 	cam.mu.RLock()
 	defer cam.mu.RUnlock()
-	
+
 	pending := make([]*ApprovalRequest, 0, len(cam.pending))
 	for _, id := range cam.pending {
 		if request, exists := cam.requests[id]; exists && request.Status == ApprovalStatusPending {
 			pending = append(pending, request)
 		}
 	}
-	
+
 	return pending
 }
 
@@ -463,7 +463,7 @@ func (cam *CommandApprovalManager) GetPending() []*ApprovalRequest {
 func (cam *CommandApprovalManager) GetRequest(requestID string) (*ApprovalRequest, bool) {
 	cam.mu.RLock()
 	defer cam.mu.RUnlock()
-	
+
 	request, exists := cam.requests[requestID]
 	return request, exists
 }
@@ -472,12 +472,12 @@ func (cam *CommandApprovalManager) GetRequest(requestID string) (*ApprovalReques
 func (cam *CommandApprovalManager) IsApproved(requestID string) bool {
 	cam.mu.RLock()
 	defer cam.mu.RUnlock()
-	
+
 	request, exists := cam.requests[requestID]
 	if !exists {
 		return false
 	}
-	
+
 	return request.Status == ApprovalStatusApproved || request.Status == ApprovalStatusAutoApproved
 }
 
@@ -485,15 +485,15 @@ func (cam *CommandApprovalManager) IsApproved(requestID string) bool {
 func (cam *CommandApprovalManager) GetStats() ApprovalStats {
 	cam.mu.RLock()
 	defer cam.mu.RUnlock()
-	
+
 	// Calculate derived stats
 	stats := cam.stats
 	stats.PendingRequests = len(cam.pending)
-	
+
 	if stats.TotalRequests > 0 {
 		stats.ApprovalRate = float64(stats.ApprovedRequests+stats.AutoApproved) / float64(stats.TotalRequests)
 	}
-	
+
 	return stats
 }
 
@@ -506,10 +506,10 @@ func (cam *CommandApprovalManager) moveToHistory(requestID string) {
 			break
 		}
 	}
-	
+
 	// Add to history
 	cam.history = append(cam.history, requestID)
-	
+
 	// Trim history if needed
 	if len(cam.history) > cam.maxHistory {
 		// Remove oldest from history and requests map
@@ -523,7 +523,7 @@ func (cam *CommandApprovalManager) moveToHistory(requestID string) {
 func (cam *CommandApprovalManager) WaitForApproval(ctx context.Context, requestID string) (*ApprovalRequest, error) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -533,7 +533,7 @@ func (cam *CommandApprovalManager) WaitForApproval(ctx context.Context, requestI
 			if !exists {
 				return nil, fmt.Errorf("request %s not found", requestID)
 			}
-			
+
 			switch request.Status {
 			case ApprovalStatusApproved, ApprovalStatusAutoApproved:
 				return request, nil
@@ -554,19 +554,19 @@ func (cam *CommandApprovalManager) RequestAndWait(ctx context.Context, command s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// If auto-approved, return immediately
 	if request.Status == ApprovalStatusAutoApproved {
 		return request, nil
 	}
-	
+
 	// If callback is set, call it
 	if cam.callback != nil {
 		decision, err := cam.callback(request)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if decision.Approved {
 			if err := cam.Approve(request.ID, decision.ApprovedBy); err != nil {
 				return nil, err
@@ -578,7 +578,7 @@ func (cam *CommandApprovalManager) RequestAndWait(ctx context.Context, command s
 			return nil, fmt.Errorf("request denied: %s", decision.Reason)
 		}
 	}
-	
+
 	return cam.WaitForApproval(ctx, request.ID)
 }
 
@@ -586,7 +586,7 @@ func (cam *CommandApprovalManager) RequestAndWait(ctx context.Context, command s
 func (cam *CommandApprovalManager) ExportRequests() ([]byte, error) {
 	cam.mu.RLock()
 	defer cam.mu.RUnlock()
-	
+
 	export := struct {
 		Requests []*ApprovalRequest `json:"requests"`
 		Stats    ApprovalStats      `json:"stats"`
@@ -596,11 +596,11 @@ func (cam *CommandApprovalManager) ExportRequests() ([]byte, error) {
 		Stats:    cam.stats,
 		Exported: cam.timeNow(),
 	}
-	
+
 	for _, request := range cam.requests {
 		export.Requests = append(export.Requests, request)
 	}
-	
+
 	return json.MarshalIndent(export, "", "  ")
 }
 

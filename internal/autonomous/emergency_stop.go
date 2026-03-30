@@ -16,35 +16,35 @@ import (
 type EmergencyStopReason string
 
 const (
-	EmergencyStopManual          EmergencyStopReason = "manual"            // User-triggered
-	EmergencyStopInfiniteLoop    EmergencyStopReason = "infinite_loop"     // Loop detection
-	EmergencyStopResourceExhaust EmergencyStopReason = "resource_exhaust"  // Memory/CPU limits
-	EmergencyStopCriticalError   EmergencyStopReason = "critical_error"    // Unrecoverable error
-	EmergencyStopTimeout         EmergencyStopReason = "timeout"           // Execution timeout
-	EmergencyStopUserAbort       EmergencyStopReason = "user_abort"        // User requested abort
-	EmergencyStopSafetyViolation EmergencyStopReason = "safety_violation"  // Safety policy breach
-	EmergencyStopExternalSignal  EmergencyStopReason = "external_signal"   // External monitoring trigger
+	EmergencyStopManual          EmergencyStopReason = "manual"           // User-triggered
+	EmergencyStopInfiniteLoop    EmergencyStopReason = "infinite_loop"    // Loop detection
+	EmergencyStopResourceExhaust EmergencyStopReason = "resource_exhaust" // Memory/CPU limits
+	EmergencyStopCriticalError   EmergencyStopReason = "critical_error"   // Unrecoverable error
+	EmergencyStopTimeout         EmergencyStopReason = "timeout"          // Execution timeout
+	EmergencyStopUserAbort       EmergencyStopReason = "user_abort"       // User requested abort
+	EmergencyStopSafetyViolation EmergencyStopReason = "safety_violation" // Safety policy breach
+	EmergencyStopExternalSignal  EmergencyStopReason = "external_signal"  // External monitoring trigger
 )
 
 // EmergencyStopSeverity defines the severity level of the stop.
 type EmergencyStopSeverity int
 
 const (
-	SeverityWarning EmergencyStopSeverity = iota // Can continue with caution
-	SeverityCritical                             // Must stop immediately
-	SeverityFatal                                // System-level issue, full halt
+	SeverityWarning  EmergencyStopSeverity = iota // Can continue with caution
+	SeverityCritical                              // Must stop immediately
+	SeverityFatal                                 // System-level issue, full halt
 )
 
 // EmergencyStopTrigger represents what triggered the stop.
 type EmergencyStopTrigger struct {
-	Reason      EmergencyStopReason
-	Severity    EmergencyStopSeverity
-	Message     string
-	Source      string    // "user", "system", "monitor", "engine"
-	Timestamp   time.Time
-	Context     map[string]interface{} // Additional context
-	Recovered   bool                   // Whether recovery was attempted
-	Stacktrace  string                 // Optional stack trace
+	Reason     EmergencyStopReason
+	Severity   EmergencyStopSeverity
+	Message    string
+	Source     string // "user", "system", "monitor", "engine"
+	Timestamp  time.Time
+	Context    map[string]interface{} // Additional context
+	Recovered  bool                   // Whether recovery was attempted
+	Stacktrace string                 // Optional stack trace
 }
 
 // EmergencyStopConfig holds configuration for emergency stop behavior.
@@ -87,7 +87,7 @@ type EmergencyStopManager struct {
 	engine         *Engine
 	auditLogger    *AuditLogger
 	notifyCallback func(trigger EmergencyStopTrigger)
-	
+
 	// Channels for control
 	stopChan     chan struct{}
 	alertChan    chan EmergencyStopTrigger
@@ -105,14 +105,14 @@ func NewEmergencyStopManager(config EmergencyStopConfig, logger *slog.Logger) *E
 	if logger == nil {
 		logger = slog.Default()
 	}
-	
+
 	return &EmergencyStopManager{
-		config:       config,
-		logger:       logger.With("component", "emergency_stop"),
+		config:        config,
+		logger:        logger.With("component", "emergency_stop"),
 		actionHistory: make([]actionRecord, 0, 100),
-		stopChan:     make(chan struct{}),
-		alertChan:    make(chan EmergencyStopTrigger, 10),
-		recoveryChan: make(chan struct{}),
+		stopChan:      make(chan struct{}),
+		alertChan:     make(chan EmergencyStopTrigger, 10),
+		recoveryChan:  make(chan struct{}),
 	}
 }
 
@@ -141,11 +141,11 @@ func (m *EmergencyStopManager) SetNotifyCallback(callback func(trigger Emergency
 func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity EmergencyStopSeverity, message, source string, context map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.stopped.Load() {
 		return fmt.Errorf("emergency stop already triggered")
 	}
-	
+
 	trigger := EmergencyStopTrigger{
 		Reason:    reason,
 		Severity:  severity,
@@ -154,10 +154,10 @@ func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity Emer
 		Timestamp: time.Now(),
 		Context:   context,
 	}
-	
+
 	m.trigger = &trigger
 	m.stopped.Store(true)
-	
+
 	// Log the emergency stop
 	m.logger.Error("EMERGENCY STOP TRIGGERED",
 		"reason", reason,
@@ -165,7 +165,7 @@ func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity Emer
 		"message", message,
 		"source", source,
 	)
-	
+
 	// Log to audit log if available
 	if m.auditLogger != nil {
 		m.auditLogger.LogSecurity(
@@ -174,12 +174,12 @@ func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity Emer
 			AuditSeverityCritical,
 		)
 	}
-	
+
 	// Notify via callback
 	if m.notifyCallback != nil {
 		go m.notifyCallback(trigger)
 	}
-	
+
 	// Send alert
 	select {
 	case m.alertChan <- trigger:
@@ -187,15 +187,15 @@ func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity Emer
 		// Channel full, log warning
 		m.logger.Warn("Alert channel full, notification may be delayed")
 	}
-	
+
 	// Close stop channel to signal all listeners
 	close(m.stopChan)
-	
+
 	// Trigger engine stop if linked
 	if m.engine != nil {
 		m.engine.Stop()
 	}
-	
+
 	return nil
 }
 
@@ -215,17 +215,17 @@ func (m *EmergencyStopManager) GetTrigger() *EmergencyStopTrigger {
 func (m *EmergencyStopManager) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.stopped.Store(false)
 	m.trigger = nil
 	m.actionHistory = make([]actionRecord, 0, 100)
 	m.errorCount = 0
-	
+
 	// Recreate channels
 	m.stopChan = make(chan struct{})
 	m.alertChan = make(chan EmergencyStopTrigger, 10)
 	m.recoveryChan = make(chan struct{})
-	
+
 	m.logger.Info("Emergency stop manager reset")
 }
 
@@ -246,13 +246,13 @@ func (m *EmergencyStopManager) AlertChan() <-chan EmergencyStopTrigger {
 // RecordAction records an action for loop detection.
 func (m *EmergencyStopManager) RecordAction(action string) {
 	m.mu.Lock()
-	
+
 	// Add to history
 	m.actionHistory = append(m.actionHistory, actionRecord{
 		Action:    action,
 		Timestamp: time.Now(),
 	})
-	
+
 	// Trim old entries
 	cutoff := time.Now().Add(-m.config.LoopDetectionWindow)
 	newHistory := make([]actionRecord, 0, len(m.actionHistory))
@@ -262,19 +262,19 @@ func (m *EmergencyStopManager) RecordAction(action string) {
 		}
 	}
 	m.actionHistory = newHistory
-	
+
 	// Check for loops
 	detectedLoop := m.detectLoop()
-	
+
 	if detectedLoop {
 		m.logger.Warn("Loop detected, triggering emergency stop",
 			"action", action,
 			"window", m.config.LoopDetectionWindow,
 		)
 	}
-	
+
 	m.mu.Unlock()
-	
+
 	// Trigger outside of lock to avoid deadlock
 	if detectedLoop {
 		m.Trigger(
@@ -283,9 +283,9 @@ func (m *EmergencyStopManager) RecordAction(action string) {
 			fmt.Sprintf("Detected infinite loop: action '%s' repeated %d times in %v", action, m.config.LoopDetectionThreshold, m.config.LoopDetectionWindow),
 			"system",
 			map[string]interface{}{
-				"action":     action,
-				"threshold":  m.config.LoopDetectionThreshold,
-				"window":     m.config.LoopDetectionWindow.String(),
+				"action":    action,
+				"threshold": m.config.LoopDetectionThreshold,
+				"window":    m.config.LoopDetectionWindow.String(),
 			},
 		)
 	}
@@ -296,7 +296,7 @@ func (m *EmergencyStopManager) detectLoop() bool {
 	if len(m.actionHistory) < m.config.LoopDetectionThreshold {
 		return false
 	}
-	
+
 	// Count occurrences of recent actions
 	actionCounts := make(map[string]int)
 	for _, record := range m.actionHistory {
@@ -305,20 +305,20 @@ func (m *EmergencyStopManager) detectLoop() bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // RecordError records an error and checks for error threshold.
 func (m *EmergencyStopManager) RecordError(err error, isCritical bool) {
 	m.mu.Lock()
-	
+
 	shouldTrigger := false
 	triggerSeverity := SeverityCritical
 	triggerMessage := ""
 	triggerSource := "system"
 	triggerContext := map[string]interface{}{}
-	
+
 	if isCritical {
 		m.logger.Error("Critical error recorded, triggering emergency stop", "error", err)
 		shouldTrigger = true
@@ -328,7 +328,7 @@ func (m *EmergencyStopManager) RecordError(err error, isCritical bool) {
 		triggerContext = map[string]interface{}{"error": err.Error()}
 	} else {
 		m.errorCount++
-		
+
 		if m.errorCount >= m.config.MaxConsecutiveErrors {
 			m.logger.Error("Max consecutive errors reached, triggering emergency stop",
 				"errorCount", m.errorCount,
@@ -342,9 +342,9 @@ func (m *EmergencyStopManager) RecordError(err error, isCritical bool) {
 			}
 		}
 	}
-	
+
 	m.mu.Unlock()
-	
+
 	// Trigger outside of lock to avoid deadlock
 	if shouldTrigger {
 		m.Trigger(
@@ -367,10 +367,10 @@ func (m *EmergencyStopManager) ClearErrorCount() {
 // CheckResourceUsage checks resource usage against limits.
 func (m *EmergencyStopManager) CheckResourceUsage(memoryMB int64, cpuPercent float64, goroutineCount int) {
 	m.mu.RLock()
-	
+
 	var violations []string
 	shouldTrigger := false
-	
+
 	// Memory check (warn at 80%, critical at 95%)
 	if memoryMB > 2048 { // 2GB warning threshold
 		violations = append(violations, fmt.Sprintf("high memory usage: %d MB", memoryMB))
@@ -379,25 +379,25 @@ func (m *EmergencyStopManager) CheckResourceUsage(memoryMB int64, cpuPercent flo
 		m.logger.Error("Memory exhaustion detected", "memoryMB", memoryMB)
 		shouldTrigger = true
 	}
-	
+
 	// CPU check (warn at 90%, critical at 100% for extended period)
 	if cpuPercent > 90 {
 		violations = append(violations, fmt.Sprintf("high CPU usage: %.1f%%", cpuPercent))
 	}
-	
+
 	// Goroutine check (potential leak detection)
 	if goroutineCount > 1000 {
 		m.logger.Warn("High goroutine count, potential leak", "count", goroutineCount)
 		violations = append(violations, fmt.Sprintf("high goroutine count: %d", goroutineCount))
 	}
-	
+
 	m.mu.RUnlock()
-	
+
 	// Log warnings outside of lock
 	if len(violations) > 0 && m.logger != nil {
 		m.logger.Warn("Resource usage warnings", "violations", violations)
 	}
-	
+
 	// Trigger outside of lock to avoid deadlock
 	if shouldTrigger {
 		m.Trigger(
@@ -428,19 +428,19 @@ func (m *EmergencyStopManager) TriggerSafetyViolation(violation, details string)
 func (m *EmergencyStopManager) AttemptRecovery(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if !m.stopped.Load() {
 		return fmt.Errorf("no emergency stop to recover from")
 	}
-	
+
 	if !m.config.AutoRecovery {
 		return fmt.Errorf("auto recovery disabled")
 	}
-	
+
 	m.logger.Info("Attempting recovery from emergency stop",
 		"reason", m.trigger.Reason,
 	)
-	
+
 	// Recovery strategy depends on the trigger reason
 	switch m.trigger.Reason {
 	case EmergencyStopInfiniteLoop:
@@ -452,7 +452,7 @@ func (m *EmergencyStopManager) AttemptRecovery(ctx context.Context) error {
 		m.stopChan = make(chan struct{})
 		m.logger.Info("Recovery successful: loop cleared")
 		return nil
-		
+
 	case EmergencyStopResourceExhaust:
 		// Wait for resources to free up
 		select {
@@ -465,11 +465,11 @@ func (m *EmergencyStopManager) AttemptRecovery(ctx context.Context) error {
 			m.logger.Info("Recovery successful: resources freed")
 			return nil
 		}
-		
+
 	case EmergencyStopCriticalError:
 		// Critical errors require manual intervention
 		return fmt.Errorf("critical errors require manual intervention")
-		
+
 	default:
 		return fmt.Errorf("recovery not supported for reason: %s", m.trigger.Reason)
 	}
@@ -479,13 +479,13 @@ func (m *EmergencyStopManager) AttemptRecovery(ctx context.Context) error {
 func (m *EmergencyStopManager) GetStatus() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	status := map[string]interface{}{
 		"enabled":     m.config.Enabled,
 		"stopped":     m.stopped.Load(),
 		"error_count": m.errorCount,
 	}
-	
+
 	if m.trigger != nil {
 		status["trigger_reason"] = string(m.trigger.Reason)
 		status["trigger_severity"] = m.trigger.Severity
@@ -493,7 +493,7 @@ func (m *EmergencyStopManager) GetStatus() map[string]interface{} {
 		status["trigger_source"] = m.trigger.Source
 		status["trigger_time"] = m.trigger.Timestamp
 	}
-	
+
 	return status
 }
 

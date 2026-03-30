@@ -60,7 +60,7 @@ func logAudit(toolName string, args map[string]interface{}, result string) {
 	if err != nil {
 		return
 	}
-	f.Write(line)        //nolint:errcheck
+	f.Write(line)         //nolint:errcheck
 	f.Write([]byte{'\n'}) //nolint:errcheck
 }
 

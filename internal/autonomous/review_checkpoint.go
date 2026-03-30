@@ -12,40 +12,40 @@ import (
 type OperationType string
 
 const (
-	OperationFileDelete     OperationType = "file_delete"
-	OperationFileOverwrite  OperationType = "file_overwrite"
-	OperationGitForcePush   OperationType = "git_force_push"
-	OperationGitResetHard   OperationType = "git_reset_hard"
-	OperationDatabaseDrop   OperationType = "database_drop"
+	OperationFileDelete       OperationType = "file_delete"
+	OperationFileOverwrite    OperationType = "file_overwrite"
+	OperationGitForcePush     OperationType = "git_force_push"
+	OperationGitResetHard     OperationType = "git_reset_hard"
+	OperationDatabaseDrop     OperationType = "database_drop"
 	OperationDatabaseTruncate OperationType = "database_truncate"
-	OperationSystemCommand  OperationType = "system_command"
-	OperationNetworkRequest OperationType = "network_request"
-	OperationConfigChange   OperationType = "config_change"
+	OperationSystemCommand    OperationType = "system_command"
+	OperationNetworkRequest   OperationType = "network_request"
+	OperationConfigChange     OperationType = "config_change"
 	OperationDependencyChange OperationType = "dependency_change"
 )
 
 // ReviewRequest represents a pending review for a destructive operation.
 type ReviewRequest struct {
-	ID           string            `json:"id"`
-	Timestamp    int64             `json:"timestamp"`
-	Operation    OperationType     `json:"operation"`
-	DangerLevel  DangerLevel       `json:"danger_level"`
-	Target       string            `json:"target"`
-	Description  string            `json:"description"`
-	Details      map[string]any    `json:"details,omitempty"`
-	AutoApprove  bool              `json:"auto_approve"`
-	Timeout      time.Duration     `json:"timeout"`
+	ID          string         `json:"id"`
+	Timestamp   int64          `json:"timestamp"`
+	Operation   OperationType  `json:"operation"`
+	DangerLevel DangerLevel    `json:"danger_level"`
+	Target      string         `json:"target"`
+	Description string         `json:"description"`
+	Details     map[string]any `json:"details,omitempty"`
+	AutoApprove bool           `json:"auto_approve"`
+	Timeout     time.Duration  `json:"timeout"`
 }
 
 // ReviewDecision represents the user's decision on a review request.
 type ReviewDecision string
 
 const (
-	DecisionApproved    ReviewDecision = "approved"
-	DecisionRejected    ReviewDecision = "rejected"
-	DecisionModified    ReviewDecision = "modified"  // Approved with modifications
-	DecisionEscalated   ReviewDecision = "escalated" // Needs higher approval
-	DecisionDeferred    ReviewDecision = "deferred"  // Ask again later
+	DecisionApproved  ReviewDecision = "approved"
+	DecisionRejected  ReviewDecision = "rejected"
+	DecisionModified  ReviewDecision = "modified"  // Approved with modifications
+	DecisionEscalated ReviewDecision = "escalated" // Needs higher approval
+	DecisionDeferred  ReviewDecision = "deferred"  // Ask again later
 )
 
 // ReviewResponse represents the response to a review request.
@@ -60,15 +60,15 @@ type ReviewResponse struct {
 
 // ReviewPolicy defines when reviews are required.
 type ReviewPolicy struct {
-	mu                       sync.RWMutex
-	requireReviewAboveLevel  DangerLevel
-	autoApproveBelowLevel    DangerLevel
-	alwaysReviewOperations   map[OperationType]bool
-	neverReviewOperations    map[OperationType]bool
-	protectedPaths           []string
-	protectedBranches        []string
-	maxPendingReviews        int
-	reviewTimeout            time.Duration
+	mu                      sync.RWMutex
+	requireReviewAboveLevel DangerLevel
+	autoApproveBelowLevel   DangerLevel
+	alwaysReviewOperations  map[OperationType]bool
+	neverReviewOperations   map[OperationType]bool
+	protectedPaths          []string
+	protectedBranches       []string
+	maxPendingReviews       int
+	reviewTimeout           time.Duration
 }
 
 // DefaultReviewPolicy returns a sensible default policy.
@@ -77,10 +77,10 @@ func DefaultReviewPolicy() *ReviewPolicy {
 		requireReviewAboveLevel: DangerLevelMedium,
 		autoApproveBelowLevel:   DangerLevelLow,
 		alwaysReviewOperations: map[OperationType]bool{
-			OperationFileDelete:     true,
-			OperationGitForcePush:   true,
-			OperationGitResetHard:   true,
-			OperationDatabaseDrop:   true,
+			OperationFileDelete:       true,
+			OperationGitForcePush:     true,
+			OperationGitResetHard:     true,
+			OperationDatabaseDrop:     true,
 			OperationDatabaseTruncate: true,
 		},
 		neverReviewOperations: map[OperationType]bool{},
@@ -173,7 +173,7 @@ func NewReviewCheckpoint(policy *ReviewPolicy, stateManager *StateManager) *Revi
 	if policy == nil {
 		policy = DefaultReviewPolicy()
 	}
-	
+
 	return &ReviewCheckpoint{
 		policy:       policy,
 		pending:      make(map[string]*ReviewRequest),
@@ -186,7 +186,7 @@ func NewReviewCheckpoint(policy *ReviewPolicy, stateManager *StateManager) *Revi
 // RequestReview creates a review request for an operation.
 func (rc *ReviewCheckpoint) RequestReview(ctx context.Context, op OperationType, target string, description string, details map[string]any) (*ReviewRequest, error) {
 	dangerLevel := AssessDangerLevel(op, target, details)
-	
+
 	req := &ReviewRequest{
 		ID:          fmt.Sprintf("review_%d_%d", time.Now().UnixNano(), len(rc.pending)),
 		Timestamp:   time.Now().Unix(),
@@ -226,7 +226,7 @@ func (rc *ReviewCheckpoint) RequestReview(ctx context.Context, op OperationType,
 			nil,
 			nil,
 			&Result{
-				Status:      "awaiting_review",
+				Status:       "awaiting_review",
 				FinalMessage: fmt.Sprintf("review_id=%s,operation=%s,danger_level=%s", req.ID, op, dangerLevel.String()),
 			},
 		)

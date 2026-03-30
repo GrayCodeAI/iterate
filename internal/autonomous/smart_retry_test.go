@@ -188,9 +188,9 @@ func TestCategorizeError(t *testing.T) {
 	sr := NewSmartRetry(RetryConfig{})
 
 	tests := []struct {
-		name           string
-		errorMsg       string
-		expectedCat    ErrorCategory
+		name        string
+		errorMsg    string
+		expectedCat ErrorCategory
 	}{
 		{
 			name:        "build error",
@@ -287,7 +287,7 @@ func TestCalculateBackoff(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			delay := sr.calculateBackoff(tt.attempt, strategy)
 			if delay < tt.minDelay || delay > tt.maxDelay {
-				t.Errorf("attempt %d: expected delay between %v and %v, got %v", 
+				t.Errorf("attempt %d: expected delay between %v and %v, got %v",
 					tt.attempt, tt.minDelay, tt.maxDelay, delay)
 			}
 		})
@@ -396,7 +396,7 @@ func TestExecuteWithRetry_ContextCancellation(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	callCount := 0
 	fn := func() error {
 		callCount++
@@ -740,12 +740,12 @@ func TestFailureAnalysis_Fields(t *testing.T) {
 
 func TestPatternStats(t *testing.T) {
 	stats := &PatternStats{
-		PatternID:    "test-pattern",
-		TotalSeen:    10,
-		TotalFixed:   8,
-		TotalFailed:  2,
-		AvgAttempts:  2.5,
-		FixActions:   map[string]int{"fix1": 5, "fix2": 3},
+		PatternID:   "test-pattern",
+		TotalSeen:   10,
+		TotalFixed:  8,
+		TotalFailed: 2,
+		AvgAttempts: 2.5,
+		FixActions:  map[string]int{"fix1": 5, "fix2": 3},
 	}
 
 	if stats.TotalSeen != 10 {
@@ -762,9 +762,9 @@ func TestRetryStats(t *testing.T) {
 		SuccessfulRetries: 75,
 		SuccessRate:       0.75,
 		ByCategory: map[ErrorCategory]int{
-			CategoryBuildError: 50,
+			CategoryBuildError:  50,
 			CategoryTestFailure: 30,
-			CategoryTimeout:    20,
+			CategoryTimeout:     20,
 		},
 	}
 

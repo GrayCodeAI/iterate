@@ -7,25 +7,25 @@ import (
 )
 
 type mainFlags struct {
-	repoPath    string
-	ghOwner     string
-	ghRepo      string
-	issueMax    int
-	socialOnly  bool
-	replyIssues bool
-	provider    string
-	model       string
-	apiKey      string
-	thinking    string
-	chat        bool
-	evolve      bool
-	phase       string
-	saveSession string
-	loadSession string
-	compactFlag bool
-	noTools     bool
-	budget      float64
-	sandbox     bool
+	repoPath     string
+	ghOwner      string
+	ghRepo       string
+	issueMax     int
+	socialOnly   bool
+	replyIssues  bool
+	provider     string
+	model        string
+	apiKey       string
+	thinking     string
+	chat         bool
+	evolve       bool
+	phase        string
+	saveSession  string
+	loadSession  string
+	compactFlag  bool
+	noTools      bool
+	budget       float64
+	sandbox      bool
 	sandboxImage string
 }
 

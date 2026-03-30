@@ -17,13 +17,13 @@ type ProtectedPathAction string
 const (
 	// ActionBlock blocks access completely
 	ActionBlock ProtectedPathAction = "block"
-	
+
 	// ActionWarn warns but allows access
 	ActionWarn ProtectedPathAction = "warn"
-	
+
 	// ActionLog logs access without warning
 	ActionLog ProtectedPathAction = "log"
-	
+
 	// ActionAllow allows access with tracking
 	ActionAllow ProtectedPathAction = "allow"
 )
@@ -34,13 +34,13 @@ type ProtectedPathType string
 const (
 	// TypeExact matches exact path
 	TypeExact ProtectedPathType = "exact"
-	
+
 	// TypePrefix matches path prefix
 	TypePrefix ProtectedPathType = "prefix"
-	
+
 	// TypeGlob matches glob pattern
 	TypeGlob ProtectedPathType = "glob"
-	
+
 	// TypeRegex matches regex pattern
 	TypeRegex ProtectedPathType = "regex"
 )
@@ -49,25 +49,25 @@ const (
 type ProtectedPath struct {
 	// Path is the path or pattern to protect
 	Path string `json:"path"`
-	
+
 	// Type is the matching type
 	Type ProtectedPathType `json:"type"`
-	
+
 	// Action is the action to take on access
 	Action ProtectedPathAction `json:"action"`
-	
+
 	// Description explains why this path is protected
 	Description string `json:"description"`
-	
+
 	// Operations restricts protection to specific operations (empty = all)
 	Operations []string `json:"operations,omitempty"`
-	
+
 	// Enabled toggles the rule
 	Enabled bool `json:"enabled"`
-	
+
 	// Priority for rule ordering (higher = checked first)
 	Priority int `json:"priority"`
-	
+
 	// compiledRegex caches compiled regex patterns
 	compiledRegex *regexp.Regexp `json:"-"`
 }
@@ -76,13 +76,13 @@ type ProtectedPath struct {
 type ProtectedPathConfig struct {
 	// Paths is the list of protected path rules
 	Paths []ProtectedPath `json:"paths"`
-	
+
 	// DefaultAction is the action for unmatched sensitive paths
 	DefaultAction ProtectedPathAction `json:"default_action"`
-	
+
 	// EnableAudit enables audit logging
 	EnableAudit bool `json:"enable_audit"`
-	
+
 	// AuditFile is the path to the audit log file
 	AuditFile string `json:"audit_file"`
 }
@@ -90,13 +90,13 @@ type ProtectedPathConfig struct {
 // ProtectedPathsManager manages protected path rules.
 type ProtectedPathsManager struct {
 	mu sync.RWMutex
-	
+
 	// config is the current configuration
 	config ProtectedPathConfig
-	
+
 	// pathsByPriority is sorted by priority for efficient checking
 	pathsByPriority []ProtectedPath
-	
+
 	// auditLog stores access attempts
 	auditLog []ProtectedPathAccess
 }
@@ -122,32 +122,32 @@ func DefaultProtectedPathConfig() ProtectedPathConfig {
 			{Path: "/etc/shadow", Type: TypeExact, Action: ActionBlock, Description: "Password database", Enabled: true, Priority: 100},
 			{Path: "/etc/sudoers", Type: TypeExact, Action: ActionBlock, Description: "Sudo configuration", Enabled: true, Priority: 100},
 			{Path: "/etc/ssh/", Type: TypePrefix, Action: ActionBlock, Description: "SSH configuration directory", Enabled: true, Priority: 90},
-			
+
 			// User secrets
 			{Path: "~/.ssh/", Type: TypePrefix, Action: ActionBlock, Description: "SSH keys directory", Enabled: true, Priority: 90},
 			{Path: "~/.gnupg/", Type: TypePrefix, Action: ActionBlock, Description: "GPG keys directory", Enabled: true, Priority: 90},
 			{Path: "~/.netrc", Type: TypeExact, Action: ActionBlock, Description: "Network credentials", Enabled: true, Priority: 90},
-			
+
 			// Project secrets
 			{Path: ".env", Type: TypeGlob, Action: ActionBlock, Description: "Environment files", Enabled: true, Priority: 80},
 			{Path: "*.pem", Type: TypeGlob, Action: ActionBlock, Description: "Certificate files", Enabled: true, Priority: 80},
 			{Path: "*.key", Type: TypeGlob, Action: ActionBlock, Description: "Key files", Enabled: true, Priority: 80},
 			{Path: "id_rsa*", Type: TypeGlob, Action: ActionBlock, Description: "SSH private keys", Enabled: true, Priority: 80},
 			{Path: "id_ed25519*", Type: TypeGlob, Action: ActionBlock, Description: "ED25519 keys", Enabled: true, Priority: 80},
-			
+
 			// Credentials files
 			{Path: "credentials.json", Type: TypeExact, Action: ActionBlock, Description: "Credentials file", Enabled: true, Priority: 80},
 			{Path: "secrets.json", Type: TypeExact, Action: ActionBlock, Description: "Secrets file", Enabled: true, Priority: 80},
 			{Path: "service-account.json", Type: TypeExact, Action: ActionBlock, Description: "Service account key", Enabled: true, Priority: 80},
 			{Path: "*.p12", Type: TypeGlob, Action: ActionBlock, Description: "PKCS12 certificates", Enabled: true, Priority: 80},
 			{Path: "*.pfx", Type: TypeGlob, Action: ActionBlock, Description: "PFX certificates", Enabled: true, Priority: 80},
-			
+
 			// Cloud credentials
 			{Path: "~/.aws/", Type: TypePrefix, Action: ActionWarn, Description: "AWS credentials", Enabled: true, Priority: 70},
 			{Path: "~/.gcp/", Type: TypePrefix, Action: ActionWarn, Description: "GCP credentials", Enabled: true, Priority: 70},
 			{Path: "~/.azure/", Type: TypePrefix, Action: ActionWarn, Description: "Azure credentials", Enabled: true, Priority: 70},
 			{Path: "~/.kube/", Type: TypePrefix, Action: ActionWarn, Description: "Kubernetes config", Enabled: true, Priority: 70},
-			
+
 			// Database files
 			{Path: "*.db", Type: TypeGlob, Action: ActionWarn, Description: "Database files", Enabled: true, Priority: 50},
 			{Path: "*.sqlite", Type: TypeGlob, Action: ActionWarn, Description: "SQLite databases", Enabled: true, Priority: 50},
@@ -160,13 +160,13 @@ func DefaultProtectedPathConfig() ProtectedPathConfig {
 // NewProtectedPathsManager creates a new manager.
 func NewProtectedPathsManager(config ProtectedPathConfig) *ProtectedPathsManager {
 	ppm := &ProtectedPathsManager{
-		config:    config,
-		auditLog:  make([]ProtectedPathAccess, 0),
+		config:   config,
+		auditLog: make([]ProtectedPathAccess, 0),
 	}
-	
+
 	ppm.sortPathsByPriority()
 	ppm.compileRegexPatterns()
-	
+
 	return ppm
 }
 
@@ -179,7 +179,7 @@ func NewDefaultProtectedPathsManager() *ProtectedPathsManager {
 func (ppm *ProtectedPathsManager) sortPathsByPriority() {
 	ppm.pathsByPriority = make([]ProtectedPath, len(ppm.config.Paths))
 	copy(ppm.pathsByPriority, ppm.config.Paths)
-	
+
 	// Simple bubble sort by priority (descending)
 	for i := 0; i < len(ppm.pathsByPriority)-1; i++ {
 		for j := i + 1; j < len(ppm.pathsByPriority); j++ {
@@ -206,18 +206,18 @@ func (ppm *ProtectedPathsManager) compileRegexPatterns() {
 func (ppm *ProtectedPathsManager) CheckPath(path, operation string) (ProtectedPathAction, *ProtectedPath) {
 	ppm.mu.RLock()
 	defer ppm.mu.RUnlock()
-	
+
 	// Normalize the path
 	normalizedPath := ppm.normalizePath(path)
-	
+
 	// Check each rule in priority order
 	for i := range ppm.pathsByPriority {
 		rule := &ppm.pathsByPriority[i]
-		
+
 		if !rule.Enabled {
 			continue
 		}
-		
+
 		// Check if operation is restricted
 		if len(rule.Operations) > 0 {
 			opAllowed := false
@@ -231,18 +231,18 @@ func (ppm *ProtectedPathsManager) CheckPath(path, operation string) (ProtectedPa
 				continue
 			}
 		}
-		
+
 		// Check if path matches
 		if ppm.pathMatches(normalizedPath, rule) {
 			// Log access
 			if ppm.config.EnableAudit {
 				ppm.logAccess(normalizedPath, operation, rule.Action, rule.Path, rule.Action != ActionBlock)
 			}
-			
+
 			return rule.Action, rule
 		}
 	}
-	
+
 	// No rule matched, return default action
 	return ppm.config.DefaultAction, nil
 }
@@ -256,10 +256,10 @@ func (ppm *ProtectedPathsManager) normalizePath(path string) string {
 			path = filepath.Join(home, path[2:])
 		}
 	}
-	
+
 	// Clean the path
 	path = filepath.Clean(path)
-	
+
 	return path
 }
 
@@ -268,24 +268,24 @@ func (ppm *ProtectedPathsManager) pathMatches(path string, rule *ProtectedPath) 
 	switch rule.Type {
 	case TypeExact:
 		return path == ppm.normalizePath(rule.Path)
-		
+
 	case TypePrefix:
 		rulePath := ppm.normalizePath(rule.Path)
 		return strings.HasPrefix(path, rulePath)
-		
+
 	case TypeGlob:
 		matched, err := filepath.Match(rule.Path, filepath.Base(path))
 		if err != nil {
 			return false
 		}
 		return matched
-		
+
 	case TypeRegex:
 		if rule.compiledRegex != nil {
 			return rule.compiledRegex.MatchString(path)
 		}
 		return false
-		
+
 	default:
 		return false
 	}
@@ -301,7 +301,7 @@ func (ppm *ProtectedPathsManager) logAccess(path, operation string, action Prote
 		Timestamp:   currentTime(),
 		Allowed:     allowed,
 	}
-	
+
 	ppm.auditLog = append(ppm.auditLog, access)
 }
 
@@ -321,7 +321,7 @@ func (ppm *ProtectedPathsManager) ShouldWarn(path, operation string) bool {
 func (ppm *ProtectedPathsManager) AddProtectedPath(rule ProtectedPath) {
 	ppm.mu.Lock()
 	defer ppm.mu.Unlock()
-	
+
 	ppm.config.Paths = append(ppm.config.Paths, rule)
 	ppm.sortPathsByPriority()
 	ppm.compileRegexPatterns()
@@ -331,7 +331,7 @@ func (ppm *ProtectedPathsManager) AddProtectedPath(rule ProtectedPath) {
 func (ppm *ProtectedPathsManager) RemoveProtectedPath(path string) bool {
 	ppm.mu.Lock()
 	defer ppm.mu.Unlock()
-	
+
 	for i, p := range ppm.config.Paths {
 		if p.Path == path {
 			ppm.config.Paths = append(ppm.config.Paths[:i], ppm.config.Paths[i+1:]...)
@@ -346,7 +346,7 @@ func (ppm *ProtectedPathsManager) RemoveProtectedPath(path string) bool {
 func (ppm *ProtectedPathsManager) UpdateProtectedPath(path string, updates ProtectedPath) bool {
 	ppm.mu.Lock()
 	defer ppm.mu.Unlock()
-	
+
 	for i, p := range ppm.config.Paths {
 		if p.Path == path {
 			// Preserve immutable fields
@@ -393,16 +393,16 @@ func (ppm *ProtectedPathsManager) ExportConfig() ([]byte, error) {
 func (ppm *ProtectedPathsManager) ImportConfig(data []byte) error {
 	ppm.mu.Lock()
 	defer ppm.mu.Unlock()
-	
+
 	var config ProtectedPathConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
-	
+
 	ppm.config = config
 	ppm.sortPathsByPriority()
 	ppm.compileRegexPatterns()
-	
+
 	return nil
 }
 
@@ -428,11 +428,11 @@ func (ppm *ProtectedPathsManager) SaveConfigToFile(path string) error {
 func (ppm *ProtectedPathsManager) GetStats() map[string]interface{} {
 	ppm.mu.RLock()
 	defer ppm.mu.RUnlock()
-	
+
 	enabled := 0
 	blocked := 0
 	warned := 0
-	
+
 	for _, p := range ppm.config.Paths {
 		if p.Enabled {
 			enabled++
@@ -443,21 +443,21 @@ func (ppm *ProtectedPathsManager) GetStats() map[string]interface{} {
 			}
 		}
 	}
-	
+
 	return map[string]interface{}{
-		"total_rules":     len(ppm.config.Paths),
-		"enabled_rules":   enabled,
-		"blocked_rules":   blocked,
-		"warning_rules":   warned,
-		"audit_entries":   len(ppm.auditLog),
-		"default_action":  ppm.config.DefaultAction,
+		"total_rules":    len(ppm.config.Paths),
+		"enabled_rules":  enabled,
+		"blocked_rules":  blocked,
+		"warning_rules":  warned,
+		"audit_entries":  len(ppm.auditLog),
+		"default_action": ppm.config.DefaultAction,
 	}
 }
 
 // ValidatePath validates that a path is safe to access.
 func (ppm *ProtectedPathsManager) ValidatePath(path, operation string) error {
 	action, rule := ppm.CheckPath(path, operation)
-	
+
 	switch action {
 	case ActionBlock:
 		if rule != nil {

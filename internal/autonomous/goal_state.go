@@ -30,38 +30,38 @@ const (
 
 // GoalState represents a desired end state for the autonomous agent.
 type GoalState struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Priority    GoalPriority           `json:"priority"`
-	Status      GoalStatus             `json:"status"`
-	CreatedAt   int64                  `json:"created_at"`
-	UpdatedAt   int64                  `json:"updated_at"`
-	CompletedAt int64                  `json:"completed_at,omitempty"`
-	
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Priority    GoalPriority `json:"priority"`
+	Status      GoalStatus   `json:"status"`
+	CreatedAt   int64        `json:"created_at"`
+	UpdatedAt   int64        `json:"updated_at"`
+	CompletedAt int64        `json:"completed_at,omitempty"`
+
 	// Goal definition
-	TargetState  map[string]any `json:"target_state,omitempty"`  // Desired state
-	SuccessCriteria []string    `json:"success_criteria"`         // Conditions for success
-	FailureConditions []string  `json:"failure_conditions,omitempty"` // Conditions for failure
-	
+	TargetState       map[string]any `json:"target_state,omitempty"`       // Desired state
+	SuccessCriteria   []string       `json:"success_criteria"`             // Conditions for success
+	FailureConditions []string       `json:"failure_conditions,omitempty"` // Conditions for failure
+
 	// Progress tracking
-	SubGoals    []*GoalState  `json:"sub_goals,omitempty"`
-	Progress    float64       `json:"progress"` // 0.0 - 1.0
-	Milestones  []Milestone   `json:"milestones,omitempty"`
-	
+	SubGoals   []*GoalState `json:"sub_goals,omitempty"`
+	Progress   float64      `json:"progress"` // 0.0 - 1.0
+	Milestones []Milestone  `json:"milestones,omitempty"`
+
 	// Execution tracking
-	FilesModified  []string `json:"files_modified,omitempty"`
-	CommandsRun    []string `json:"commands_run,omitempty"`
-	Errors         []string `json:"errors,omitempty"`
-	RetryCount     int      `json:"retry_count"`
-	MaxRetries     int      `json:"max_retries"`
-	
+	FilesModified []string `json:"files_modified,omitempty"`
+	CommandsRun   []string `json:"commands_run,omitempty"`
+	Errors        []string `json:"errors,omitempty"`
+	RetryCount    int      `json:"retry_count"`
+	MaxRetries    int      `json:"max_retries"`
+
 	// Dependencies
 	Dependencies []string `json:"dependencies,omitempty"` // Goal IDs this depends on
 	Blocks       []string `json:"blocks,omitempty"`       // Goal IDs that depend on this
-	
+
 	// Metadata
-	Tags    []string       `json:"tags,omitempty"`
+	Tags     []string       `json:"tags,omitempty"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
@@ -76,11 +76,11 @@ type Milestone struct {
 
 // GoalTracker manages goal states for autonomous operations.
 type GoalTracker struct {
-	mu          sync.RWMutex
-	goals       map[string]*GoalState
-	activeGoal  *GoalState
-	maxRetries  int
-	history     []*GoalState
+	mu         sync.RWMutex
+	goals      map[string]*GoalState
+	activeGoal *GoalState
+	maxRetries int
+	history    []*GoalState
 }
 
 // GoalTrackerConfig holds configuration for the goal tracker.
@@ -100,7 +100,7 @@ func NewGoalTracker(config GoalTrackerConfig) *GoalTracker {
 	if config.MaxRetries <= 0 {
 		config.MaxRetries = 3
 	}
-	
+
 	return &GoalTracker{
 		goals:      make(map[string]*GoalState),
 		maxRetries: config.MaxRetries,
@@ -112,29 +112,29 @@ func NewGoalTracker(config GoalTrackerConfig) *GoalTracker {
 func (gt *GoalTracker) CreateGoal(name string, description string, priority GoalPriority) *GoalState {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	now := time.Now().Unix()
 	goal := &GoalState{
-		ID:             fmt.Sprintf("goal_%d_%d", time.Now().UnixNano(), len(gt.goals)),
-		Name:           name,
-		Description:    description,
-		Priority:       priority,
-		Status:         GoalStatusPending,
-		CreatedAt:      now,
-		UpdatedAt:       now,
-		TargetState:    make(map[string]any),
-		SuccessCriteria: make([]string, 0),
+		ID:                fmt.Sprintf("goal_%d_%d", time.Now().UnixNano(), len(gt.goals)),
+		Name:              name,
+		Description:       description,
+		Priority:          priority,
+		Status:            GoalStatusPending,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		TargetState:       make(map[string]any),
+		SuccessCriteria:   make([]string, 0),
 		FailureConditions: make([]string, 0),
-		SubGoals:       make([]*GoalState, 0),
-		Milestones:     make([]Milestone, 0),
-		FilesModified:  make([]string, 0),
-		CommandsRun:    make([]string, 0),
-		Errors:         make([]string, 0),
-		MaxRetries:     gt.maxRetries,
-		Tags:           make([]string, 0),
-		Metadata:       make(map[string]any),
+		SubGoals:          make([]*GoalState, 0),
+		Milestones:        make([]Milestone, 0),
+		FilesModified:     make([]string, 0),
+		CommandsRun:       make([]string, 0),
+		Errors:            make([]string, 0),
+		MaxRetries:        gt.maxRetries,
+		Tags:              make([]string, 0),
+		Metadata:          make(map[string]any),
 	}
-	
+
 	gt.goals[goal.ID] = goal
 	return goal
 }
@@ -143,16 +143,16 @@ func (gt *GoalTracker) CreateGoal(name string, description string, priority Goal
 func (gt *GoalTracker) SetActiveGoal(goalID string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	gt.activeGoal = goal
 	goal.Status = GoalStatusInProgress
 	goal.UpdatedAt = time.Now().Unix()
-	
+
 	return nil
 }
 
@@ -167,12 +167,12 @@ func (gt *GoalTracker) GetActiveGoal() *GoalState {
 func (gt *GoalTracker) AddSuccessCriterion(goalID string, criterion string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.SuccessCriteria = append(goal.SuccessCriteria, criterion)
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -182,12 +182,12 @@ func (gt *GoalTracker) AddSuccessCriterion(goalID string, criterion string) erro
 func (gt *GoalTracker) AddFailureCondition(goalID string, condition string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.FailureConditions = append(goal.FailureConditions, condition)
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -197,22 +197,22 @@ func (gt *GoalTracker) AddFailureCondition(goalID string, condition string) erro
 func (gt *GoalTracker) AddMilestone(goalID string, name string, description string) (*Milestone, error) {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return nil, fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	milestone := Milestone{
 		ID:          fmt.Sprintf("ms_%d", time.Now().UnixNano()),
 		Name:        name,
 		Description: description,
 		Completed:   false,
 	}
-	
+
 	goal.Milestones = append(goal.Milestones, milestone)
 	goal.UpdatedAt = time.Now().Unix()
-	
+
 	return &milestone, nil
 }
 
@@ -220,12 +220,12 @@ func (gt *GoalTracker) AddMilestone(goalID string, name string, description stri
 func (gt *GoalTracker) CompleteMilestone(goalID string, milestoneID string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	for i, ms := range goal.Milestones {
 		if ms.ID == milestoneID {
 			goal.Milestones[i].Completed = true
@@ -235,7 +235,7 @@ func (gt *GoalTracker) CompleteMilestone(goalID string, milestoneID string) erro
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("milestone %s not found", milestoneID)
 }
 
@@ -244,14 +244,14 @@ func (gt *GoalTracker) recalculateProgress(goal *GoalState) {
 	if len(goal.Milestones) == 0 {
 		return
 	}
-	
+
 	completed := 0
 	for _, ms := range goal.Milestones {
 		if ms.Completed {
 			completed++
 		}
 	}
-	
+
 	goal.Progress = float64(completed) / float64(len(goal.Milestones))
 }
 
@@ -259,19 +259,19 @@ func (gt *GoalTracker) recalculateProgress(goal *GoalState) {
 func (gt *GoalTracker) RecordFileModification(goalID string, filePath string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	// Check if already recorded
 	for _, f := range goal.FilesModified {
 		if f == filePath {
 			return nil
 		}
 	}
-	
+
 	goal.FilesModified = append(goal.FilesModified, filePath)
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -281,12 +281,12 @@ func (gt *GoalTracker) RecordFileModification(goalID string, filePath string) er
 func (gt *GoalTracker) RecordCommand(goalID string, command string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.CommandsRun = append(goal.CommandsRun, command)
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -296,21 +296,21 @@ func (gt *GoalTracker) RecordCommand(goalID string, command string) error {
 func (gt *GoalTracker) RecordError(goalID string, errMsg string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.Errors = append(goal.Errors, errMsg)
 	goal.RetryCount++
 	goal.UpdatedAt = time.Now().Unix()
-	
+
 	// Check if max retries exceeded
 	if goal.RetryCount >= goal.MaxRetries {
 		goal.Status = GoalStatusFailed
 	}
-	
+
 	return nil
 }
 
@@ -318,18 +318,18 @@ func (gt *GoalTracker) RecordError(goalID string, errMsg string) error {
 func (gt *GoalTracker) SetProgress(goalID string, progress float64) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	if progress < 0 {
 		progress = 0
 	} else if progress > 1 {
 		progress = 1
 	}
-	
+
 	goal.Progress = progress
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -339,26 +339,26 @@ func (gt *GoalTracker) SetProgress(goalID string, progress float64) error {
 func (gt *GoalTracker) CompleteGoal(goalID string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.Status = GoalStatusCompleted
 	goal.Progress = 1.0
 	now := time.Now().Unix()
 	goal.CompletedAt = now
 	goal.UpdatedAt = now
-	
+
 	// Add to history
 	gt.history = append(gt.history, goal)
-	
+
 	// Clear active goal if this was it
 	if gt.activeGoal != nil && gt.activeGoal.ID == goalID {
 		gt.activeGoal = nil
 	}
-	
+
 	return nil
 }
 
@@ -366,29 +366,29 @@ func (gt *GoalTracker) CompleteGoal(goalID string) error {
 func (gt *GoalTracker) FailGoal(goalID string, reason string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.Status = GoalStatusFailed
 	now := time.Now().Unix()
 	goal.CompletedAt = now
 	goal.UpdatedAt = now
-	
+
 	if reason != "" {
 		goal.Errors = append(goal.Errors, reason)
 	}
-	
+
 	// Add to history
 	gt.history = append(gt.history, goal)
-	
+
 	// Clear active goal if this was it
 	if gt.activeGoal != nil && gt.activeGoal.ID == goalID {
 		gt.activeGoal = nil
 	}
-	
+
 	return nil
 }
 
@@ -396,29 +396,29 @@ func (gt *GoalTracker) FailGoal(goalID string, reason string) error {
 func (gt *GoalTracker) AbandonGoal(goalID string, reason string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.Status = GoalStatusAbandoned
 	now := time.Now().Unix()
 	goal.CompletedAt = now
 	goal.UpdatedAt = now
-	
+
 	if reason != "" {
 		goal.Metadata["abandon_reason"] = reason
 	}
-	
+
 	// Add to history
 	gt.history = append(gt.history, goal)
-	
+
 	// Clear active goal if this was it
 	if gt.activeGoal != nil && gt.activeGoal.ID == goalID {
 		gt.activeGoal = nil
 	}
-	
+
 	return nil
 }
 
@@ -426,18 +426,18 @@ func (gt *GoalTracker) AbandonGoal(goalID string, reason string) error {
 func (gt *GoalTracker) AddSubGoal(parentID string, subGoal *GoalState) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	parent, exists := gt.goals[parentID]
 	if !exists {
 		return fmt.Errorf("parent goal %s not found", parentID)
 	}
-	
+
 	parent.SubGoals = append(parent.SubGoals, subGoal)
 	parent.UpdatedAt = time.Now().Unix()
-	
+
 	// Also add to goals map
 	gt.goals[subGoal.ID] = subGoal
-	
+
 	return nil
 }
 
@@ -445,24 +445,24 @@ func (gt *GoalTracker) AddSubGoal(parentID string, subGoal *GoalState) error {
 func (gt *GoalTracker) SetDependency(goalID string, dependsOnGoalID string) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	dependsOnGoal, exists := gt.goals[dependsOnGoalID]
 	if !exists {
 		return fmt.Errorf("dependency goal %s not found", dependsOnGoalID)
 	}
-	
+
 	// Add dependency
 	goal.Dependencies = append(goal.Dependencies, dependsOnGoalID)
 	dependsOnGoal.Blocks = append(dependsOnGoal.Blocks, goalID)
-	
+
 	goal.UpdatedAt = time.Now().Unix()
 	dependsOnGoal.UpdatedAt = time.Now().Unix()
-	
+
 	return nil
 }
 
@@ -470,19 +470,19 @@ func (gt *GoalTracker) SetDependency(goalID string, dependsOnGoalID string) erro
 func (gt *GoalTracker) CanStart(goalID string) (bool, error) {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return false, fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	for _, depID := range goal.Dependencies {
 		depGoal, exists := gt.goals[depID]
 		if !exists || depGoal.Status != GoalStatusCompleted {
 			return false, nil
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -497,7 +497,7 @@ func (gt *GoalTracker) GetGoal(goalID string) *GoalState {
 func (gt *GoalTracker) GetAllGoals() []*GoalState {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	goals := make([]*GoalState, 0, len(gt.goals))
 	for _, goal := range gt.goals {
 		goals = append(goals, goal)
@@ -509,7 +509,7 @@ func (gt *GoalTracker) GetAllGoals() []*GoalState {
 func (gt *GoalTracker) GetPendingGoals() []*GoalState {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	pending := make([]*GoalState, 0)
 	for _, goal := range gt.goals {
 		if goal.Status == GoalStatusPending {
@@ -523,7 +523,7 @@ func (gt *GoalTracker) GetPendingGoals() []*GoalState {
 func (gt *GoalTracker) GetInProgressGoals() []*GoalState {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	inProgress := make([]*GoalState, 0)
 	for _, goal := range gt.goals {
 		if goal.Status == GoalStatusInProgress {
@@ -537,7 +537,7 @@ func (gt *GoalTracker) GetInProgressGoals() []*GoalState {
 func (gt *GoalTracker) GetHistory() []*GoalState {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	history := make([]*GoalState, len(gt.history))
 	copy(history, gt.history)
 	return history
@@ -547,7 +547,7 @@ func (gt *GoalTracker) GetHistory() []*GoalState {
 func (gt *GoalTracker) GetStats() GoalStats {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	stats := GoalStats{}
 	for _, goal := range gt.goals {
 		stats.Total++
@@ -565,11 +565,11 @@ func (gt *GoalTracker) GetStats() GoalStats {
 		}
 		stats.TotalProgress += goal.Progress
 	}
-	
+
 	if stats.Total > 0 {
 		stats.AverageProgress = stats.TotalProgress / float64(stats.Total)
 	}
-	
+
 	return stats
 }
 
@@ -589,12 +589,12 @@ type GoalStats struct {
 func (gt *GoalTracker) SetTargetState(goalID string, key string, value any) error {
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	goal.TargetState[key] = value
 	goal.UpdatedAt = time.Now().Unix()
 	return nil
@@ -604,12 +604,12 @@ func (gt *GoalTracker) SetTargetState(goalID string, key string, value any) erro
 func (gt *GoalTracker) CheckSuccessCriteria(goalID string, evaluator func(criterion string) (bool, error)) (bool, error) {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return false, fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	for _, criterion := range goal.SuccessCriteria {
 		met, err := evaluator(criterion)
 		if err != nil {
@@ -619,7 +619,7 @@ func (gt *GoalTracker) CheckSuccessCriteria(goalID string, evaluator func(criter
 			return false, nil
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -627,12 +627,12 @@ func (gt *GoalTracker) CheckSuccessCriteria(goalID string, evaluator func(criter
 func (gt *GoalTracker) CheckFailureConditions(goalID string, evaluator func(condition string) (bool, error)) (bool, error) {
 	gt.mu.RLock()
 	defer gt.mu.RUnlock()
-	
+
 	goal, exists := gt.goals[goalID]
 	if !exists {
 		return false, fmt.Errorf("goal %s not found", goalID)
 	}
-	
+
 	for _, condition := range goal.FailureConditions {
 		met, err := evaluator(condition)
 		if err != nil {
@@ -642,6 +642,6 @@ func (gt *GoalTracker) CheckFailureConditions(goalID string, evaluator func(cond
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }

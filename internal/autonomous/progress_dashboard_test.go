@@ -12,7 +12,7 @@ func TestNewProgressDashboard(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{
 		TaskName: "Test Task",
 	})
-	
+
 	if dashboard == nil {
 		t.Fatal("expected non-nil dashboard")
 	}
@@ -28,7 +28,7 @@ func TestDashboardConfigDefaults(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{
 		TaskName: "Test",
 	})
-	
+
 	if dashboard.output == nil {
 		t.Error("expected default output to be set")
 	}
@@ -39,9 +39,9 @@ func TestDashboardConfigDefaults(t *testing.T) {
 
 func TestDashboardAddStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	step := dashboard.AddStep("step1", "First Step", "Description")
-	
+
 	if step == nil {
 		t.Fatal("expected non-nil step")
 	}
@@ -62,9 +62,9 @@ func TestDashboardAddStep(t *testing.T) {
 func TestStartStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First Step", "Description")
-	
+
 	dashboard.StartStep("step1")
-	
+
 	// Find step and check status
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
@@ -84,9 +84,9 @@ func TestCompleteStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First Step", "Description")
 	dashboard.StartStep("step1")
-	
+
 	dashboard.CompleteStep("step1")
-	
+
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
 			if step.Status != StepCompleted {
@@ -108,9 +108,9 @@ func TestFailStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First Step", "Description")
 	dashboard.StartStep("step1")
-	
+
 	dashboard.FailStep("step1", "Something went wrong")
-	
+
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
 			if step.Status != StepFailed {
@@ -131,9 +131,9 @@ func TestFailStep(t *testing.T) {
 func TestRetryStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First Step", "Description")
-	
+
 	dashboard.RetryStep("step1")
-	
+
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
 			if step.Status != StepRetrying {
@@ -151,9 +151,9 @@ func TestRetryStep(t *testing.T) {
 func TestSkipStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First Step", "Description")
-	
+
 	dashboard.SkipStep("step1")
-	
+
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
 			if step.Status != StepSkipped {
@@ -168,16 +168,16 @@ func TestSkipStep(t *testing.T) {
 func TestAddSubStep(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "Parent Step", "Description")
-	
+
 	subStep := dashboard.AddSubStep("step1", "sub1", "Sub Step")
-	
+
 	if subStep == nil {
 		t.Fatal("expected non-nil sub-step")
 	}
 	if subStep.ID != "sub1" {
 		t.Errorf("expected sub-step ID 'sub1', got %s", subStep.ID)
 	}
-	
+
 	// Verify it's in parent's sub-steps
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
@@ -192,9 +192,9 @@ func TestAddSubStep(t *testing.T) {
 
 func TestDashboardSetProgress(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.SetProgress(0.5)
-	
+
 	if dashboard.progress != 0.5 {
 		t.Errorf("expected progress 0.5, got %f", dashboard.progress)
 	}
@@ -202,9 +202,9 @@ func TestDashboardSetProgress(t *testing.T) {
 
 func TestSetStatus(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.SetStatus(DashboardStatusPaused)
-	
+
 	if dashboard.status != DashboardStatusPaused {
 		t.Errorf("expected status 'paused', got %s", dashboard.status)
 	}
@@ -212,9 +212,9 @@ func TestSetStatus(t *testing.T) {
 
 func TestSetTokens(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.SetTokens(1000)
-	
+
 	if dashboard.tokensUsed != 1000 {
 		t.Errorf("expected tokens 1000, got %d", dashboard.tokensUsed)
 	}
@@ -222,9 +222,9 @@ func TestSetTokens(t *testing.T) {
 
 func TestSetCost(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.SetCost(5.50)
-	
+
 	if dashboard.cost != 5.50 {
 		t.Errorf("expected cost 5.50, got %f", dashboard.cost)
 	}
@@ -232,10 +232,10 @@ func TestSetCost(t *testing.T) {
 
 func TestIncrementRetries(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.IncrementRetries()
 	dashboard.IncrementRetries()
-	
+
 	if dashboard.retries != 2 {
 		t.Errorf("expected retries 2, got %d", dashboard.retries)
 	}
@@ -248,13 +248,13 @@ func TestRender(t *testing.T) {
 		Output:   &buf,
 		Compact:  true,
 	})
-	
+
 	dashboard.AddStep("step1", "First Step", "Description")
 	dashboard.StartStep("step1")
 	dashboard.CompleteStep("step1")
-	
+
 	dashboard.Render()
-	
+
 	output := buf.String()
 	if !strings.Contains(output, "Test Task") {
 		t.Error("expected output to contain task name")
@@ -266,16 +266,16 @@ func TestRender(t *testing.T) {
 
 func TestDashboardGetStats(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test Task"})
-	
+
 	dashboard.AddStep("step1", "First", "")
 	dashboard.AddStep("step2", "Second", "")
 	dashboard.StartStep("step1")
 	dashboard.CompleteStep("step1")
 	dashboard.SetTokens(500)
 	dashboard.SetCost(1.5)
-	
+
 	stats := dashboard.GetStats()
-	
+
 	if stats.TaskName != "Test Task" {
 		t.Errorf("expected task name 'Test Task', got %s", stats.TaskName)
 	}
@@ -295,12 +295,12 @@ func TestDashboardGetStats(t *testing.T) {
 
 func TestDashboardExportJSON(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test Task"})
-	
+
 	dashboard.AddStep("step1", "First", "")
 	dashboard.CompleteStep("step1")
-	
+
 	json := dashboard.ExportJSON()
-	
+
 	if !strings.Contains(json, `"task_name": "Test Task"`) {
 		t.Error("expected JSON to contain task name")
 	}
@@ -314,7 +314,7 @@ func TestDashboardExportJSON(t *testing.T) {
 
 func TestGetStatusIcon(t *testing.T) {
 	dashboard := &ProgressDashboard{}
-	
+
 	tests := []struct {
 		status   DashboardStatus
 		expected string
@@ -325,7 +325,7 @@ func TestGetStatusIcon(t *testing.T) {
 		{DashboardStatusFailed, "❌"},
 		{DashboardStatusCancelled, "🚫"},
 	}
-	
+
 	for _, tt := range tests {
 		dashboard.status = tt.status
 		icon := dashboard.getStatusIcon()
@@ -337,7 +337,7 @@ func TestGetStatusIcon(t *testing.T) {
 
 func TestGetStepIcon(t *testing.T) {
 	dashboard := &ProgressDashboard{}
-	
+
 	tests := []struct {
 		status   StepStatus
 		expected string
@@ -349,7 +349,7 @@ func TestGetStepIcon(t *testing.T) {
 		{StepSkipped, "⏭️"},
 		{StepRetrying, "🔁"},
 	}
-	
+
 	for _, tt := range tests {
 		icon := dashboard.getStepIcon(tt.status)
 		if icon != tt.expected {
@@ -370,7 +370,7 @@ func TestTruncate(t *testing.T) {
 		{"ab", 2, "ab"},
 		{"a", 0, ""},
 	}
-	
+
 	for _, tt := range tests {
 		result := truncate(tt.input, tt.maxLen)
 		if result != tt.expected {
@@ -390,7 +390,7 @@ func TestFormatDuration(t *testing.T) {
 		{65 * time.Second, "1m 5s"},
 		{3665 * time.Second, "1h 1m"},
 	}
-	
+
 	for _, tt := range tests {
 		result := formatDuration(tt.duration)
 		if !strings.Contains(result, tt.wantStr) && result != tt.wantStr {
@@ -408,9 +408,9 @@ func TestCountCompletedSteps(t *testing.T) {
 		{ID: "2", Status: StepPending},
 		{ID: "3", Status: StepCompleted},
 	}
-	
+
 	count := countCompletedSteps(steps)
-	
+
 	if count != 3 {
 		t.Errorf("expected 3 completed steps, got %d", count)
 	}
@@ -423,9 +423,9 @@ func TestComplete(t *testing.T) {
 		Output:   &buf,
 		Compact:  true,
 	})
-	
+
 	dashboard.Complete()
-	
+
 	if dashboard.status != DashboardStatusCompleted {
 		t.Errorf("expected status 'completed', got %s", dashboard.status)
 	}
@@ -438,9 +438,9 @@ func TestFail(t *testing.T) {
 		Output:   &buf,
 		Compact:  true,
 	})
-	
+
 	dashboard.Fail("Test error")
-	
+
 	if dashboard.status != DashboardStatusFailed {
 		t.Errorf("expected status 'failed', got %s", dashboard.status)
 	}
@@ -453,9 +453,9 @@ func TestCancel(t *testing.T) {
 		Output:   &buf,
 		Compact:  true,
 	})
-	
+
 	dashboard.Cancel()
-	
+
 	if dashboard.status != DashboardStatusCancelled {
 		t.Errorf("expected status 'cancelled', got %s", dashboard.status)
 	}
@@ -466,18 +466,18 @@ func TestStartStop(t *testing.T) {
 		TaskName:    "Test",
 		RefreshRate: 100 * time.Millisecond,
 	})
-	
+
 	dashboard.Start()
-	
+
 	if !dashboard.running {
 		t.Error("expected dashboard to be running")
 	}
-	
+
 	// Let it run briefly
 	time.Sleep(150 * time.Millisecond)
-	
+
 	dashboard.Stop()
-	
+
 	if dashboard.running {
 		t.Error("expected dashboard to be stopped")
 	}
@@ -486,9 +486,9 @@ func TestStartStop(t *testing.T) {
 func TestUpdateStepProgress(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
 	dashboard.AddStep("step1", "First", "")
-	
+
 	dashboard.UpdateStepProgress("step1", 0.75)
-	
+
 	for _, step := range dashboard.steps {
 		if step.ID == "step1" {
 			if step.Progress != 0.75 {
@@ -508,7 +508,7 @@ func TestDashboardStatusTypes(t *testing.T) {
 		DashboardStatusFailed,
 		DashboardStatusCancelled,
 	}
-	
+
 	for _, s := range statuses {
 		if string(s) == "" {
 			t.Errorf("status should not be empty")
@@ -525,7 +525,7 @@ func TestStepStatusTypes(t *testing.T) {
 		StepSkipped,
 		StepRetrying,
 	}
-	
+
 	for _, s := range statuses {
 		if string(s) == "" {
 			t.Errorf("step status should not be empty")
@@ -543,7 +543,7 @@ func TestProgressStepFields(t *testing.T) {
 		Error:       "",
 		Metadata:    map[string]any{"key": "value"},
 	}
-	
+
 	if step.ID != "test-step" {
 		t.Errorf("expected ID 'test-step', got %s", step.ID)
 	}
@@ -567,7 +567,7 @@ func TestDashboardStatsFields(t *testing.T) {
 		StepsCompleted: 5,
 		StepsTotal:     10,
 	}
-	
+
 	if stats.TaskName != "Test" {
 		t.Errorf("expected task name 'Test', got %s", stats.TaskName)
 	}
@@ -578,19 +578,19 @@ func TestDashboardStatsFields(t *testing.T) {
 
 func TestMultipleSteps(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.AddStep("s1", "Step 1", "")
 	dashboard.AddStep("s2", "Step 2", "")
 	dashboard.AddStep("s3", "Step 3", "")
-	
+
 	dashboard.StartStep("s1")
 	dashboard.CompleteStep("s1")
 	dashboard.StartStep("s2")
 	dashboard.FailStep("s2", "Failed")
 	dashboard.SkipStep("s3")
-	
+
 	stats := dashboard.GetStats()
-	
+
 	if stats.TotalOps != 3 {
 		t.Errorf("expected 3 total ops, got %d", stats.TotalOps)
 	}
@@ -604,17 +604,17 @@ func TestMultipleSteps(t *testing.T) {
 
 func TestProgressBarCalculation(t *testing.T) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Test"})
-	
+
 	dashboard.AddStep("s1", "", "")
 	dashboard.AddStep("s2", "", "")
 	dashboard.AddStep("s3", "", "")
 	dashboard.AddStep("s4", "", "")
-	
+
 	dashboard.StartStep("s1")
 	dashboard.CompleteStep("s1")
 	dashboard.StartStep("s2")
 	dashboard.CompleteStep("s2")
-	
+
 	// Progress should be 2/4 = 50%
 	stats := dashboard.GetStats()
 	if stats.StepsCompleted != 2 {
@@ -630,11 +630,11 @@ func BenchmarkRender(b *testing.B) {
 		Output:   &buf,
 		Compact:  true,
 	})
-	
+
 	dashboard.AddStep("s1", "Step 1", "")
 	dashboard.AddStep("s2", "Step 2", "")
 	dashboard.CompleteStep("s1")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
@@ -644,7 +644,7 @@ func BenchmarkRender(b *testing.B) {
 
 func BenchmarkAddStep(b *testing.B) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Benchmark"})
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dashboard.AddStep(string(rune(i)), "Step", "")
@@ -655,7 +655,7 @@ func BenchmarkGetStats(b *testing.B) {
 	dashboard := NewProgressDashboard(DashboardConfig{TaskName: "Benchmark"})
 	dashboard.AddStep("s1", "Step 1", "")
 	dashboard.AddStep("s2", "Step 2", "")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dashboard.GetStats()
@@ -667,7 +667,7 @@ func BenchmarkExportJSON(b *testing.B) {
 	dashboard.AddStep("s1", "Step 1", "")
 	dashboard.AddStep("s2", "Step 2", "")
 	dashboard.CompleteStep("s1")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dashboard.ExportJSON()

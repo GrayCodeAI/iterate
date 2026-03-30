@@ -12,7 +12,7 @@ import (
 type TaskPriority int
 
 const (
-	PriorityLow      TaskPriority = iota
+	PriorityLow TaskPriority = iota
 	PriorityNormal
 	PriorityHigh
 	PriorityCritical
@@ -38,32 +38,32 @@ func (p TaskPriority) String() string {
 type TaskStatus string
 
 const (
-	TaskStatusPending    TaskStatus = "pending"
-	TaskStatusQueued     TaskStatus = "queued"
-	TaskStatusRunning    TaskStatus = "running"
-	TaskStatusCompleted  TaskStatus = "completed"
-	TaskStatusFailed     TaskStatus = "failed"
-	TaskStatusCancelled  TaskStatus = "cancelled"
-	TaskStatusRetrying   TaskStatus = "retrying"
+	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusQueued    TaskStatus = "queued"
+	TaskStatusRunning   TaskStatus = "running"
+	TaskStatusCompleted TaskStatus = "completed"
+	TaskStatusFailed    TaskStatus = "failed"
+	TaskStatusCancelled TaskStatus = "cancelled"
+	TaskStatusRetrying  TaskStatus = "retrying"
 )
 
 // QueuedTask represents a task in the queue.
 type QueuedTask struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	Description  string            `json:"description"`
-	Priority     TaskPriority      `json:"priority"`
-	Status       TaskStatus        `json:"status"`
-	Dependencies []string          `json:"dependencies,omitempty"`
-	CreatedAt    int64             `json:"created_at"`
-	StartedAt    int64             `json:"started_at,omitempty"`
-	CompletedAt  int64             `json:"completed_at,omitempty"`
-	Result       *Result           `json:"result,omitempty"`
-	Error        string            `json:"error,omitempty"`
-	RetryCount   int               `json:"retry_count"`
-	MaxRetries   int               `json:"max_retries"`
-	Timeout      time.Duration     `json:"timeout"`
-	Metadata     map[string]any    `json:"metadata,omitempty"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Description  string         `json:"description"`
+	Priority     TaskPriority   `json:"priority"`
+	Status       TaskStatus     `json:"status"`
+	Dependencies []string       `json:"dependencies,omitempty"`
+	CreatedAt    int64          `json:"created_at"`
+	StartedAt    int64          `json:"started_at,omitempty"`
+	CompletedAt  int64          `json:"completed_at,omitempty"`
+	Result       *Result        `json:"result,omitempty"`
+	Error        string         `json:"error,omitempty"`
+	RetryCount   int            `json:"retry_count"`
+	MaxRetries   int            `json:"max_retries"`
+	Timeout      time.Duration  `json:"timeout"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // TaskExecutor is a function that executes a task.
@@ -71,17 +71,17 @@ type TaskExecutor func(ctx context.Context, task *QueuedTask) (*Result, error)
 
 // TaskQueue manages parallel execution of autonomous tasks.
 type TaskQueue struct {
-	mu           sync.RWMutex
-	tasks        map[string]*QueuedTask
-	pending      []*QueuedTask
-	running      map[string]*QueuedTask
-	completed    []*QueuedTask
-	executor     TaskExecutor
-	maxParallel  int
-	timeout      time.Duration
-	maxRetries   int
-	stopChan     chan struct{}
-	wg           sync.WaitGroup
+	mu          sync.RWMutex
+	tasks       map[string]*QueuedTask
+	pending     []*QueuedTask
+	running     map[string]*QueuedTask
+	completed   []*QueuedTask
+	executor    TaskExecutor
+	maxParallel int
+	timeout     time.Duration
+	maxRetries  int
+	stopChan    chan struct{}
+	wg          sync.WaitGroup
 }
 
 // TaskQueueConfig holds configuration for the task queue.

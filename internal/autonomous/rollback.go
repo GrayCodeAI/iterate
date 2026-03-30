@@ -22,25 +22,25 @@ const (
 
 // RollbackEntry represents a single rollback operation.
 type RollbackEntry struct {
-	ID          string       `json:"id"`
-	Type        RollbackType `json:"type"`
-	Timestamp   int64        `json:"timestamp"`
-	Path        string       `json:"path,omitempty"`
-	Original    string       `json:"original,omitempty"`    // Original content for edits
-	Checksum    string       `json:"checksum,omitempty"`    // Content checksum
-	CommitHash  string       `json:"commit_hash,omitempty"` // For git rollbacks
-	BranchName  string       `json:"branch_name,omitempty"`
-	Applied     bool         `json:"applied"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	ID         string         `json:"id"`
+	Type       RollbackType   `json:"type"`
+	Timestamp  int64          `json:"timestamp"`
+	Path       string         `json:"path,omitempty"`
+	Original   string         `json:"original,omitempty"`    // Original content for edits
+	Checksum   string         `json:"checksum,omitempty"`    // Content checksum
+	CommitHash string         `json:"commit_hash,omitempty"` // For git rollbacks
+	BranchName string         `json:"branch_name,omitempty"`
+	Applied    bool           `json:"applied"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
 // RollbackStack manages a stack of rollback operations.
 type RollbackStack struct {
-	mu          sync.RWMutex
-	entries     []RollbackEntry
-	maxEntries  int
-	baseDir     string
-	backupDir   string
+	mu         sync.RWMutex
+	entries    []RollbackEntry
+	maxEntries int
+	baseDir    string
+	backupDir  string
 }
 
 // RollbackConfig holds configuration for the rollback stack.
@@ -382,8 +382,8 @@ func (rs *RollbackStack) CreateSnapshot(name string) (*RollbackSnapshot, error) 
 
 // RollbackSnapshot represents a saved state of the rollback stack.
 type RollbackSnapshot struct {
-	Name      string         `json:"name"`
-	Timestamp int64          `json:"timestamp"`
+	Name      string          `json:"name"`
+	Timestamp int64           `json:"timestamp"`
 	Entries   []RollbackEntry `json:"entries"`
 }
 

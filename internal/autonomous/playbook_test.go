@@ -9,11 +9,11 @@ import (
 
 func TestNewPlaybookRegistry(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	if registry == nil {
 		t.Fatal("expected registry, got nil")
 	}
-	
+
 	playbooks := registry.List()
 	if len(playbooks) == 0 {
 		t.Error("expected default playbooks to be registered")
@@ -22,7 +22,7 @@ func TestNewPlaybookRegistry(t *testing.T) {
 
 func TestRegisterPlaybook(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	playbook := &Playbook{
 		ID:          "test-playbook",
 		Name:        "Test Playbook",
@@ -34,17 +34,17 @@ func TestRegisterPlaybook(t *testing.T) {
 		UpdatedAt:   time.Now(),
 		Enabled:     true,
 	}
-	
+
 	err := registry.Register(playbook)
 	if err != nil {
 		t.Fatalf("failed to register playbook: %v", err)
 	}
-	
+
 	retrieved, err := registry.Get("test-playbook")
 	if err != nil {
 		t.Fatalf("failed to get playbook: %v", err)
 	}
-	
+
 	if retrieved.Name != "Test Playbook" {
 		t.Errorf("expected name 'Test Playbook', got '%s'", retrieved.Name)
 	}
@@ -52,12 +52,12 @@ func TestRegisterPlaybook(t *testing.T) {
 
 func TestRegisterPlaybookEmptyID(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	playbook := &Playbook{
 		Name: "No ID Playbook",
 		Type: PlaybookTypeCustom,
 	}
-	
+
 	err := registry.Register(playbook)
 	if err == nil {
 		t.Error("expected error for empty ID")
@@ -66,7 +66,7 @@ func TestRegisterPlaybookEmptyID(t *testing.T) {
 
 func TestUnregisterPlaybook(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	// Register a test playbook
 	playbook := &Playbook{
 		ID:        "to-remove",
@@ -76,16 +76,16 @@ func TestUnregisterPlaybook(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 	registry.Register(playbook)
-	
+
 	// Verify it exists
 	_, err := registry.Get("to-remove")
 	if err != nil {
 		t.Fatalf("playbook should exist: %v", err)
 	}
-	
+
 	// Unregister
 	registry.Unregister("to-remove")
-	
+
 	// Verify it's gone
 	_, err = registry.Get("to-remove")
 	if err == nil {
@@ -95,12 +95,12 @@ func TestUnregisterPlaybook(t *testing.T) {
 
 func TestGetByType(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	fixBugPlaybooks := registry.GetByType(PlaybookTypeFixBug)
 	if len(fixBugPlaybooks) == 0 {
 		t.Error("expected at least one fix_bug playbook")
 	}
-	
+
 	for _, p := range fixBugPlaybooks {
 		if p.Type != PlaybookTypeFixBug {
 			t.Errorf("expected type fix_bug, got %s", p.Type)
@@ -110,12 +110,12 @@ func TestGetByType(t *testing.T) {
 
 func TestListEnabled(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	enabled := registry.ListEnabled()
 	if len(enabled) == 0 {
 		t.Error("expected enabled playbooks")
 	}
-	
+
 	for _, p := range enabled {
 		if !p.Enabled {
 			t.Error("expected all listed playbooks to be enabled")
@@ -125,24 +125,24 @@ func TestListEnabled(t *testing.T) {
 
 func TestEnableDisable(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	// Disable
 	err := registry.Disable("fix-bug")
 	if err != nil {
 		t.Fatalf("failed to disable: %v", err)
 	}
-	
+
 	p, _ := registry.Get("fix-bug")
 	if p.Enabled {
 		t.Error("expected playbook to be disabled")
 	}
-	
+
 	// Enable
 	err = registry.Enable("fix-bug")
 	if err != nil {
 		t.Fatalf("failed to enable: %v", err)
 	}
-	
+
 	p, _ = registry.Get("fix-bug")
 	if !p.Enabled {
 		t.Error("expected playbook to be enabled")
@@ -151,7 +151,7 @@ func TestEnableDisable(t *testing.T) {
 
 func TestMatchPlaybook(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	tests := []struct {
 		task        string
 		expectedID  string
@@ -166,7 +166,7 @@ func TestMatchPlaybook(t *testing.T) {
 		{"fix security vulnerability in input validation", "security", true},
 		{"random task with no match", "", false},
 	}
-	
+
 	for _, tt := range tests {
 		match := registry.Match(tt.task)
 		if tt.expectMatch {
@@ -185,12 +185,12 @@ func TestMatchPlaybook(t *testing.T) {
 
 func TestMatchAll(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	matches := registry.MatchAll("fix the bug and add tests")
 	if len(matches) < 2 {
 		t.Errorf("expected at least 2 matches, got %d", len(matches))
 	}
-	
+
 	// Verify all returned playbooks are matches
 	for _, m := range matches {
 		if m.ID != "fix-bug" && m.ID != "add-test" {
@@ -218,36 +218,36 @@ func TestPlaybookInstance(t *testing.T) {
 		},
 		Enabled: true,
 	}
-	
+
 	variables := map[string]string{
 		"file":   "custom.txt",
 		"output": "result.txt",
 	}
-	
+
 	instance := NewPlaybookInstance(playbook, variables)
-	
+
 	if instance == nil {
 		t.Fatal("expected instance, got nil")
 	}
-	
+
 	if instance.Status != InstanceStatusPending {
 		t.Errorf("expected pending status, got %s", instance.Status)
 	}
-	
+
 	// Check variable resolution
 	if instance.Variables["file"] != "custom.txt" {
 		t.Errorf("expected custom.txt, got %s", instance.Variables["file"])
 	}
-	
+
 	// Check steps resolved
 	if len(instance.Steps) != 2 {
 		t.Fatalf("expected 2 steps, got %d", len(instance.Steps))
 	}
-	
+
 	if instance.Steps[0].ResolvedAction != "Read custom.txt" {
 		t.Errorf("expected 'Read custom.txt', got '%s'", instance.Steps[0].ResolvedAction)
 	}
-	
+
 	if instance.Steps[1].ResolvedTarget != "result.txt" {
 		t.Errorf("expected 'result.txt', got '%s'", instance.Steps[1].ResolvedTarget)
 	}
@@ -267,15 +267,15 @@ func TestPlaybookInstanceExecution(t *testing.T) {
 		},
 		Enabled: true,
 	}
-	
+
 	instance := NewPlaybookInstance(playbook, nil)
-	
+
 	// Start execution
 	instance.Start()
 	if instance.Status != InstanceStatusRunning {
 		t.Errorf("expected running, got %s", instance.Status)
 	}
-	
+
 	// Get current step
 	step := instance.GetCurrentStep()
 	if step == nil {
@@ -284,31 +284,31 @@ func TestPlaybookInstanceExecution(t *testing.T) {
 	if step.Type != "read" {
 		t.Errorf("expected read step, got %s", step.Type)
 	}
-	
+
 	// Mark completed
 	instance.MarkStepCompleted("read output")
 	if instance.Steps[0].Status != PlaybookStepStatusCompleted {
 		t.Error("expected step 1 completed")
 	}
-	
+
 	// Advance
 	instance.AdvanceStep()
 	if instance.CurrentStep != 1 {
 		t.Errorf("expected current step 1, got %d", instance.CurrentStep)
 	}
-	
+
 	// Progress check
 	progress := instance.GetProgress()
 	if progress < 30.0 || progress > 40.0 {
 		t.Errorf("expected ~33%% progress, got %.0f%%", progress)
 	}
-	
+
 	// Complete remaining steps
 	instance.MarkStepCompleted("write output")
 	instance.AdvanceStep()
 	instance.MarkStepCompleted("test output")
 	instance.AdvanceStep()
-	
+
 	if !instance.IsComplete() {
 		t.Error("expected instance complete")
 	}
@@ -326,17 +326,17 @@ func TestPlaybookInstanceFailure(t *testing.T) {
 		},
 		Enabled: true,
 	}
-	
+
 	instance := NewPlaybookInstance(playbook, nil)
 	instance.Start()
-	
+
 	// Simulate failure
 	instance.MarkStepFailed(context.DeadlineExceeded)
-	
+
 	if instance.Status != InstanceStatusFailed {
 		t.Errorf("expected failed status, got %s", instance.Status)
 	}
-	
+
 	if !instance.IsFailed() {
 		t.Error("expected IsFailed to be true")
 	}
@@ -355,20 +355,20 @@ func TestPlaybookInstanceSkip(t *testing.T) {
 		},
 		Enabled: true,
 	}
-	
+
 	instance := NewPlaybookInstance(playbook, nil)
 	instance.Start()
-	
+
 	// Skip first step
 	instance.MarkStepSkipped("optional step not needed")
 	if instance.Steps[0].Status != PlaybookStepStatusSkipped {
 		t.Error("expected step skipped")
 	}
-	
+
 	instance.AdvanceStep()
 	instance.MarkStepCompleted("done")
 	instance.AdvanceStep()
-	
+
 	// Skipped step should count toward progress
 	if instance.GetProgress() != 100.0 {
 		t.Errorf("expected 100%% progress with skip, got %.0f%%", instance.GetProgress())
@@ -387,12 +387,12 @@ func TestPlaybookInstanceSummary(t *testing.T) {
 		},
 		Enabled: true,
 	}
-	
+
 	instance := NewPlaybookInstance(playbook, nil)
 	instance.Start()
-	
+
 	summary := instance.GetSummary()
-	
+
 	if !containsAll(summary, "Summary Test", "running", "Read file") {
 		t.Errorf("summary missing expected content: %s", summary)
 	}
@@ -436,31 +436,31 @@ func TestPlaybookBuilder(t *testing.T) {
 		AddTag("testing").
 		SetEnabled(true).
 		Build()
-	
+
 	if playbook.ID != "custom-pb" {
 		t.Errorf("expected ID 'custom-pb', got '%s'", playbook.ID)
 	}
-	
+
 	if playbook.Name != "Custom Playbook" {
 		t.Errorf("expected name 'Custom Playbook', got '%s'", playbook.Name)
 	}
-	
+
 	if len(playbook.Steps) != 2 {
 		t.Errorf("expected 2 steps, got %d", len(playbook.Steps))
 	}
-	
+
 	if len(playbook.SuccessCriteria) != 2 {
 		t.Errorf("expected 2 success criteria, got %d", len(playbook.SuccessCriteria))
 	}
-	
+
 	if len(playbook.Triggers.Keywords) != 2 {
 		t.Errorf("expected 2 trigger keywords, got %d", len(playbook.Triggers.Keywords))
 	}
-	
+
 	if playbook.Triggers.Priority != 5 {
 		t.Errorf("expected priority 5, got %d", playbook.Triggers.Priority)
 	}
-	
+
 	if !playbook.Enabled {
 		t.Error("expected playbook enabled")
 	}
@@ -468,25 +468,25 @@ func TestPlaybookBuilder(t *testing.T) {
 
 func TestRegistryInstantiatePlaybook(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	variables := map[string]string{
 		"source_file": "main.go",
 		"test_file":   "main_test.go",
 	}
-	
+
 	instance, err := registry.InstantiatePlaybook(context.Background(), "refactor", variables)
 	if err != nil {
 		t.Fatalf("failed to instantiate: %v", err)
 	}
-	
+
 	if instance == nil {
 		t.Fatal("expected instance, got nil")
 	}
-	
+
 	if instance.Playbook.ID != "refactor" {
 		t.Errorf("expected refactor playbook, got %s", instance.Playbook.ID)
 	}
-	
+
 	// Verify variables were resolved
 	foundResolved := false
 	for _, step := range instance.Steps {
@@ -502,7 +502,7 @@ func TestRegistryInstantiatePlaybook(t *testing.T) {
 
 func TestRegistryInstantiateNotFound(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	_, err := registry.InstantiatePlaybook(context.Background(), "nonexistent", nil)
 	if err == nil {
 		t.Error("expected error for nonexistent playbook")
@@ -511,27 +511,27 @@ func TestRegistryInstantiateNotFound(t *testing.T) {
 
 func TestRegistryGetStats(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	stats := registry.GetStats()
-	
+
 	if stats == nil {
 		t.Fatal("expected stats, got nil")
 	}
-	
+
 	total, ok := stats["total_playbooks"].(int)
 	if !ok {
 		t.Fatal("expected total_playbooks to be int")
 	}
-	
+
 	if total == 0 {
 		t.Error("expected at least one playbook")
 	}
-	
+
 	enabled, ok := stats["enabled_playbooks"].(int)
 	if !ok {
 		t.Fatal("expected enabled_playbooks to be int")
 	}
-	
+
 	if enabled == 0 {
 		t.Error("expected at least one enabled playbook")
 	}
@@ -539,9 +539,9 @@ func TestRegistryGetStats(t *testing.T) {
 
 func TestDefaultPlaybooksHaveRequiredFields(t *testing.T) {
 	registry := NewPlaybookRegistry()
-	
+
 	playbooks := registry.List()
-	
+
 	for _, p := range playbooks {
 		if p.ID == "" {
 			t.Error("playbook missing ID")
@@ -581,7 +581,7 @@ func TestPlaybookTypeConstants(t *testing.T) {
 		PlaybookTypeSecurity,
 		PlaybookTypeCustom,
 	}
-	
+
 	for _, pt := range types {
 		if pt == "" {
 			t.Error("playbook type should not be empty")
@@ -597,7 +597,7 @@ func TestInstanceStatusConstants(t *testing.T) {
 		InstanceStatusFailed,
 		InstanceStatusCancelled,
 	}
-	
+
 	for _, s := range statuses {
 		if s == "" {
 			t.Error("instance status should not be empty")
@@ -613,7 +613,7 @@ func TestStepStatusConstants(t *testing.T) {
 		PlaybookStepStatusFailed,
 		PlaybookStepStatusSkipped,
 	}
-	
+
 	for _, s := range statuses {
 		if s == "" {
 			t.Error("step status should not be empty")
@@ -648,7 +648,7 @@ func TestResolveVariables(t *testing.T) {
 			expected:  "Missing {{unknown}}",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		result := resolveVariables(tt.template, tt.variables)
 		if result != tt.expected {
@@ -660,65 +660,65 @@ func TestResolveVariables(t *testing.T) {
 func TestTask16FullIntegration(t *testing.T) {
 	// Create registry
 	registry := NewPlaybookRegistry()
-	
+
 	// Match a task to a playbook
 	task := "fix the authentication bug causing login failures"
 	playbook := registry.Match(task)
-	
+
 	if playbook == nil {
 		t.Fatal("expected to match a playbook for bug fix task")
 	}
-	
+
 	if playbook.ID != "fix-bug" {
 		t.Errorf("expected fix-bug playbook, got %s", playbook.ID)
 	}
-	
+
 	// Instantiate the playbook
 	variables := map[string]string{
-		"error_source":     "logs/auth.log",
-		"affected_files":   "auth/login.go",
+		"error_source":      "logs/auth.log",
+		"affected_files":    "auth/login.go",
 		"reproduce_command": "go test ./auth/...",
-		"test_target":      "./auth/...",
+		"test_target":       "./auth/...",
 	}
-	
+
 	instance, err := registry.InstantiatePlaybook(context.Background(), playbook.ID, variables)
 	if err != nil {
 		t.Fatalf("failed to instantiate playbook: %v", err)
 	}
-	
+
 	// Execute the playbook instance
 	instance.Start()
-	
+
 	// Simulate step execution
 	for i := 0; i < len(instance.Steps); i++ {
 		step := instance.GetCurrentStep()
 		if step == nil {
 			t.Fatalf("unexpected nil step at index %d", i)
 		}
-		
+
 		// Simulate execution
 		instance.MarkStepCompleted("completed successfully")
-		
+
 		if !instance.AdvanceStep() && i < len(instance.Steps)-1 {
 			t.Errorf("advance step returned false prematurely at step %d", i)
 		}
 	}
-	
+
 	// Verify completion
 	if !instance.IsComplete() {
 		t.Error("expected playbook instance to be complete")
 	}
-	
+
 	if instance.GetProgress() != 100.0 {
 		t.Errorf("expected 100%% progress, got %.0f%%", instance.GetProgress())
 	}
-	
+
 	// Get summary
 	summary := instance.GetSummary()
 	if summary == "" {
 		t.Error("expected non-empty summary")
 	}
-	
+
 	t.Logf("✅ Task 16: Agent Playbooks - Full integration PASSED")
 	t.Logf("Playbook: %s, Steps: %d, Final Status: %s", instance.Playbook.Name, len(instance.Steps), instance.Status)
 }

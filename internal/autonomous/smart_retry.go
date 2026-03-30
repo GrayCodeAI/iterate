@@ -12,27 +12,31 @@ import (
 
 // SmartRetry implements intelligent retry logic with pattern learning.
 type SmartRetry struct {
-	mu               sync.RWMutex
-	logger           interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Debug(msg string, args ...any) }
-	patterns         []*RetryPattern
-	history          *RetryHistory
-	strategies       map[string]RetryStrategy
-	maxAttempts      int
-	baseBackoff      time.Duration
-	maxBackoff       time.Duration
-	learningEnabled  bool
+	mu     sync.RWMutex
+	logger interface {
+		Info(msg string, args ...any)
+		Warn(msg string, args ...any)
+		Debug(msg string, args ...any)
+	}
+	patterns        []*RetryPattern
+	history         *RetryHistory
+	strategies      map[string]RetryStrategy
+	maxAttempts     int
+	baseBackoff     time.Duration
+	maxBackoff      time.Duration
+	learningEnabled bool
 }
 
 // RetryPattern represents a learned error pattern with retry metadata.
 type RetryPattern struct {
-	ID              string
-	RegexPattern    string
-	Category        ErrorCategory
-	AutoFixable     bool
-	FixHints        []string
-	SuccessRate     float64
-	AttemptCount    int
-	LastSeen        time.Time
+	ID                string
+	RegexPattern      string
+	Category          ErrorCategory
+	AutoFixable       bool
+	FixHints          []string
+	SuccessRate       float64
+	AttemptCount      int
+	LastSeen          time.Time
 	PreferredStrategy string
 }
 
@@ -40,25 +44,25 @@ type RetryPattern struct {
 type ErrorCategory string
 
 const (
-	CategoryBuildError     ErrorCategory = "build_error"
-	CategoryTestFailure    ErrorCategory = "test_failure"
-	CategoryRaceCondition  ErrorCategory = "race_condition"
-	CategoryTimeout        ErrorCategory = "timeout"
-	CategoryNetworkError   ErrorCategory = "network_error"
-	CategoryResourceError  ErrorCategory = "resource_error"
-	CategorySyntaxError    ErrorCategory = "syntax_error"
-	CategoryImportError    ErrorCategory = "import_error"
-	CategoryRuntimeError   ErrorCategory = "runtime_error"
-	CategoryUnknown        ErrorCategory = "unknown"
+	CategoryBuildError    ErrorCategory = "build_error"
+	CategoryTestFailure   ErrorCategory = "test_failure"
+	CategoryRaceCondition ErrorCategory = "race_condition"
+	CategoryTimeout       ErrorCategory = "timeout"
+	CategoryNetworkError  ErrorCategory = "network_error"
+	CategoryResourceError ErrorCategory = "resource_error"
+	CategorySyntaxError   ErrorCategory = "syntax_error"
+	CategoryImportError   ErrorCategory = "import_error"
+	CategoryRuntimeError  ErrorCategory = "runtime_error"
+	CategoryUnknown       ErrorCategory = "unknown"
 )
 
 // RetryStrategy defines how retries should be attempted.
 type RetryStrategy struct {
-	Name           string
-	MaxAttempts    int
-	BackoffFactor  float64
-	JitterEnabled  bool
-	FixActions     []FixAction
+	Name          string
+	MaxAttempts   int
+	BackoffFactor float64
+	JitterEnabled bool
+	FixActions    []FixAction
 }
 
 // FixAction represents a potential fix to try.
@@ -74,12 +78,12 @@ type FixAction struct {
 type FixActionType string
 
 const (
-	FixTypeImport    FixActionType = "import"
-	FixTypeFormat    FixActionType = "format"
-	FixTypeLint      FixActionType = "lint"
-	FixTypeRebuild   FixActionType = "rebuild"
-	FixTypeClean     FixActionType = "clean"
-	FixTypeWait      FixActionType = "wait"
+	FixTypeImport      FixActionType = "import"
+	FixTypeFormat      FixActionType = "format"
+	FixTypeLint        FixActionType = "lint"
+	FixTypeRebuild     FixActionType = "rebuild"
+	FixTypeClean       FixActionType = "clean"
+	FixTypeWait        FixActionType = "wait"
 	FixTypeAlternative FixActionType = "alternative"
 )
 
@@ -92,26 +96,26 @@ type RetryHistory struct {
 
 // RetryAttempt records a single retry attempt.
 type RetryAttempt struct {
-	Timestamp   time.Time
-	TaskID      string
-	Error       string
-	Category    ErrorCategory
-	AttemptNum  int
-	Success     bool
-	FixApplied  string
-	Duration    time.Duration
-	NextDelay   time.Duration
+	Timestamp  time.Time
+	TaskID     string
+	Error      string
+	Category   ErrorCategory
+	AttemptNum int
+	Success    bool
+	FixApplied string
+	Duration   time.Duration
+	NextDelay  time.Duration
 }
 
 // PatternStats tracks statistics for a pattern.
 type PatternStats struct {
-	PatternID    string
-	TotalSeen    int
-	TotalFixed   int
-	TotalFailed  int
-	AvgAttempts  float64
-	LastFixed    time.Time
-	FixActions   map[string]int // fix description -> success count
+	PatternID   string
+	TotalSeen   int
+	TotalFixed  int
+	TotalFailed int
+	AvgAttempts float64
+	LastFixed   time.Time
+	FixActions  map[string]int // fix description -> success count
 }
 
 // RetryConfig configures the SmartRetry behavior.
@@ -159,7 +163,11 @@ func NewSmartRetry(config RetryConfig) *SmartRetry {
 }
 
 // SetLogger sets the logger for SmartRetry.
-func (sr *SmartRetry) SetLogger(logger interface{ Info(msg string, args ...any); Warn(msg string, args ...any); Debug(msg string, args ...any) }) {
+func (sr *SmartRetry) SetLogger(logger interface {
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Debug(msg string, args ...any)
+}) {
 	sr.mu.Lock()
 	sr.logger = logger
 	sr.mu.Unlock()
@@ -169,102 +177,102 @@ func (sr *SmartRetry) SetLogger(logger interface{ Info(msg string, args ...any);
 func DefaultRetryPatterns() []*RetryPattern {
 	return []*RetryPattern{
 		{
-			ID:           "undefined-identifier",
-			RegexPattern: `undefined:\s*(\w+)`,
-			Category:     CategoryBuildError,
-			AutoFixable:  true,
-			FixHints:     []string{"Check imports for $1", "Define identifier $1"},
-			SuccessRate:  0.85,
+			ID:                "undefined-identifier",
+			RegexPattern:      `undefined:\s*(\w+)`,
+			Category:          CategoryBuildError,
+			AutoFixable:       true,
+			FixHints:          []string{"Check imports for $1", "Define identifier $1"},
+			SuccessRate:       0.85,
 			PreferredStrategy: "import-fix",
 		},
 		{
-			ID:           "type-mismatch",
-			RegexPattern: `cannot use ([^\s]+) as type ([^\s]+)`,
-			Category:     CategoryBuildError,
-			AutoFixable:  true,
-			FixHints:     []string{"Convert $1 to $2", "Check type signature"},
-			SuccessRate:  0.70,
+			ID:                "type-mismatch",
+			RegexPattern:      `cannot use ([^\s]+) as type ([^\s]+)`,
+			Category:          CategoryBuildError,
+			AutoFixable:       true,
+			FixHints:          []string{"Convert $1 to $2", "Check type signature"},
+			SuccessRate:       0.70,
 			PreferredStrategy: "rebuild",
 		},
 		{
-			ID:           "unused-import",
-			RegexPattern: `imported and not used:\s*"([^"]+)"`,
-			Category:     CategoryImportError,
-			AutoFixable:  true,
-			FixHints:     []string{"Remove import $1", "Use imported package"},
-			SuccessRate:  0.95,
+			ID:                "unused-import",
+			RegexPattern:      `imported and not used:\s*"([^"]+)"`,
+			Category:          CategoryImportError,
+			AutoFixable:       true,
+			FixHints:          []string{"Remove import $1", "Use imported package"},
+			SuccessRate:       0.95,
 			PreferredStrategy: "lint",
 		},
 		{
-			ID:           "race-condition",
-			RegexPattern: `DATA RACE`,
-			Category:     CategoryRaceCondition,
-			AutoFixable:  true,
-			FixHints:     []string{"Add mutex synchronization", "Use atomic operations"},
-			SuccessRate:  0.60,
+			ID:                "race-condition",
+			RegexPattern:      `DATA RACE`,
+			Category:          CategoryRaceCondition,
+			AutoFixable:       true,
+			FixHints:          []string{"Add mutex synchronization", "Use atomic operations"},
+			SuccessRate:       0.60,
 			PreferredStrategy: "alternative",
 		},
 		{
-			ID:           "nil-pointer",
-			RegexPattern: `nil pointer dereference`,
-			Category:     CategoryRuntimeError,
-			AutoFixable:  true,
-			FixHints:     []string{"Add nil check", "Initialize pointer"},
-			SuccessRate:  0.75,
+			ID:                "nil-pointer",
+			RegexPattern:      `nil pointer dereference`,
+			Category:          CategoryRuntimeError,
+			AutoFixable:       true,
+			FixHints:          []string{"Add nil check", "Initialize pointer"},
+			SuccessRate:       0.75,
 			PreferredStrategy: "rebuild",
 		},
 		{
-			ID:           "panic",
-			RegexPattern: `panic:\s*([^\n]+)`,
-			Category:     CategoryRuntimeError,
-			AutoFixable:  true,
-			FixHints:     []string{"Add recovery handling", "Fix root cause: $1"},
-			SuccessRate:  0.65,
+			ID:                "panic",
+			RegexPattern:      `panic:\s*([^\n]+)`,
+			Category:          CategoryRuntimeError,
+			AutoFixable:       true,
+			FixHints:          []string{"Add recovery handling", "Fix root cause: $1"},
+			SuccessRate:       0.65,
 			PreferredStrategy: "rebuild",
 		},
 		{
-			ID:           "test-failure",
-			RegexPattern: `--- FAIL:\s*([^\s]+)`,
-			Category:     CategoryTestFailure,
-			AutoFixable:  false,
-			FixHints:     []string{"Review test output", "Check test assertions"},
-			SuccessRate:  0.50,
+			ID:                "test-failure",
+			RegexPattern:      `--- FAIL:\s*([^\s]+)`,
+			Category:          CategoryTestFailure,
+			AutoFixable:       false,
+			FixHints:          []string{"Review test output", "Check test assertions"},
+			SuccessRate:       0.50,
 			PreferredStrategy: "rebuild",
 		},
 		{
-			ID:           "timeout",
-			RegexPattern: `timeout|context deadline exceeded`,
-			Category:     CategoryTimeout,
-			AutoFixable:  true,
-			FixHints:     []string{"Increase timeout", "Optimize slow operation"},
-			SuccessRate:  0.55,
+			ID:                "timeout",
+			RegexPattern:      `timeout|context deadline exceeded`,
+			Category:          CategoryTimeout,
+			AutoFixable:       true,
+			FixHints:          []string{"Increase timeout", "Optimize slow operation"},
+			SuccessRate:       0.55,
 			PreferredStrategy: "wait",
 		},
 		{
-			ID:           "syntax-error",
-			RegexPattern: `syntax error`,
-			Category:     CategorySyntaxError,
-			AutoFixable:  true,
-			FixHints:     []string{"Fix syntax", "Check for missing brackets/braces"},
-			SuccessRate:  0.90,
+			ID:                "syntax-error",
+			RegexPattern:      `syntax error`,
+			Category:          CategorySyntaxError,
+			AutoFixable:       true,
+			FixHints:          []string{"Fix syntax", "Check for missing brackets/braces"},
+			SuccessRate:       0.90,
 			PreferredStrategy: "format",
 		},
 		{
-			ID:           "file-not-found",
-			RegexPattern: `no such file or directory`,
-			Category:     CategoryResourceError,
-			AutoFixable:  false,
-			FixHints:     []string{"Create missing file", "Check file path"},
-			SuccessRate:  0.40,
+			ID:                "file-not-found",
+			RegexPattern:      `no such file or directory`,
+			Category:          CategoryResourceError,
+			AutoFixable:       false,
+			FixHints:          []string{"Create missing file", "Check file path"},
+			SuccessRate:       0.40,
 			PreferredStrategy: "alternative",
 		},
 		{
-			ID:           "network-error",
-			RegexPattern: `connection refused|network unreachable|dial tcp`,
-			Category:     CategoryNetworkError,
-			AutoFixable:  true,
-			FixHints:     []string{"Wait and retry", "Check network connectivity"},
-			SuccessRate:  0.70,
+			ID:                "network-error",
+			RegexPattern:      `connection refused|network unreachable|dial tcp`,
+			Category:          CategoryNetworkError,
+			AutoFixable:       true,
+			FixHints:          []string{"Wait and retry", "Check network connectivity"},
+			SuccessRate:       0.70,
 			PreferredStrategy: "wait",
 		},
 	}
@@ -359,7 +367,7 @@ func (sr *SmartRetry) ExecuteWithRetry(ctx context.Context, taskID string, fn fu
 
 	for attempt := 1; attempt <= sr.maxAttempts; attempt++ {
 		result.Attempts = attempt
-		
+
 		err := fn()
 		if err == nil {
 			result.Success = true
@@ -374,7 +382,7 @@ func (sr *SmartRetry) ExecuteWithRetry(ctx context.Context, taskID string, fn fu
 		// Analyze error
 		matchedPatterns := sr.matchPatterns(errorMsg)
 		category := sr.categorizeError(errorMsg, matchedPatterns)
-		
+
 		if len(matchedPatterns) > 0 {
 			for _, p := range matchedPatterns {
 				result.Patterns = append(result.Patterns, p.ID)
@@ -516,7 +524,7 @@ func (sr *SmartRetry) calculateBackoff(attempt int, strategy *RetryStrategy) tim
 
 	// Exponential backoff
 	delay := time.Duration(float64(baseBackoff) * pow(factor, float64(attempt-1)))
-	
+
 	// Cap at max
 	if delay > sr.maxBackoff {
 		delay = sr.maxBackoff
@@ -525,7 +533,7 @@ func (sr *SmartRetry) calculateBackoff(attempt int, strategy *RetryStrategy) tim
 	// Add jitter
 	if strategy != nil && strategy.JitterEnabled {
 		jitter := time.Duration(float64(delay) * 0.1)
-		delay = delay + time.Duration(float64(jitter) * (float64(time.Now().UnixNano()%1000) / 1000.0))
+		delay = delay + time.Duration(float64(jitter)*(float64(time.Now().UnixNano()%1000)/1000.0))
 	}
 
 	return delay

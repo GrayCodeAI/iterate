@@ -16,13 +16,13 @@ import (
 
 // MentionConfig holds configuration for mention matching.
 type MentionConfig struct {
-	MaxResults       int           `json:"max_results"`        // Max results per query
-	MinScore         float64       `json:"min_score"`          // Minimum fuzzy match score (0-1)
-	FuzzyThreshold   float64       `json:"fuzzy_threshold"`    // Threshold for fuzzy matching
-	IncludeHidden    bool          `json:"include_hidden"`     // Include hidden files
-	CacheTTL         time.Duration `json:"cache_ttl"`          // Cache time-to-live
-	PreferRecent     bool          `json:"prefer_recent"`      // Prefer recently accessed files
-	PreferOpenFiles  bool          `json:"prefer_open_files"`  // Prefer currently open files
+	MaxResults      int           `json:"max_results"`       // Max results per query
+	MinScore        float64       `json:"min_score"`         // Minimum fuzzy match score (0-1)
+	FuzzyThreshold  float64       `json:"fuzzy_threshold"`   // Threshold for fuzzy matching
+	IncludeHidden   bool          `json:"include_hidden"`    // Include hidden files
+	CacheTTL        time.Duration `json:"cache_ttl"`         // Cache time-to-live
+	PreferRecent    bool          `json:"prefer_recent"`     // Prefer recently accessed files
+	PreferOpenFiles bool          `json:"prefer_open_files"` // Prefer currently open files
 }
 
 // DefaultMentionConfig returns default configuration.
@@ -44,7 +44,7 @@ type MentionMatch struct {
 	Name          string    `json:"name"`
 	Type          string    `json:"type"` // "file", "folder", "symbol"
 	Score         float64   `json:"score"`
-	MatchType     string    `json:"match_type"` // "exact", "prefix", "fuzzy", "basename"
+	MatchType     string    `json:"match_type"`               // "exact", "prefix", "fuzzy", "basename"
 	MatchedRanges []int     `json:"matched_ranges,omitempty"` // [start, end] pairs
 	LastAccessed  time.Time `json:"last_accessed,omitempty"`
 	IsOpen        bool      `json:"is_open,omitempty"`
@@ -60,19 +60,19 @@ type MentionResult struct {
 
 // MentionMatcher handles fuzzy matching for @ mentions.
 type MentionMatcher struct {
-	config     *MentionConfig
-	logger     *slog.Logger
-	mu         sync.RWMutex
-	
+	config *MentionConfig
+	logger *slog.Logger
+	mu     sync.RWMutex
+
 	// File index
-	files        map[string]*FileInfo
-	recentFiles  []string
-	openFiles    map[string]bool
-	
+	files       map[string]*FileInfo
+	recentFiles []string
+	openFiles   map[string]bool
+
 	// Cache
-	queryCache   map[string]*MentionResult
-	cacheExpiry  time.Time
-	
+	queryCache  map[string]*MentionResult
+	cacheExpiry time.Time
+
 	// Symbol index for faster lookups
 	basenameIndex map[string][]string // basename -> full paths
 }
@@ -96,7 +96,7 @@ func NewMentionMatcher(config *MentionConfig, logger *slog.Logger) *MentionMatch
 	if config == nil {
 		config = DefaultMentionConfig()
 	}
-	
+
 	return &MentionMatcher{
 		config:        config,
 		logger:        logger.With("component", "mention_matcher"),
@@ -111,11 +111,11 @@ func NewMentionMatcher(config *MentionConfig, logger *slog.Logger) *MentionMatch
 func (mm *MentionMatcher) IndexFiles(files []string) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	
+
 	// Clear existing index
 	mm.files = make(map[string]*FileInfo)
 	mm.basenameIndex = make(map[string][]string)
-	
+
 	for _, path := range files {
 		info := &FileInfo{
 			Path:     path,
@@ -123,16 +123,16 @@ func (mm *MentionMatcher) IndexFiles(files []string) {
 			Ext:      filepath.Ext(path),
 			Dir:      filepath.Dir(path),
 		}
-		
+
 		// Check if hidden
 		info.IsHidden = strings.HasPrefix(info.Basename, ".")
-		
+
 		// Add to files map
 		mm.files[path] = info
-		
+
 		// Add to basename index
 		mm.basenameIndex[info.Basename] = append(mm.basenameIndex[info.Basename], path)
-		
+
 		// Add to recent files if applicable
 		if mm.config.PreferRecent {
 			mm.recentFiles = append(mm.recentFiles, path)
@@ -144,7 +144,7 @@ func (mm *MentionMatcher) IndexFiles(files []string) {
 func (mm *MentionMatcher) SetOpenFiles(files []string) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	
+
 	mm.openFiles = make(map[string]bool)
 	for _, f := range files {
 		mm.openFiles[f] = true
@@ -164,46 +164,46 @@ func (mm *MentionMatcher) SetRecentFiles(files []string) {
 // Match finds files matching the query.
 func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResult, error) {
 	start := time.Now()
-	
+
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	// Check cache
 	if result, ok := mm.queryCache[query]; ok && time.Now().Before(mm.cacheExpiry) {
 		return result, nil
 	}
-	
+
 	result := &MentionResult{
 		Query:   query,
 		Matches: make([]*MentionMatch, 0),
 	}
-	
+
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
 		return result, nil
 	}
-	
+
 	// Collect all matches
 	var matches []*MentionMatch
-	
+
 	for _, info := range mm.files {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		// Skip hidden files unless configured
 		if info.IsHidden && !mm.config.IncludeHidden {
 			continue
 		}
-		
+
 		match := mm.matchFile(query, info)
 		if match != nil && match.Score >= mm.config.MinScore {
 			matches = append(matches, match)
 		}
 	}
-	
+
 	// Sort by score (descending)
 	sort.Slice(matches, func(i, j int) bool {
 		// Prefer open files
@@ -222,20 +222,20 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 		}
 		return matches[i].Path < matches[j].Path
 	})
-	
+
 	// Limit results
 	if len(matches) > mm.config.MaxResults {
 		matches = matches[:mm.config.MaxResults]
 	}
-	
+
 	result.Matches = matches
 	result.Total = len(matches)
 	result.Duration = time.Since(start)
-	
+
 	// Cache result
 	mm.queryCache[query] = result
 	mm.cacheExpiry = time.Now().Add(mm.config.CacheTTL)
-	
+
 	return result, nil
 }
 
@@ -243,28 +243,28 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 func (mm *MentionMatcher) matchFile(query string, info *FileInfo) *MentionMatch {
 	basename := strings.ToLower(info.Basename)
 	path := strings.ToLower(info.Path)
-	
+
 	match := &MentionMatch{
-		Path:  info.Path,
-		Name:  info.Basename,
-		Type:  "file",
+		Path:   info.Path,
+		Name:   info.Basename,
+		Type:   "file",
 		IsOpen: mm.openFiles[info.Path],
 	}
-	
+
 	// 1. Exact match on basename
 	if basename == query {
 		match.Score = 1.0
 		match.MatchType = "exact"
 		return match
 	}
-	
+
 	// 2. Exact match on full path
 	if path == query {
 		match.Score = 0.95
 		match.MatchType = "exact"
 		return match
 	}
-	
+
 	// 3. Prefix match on basename
 	if strings.HasPrefix(basename, query) {
 		match.Score = 0.9
@@ -272,7 +272,7 @@ func (mm *MentionMatcher) matchFile(query string, info *FileInfo) *MentionMatch 
 		match.MatchedRanges = []int{0, len(query)}
 		return match
 	}
-	
+
 	// 4. Contains match on basename
 	if strings.Contains(basename, query) {
 		match.Score = 0.8
@@ -281,21 +281,21 @@ func (mm *MentionMatcher) matchFile(query string, info *FileInfo) *MentionMatch 
 		match.MatchedRanges = []int{idx, idx + len(query)}
 		return match
 	}
-	
+
 	// 5. Prefix match on path
 	if strings.HasPrefix(path, query) {
 		match.Score = 0.7
 		match.MatchType = "prefix"
 		return match
 	}
-	
+
 	// 6. Contains match on path
 	if strings.Contains(path, query) {
 		match.Score = 0.6
 		match.MatchType = "contains"
 		return match
 	}
-	
+
 	// 7. Fuzzy match on basename
 	if score, ranges := mm.fuzzyMatch(query, basename); score >= mm.config.FuzzyThreshold {
 		match.Score = score * 0.5 // Scale down fuzzy matches
@@ -303,7 +303,7 @@ func (mm *MentionMatcher) matchFile(query string, info *FileInfo) *MentionMatch 
 		match.MatchedRanges = ranges
 		return match
 	}
-	
+
 	return nil
 }
 
@@ -316,13 +316,13 @@ func (mm *MentionMatcher) fuzzyMatch(pattern, text string) (float64, []int) {
 	if len(pattern) > len(text) {
 		return 0, nil
 	}
-	
+
 	// Find consecutive matches for bonus scoring
 	patternIdx := 0
 	matchedIndices := make([]int, 0)
 	consecutive := 0
 	maxConsecutive := 0
-	
+
 	for i := 0; i < len(text) && patternIdx < len(pattern); i++ {
 		if text[i] == pattern[patternIdx] {
 			matchedIndices = append(matchedIndices, i)
@@ -335,25 +335,25 @@ func (mm *MentionMatcher) fuzzyMatch(pattern, text string) (float64, []int) {
 			consecutive = 0
 		}
 	}
-	
+
 	// Check if all pattern characters were matched
 	if patternIdx != len(pattern) {
 		return 0, nil
 	}
-	
+
 	// Calculate score
 	// Base score: proportion of pattern matched
 	baseScore := float64(len(matchedIndices)) / float64(len(pattern))
-	
+
 	// Bonus for consecutive matches
 	consecutiveBonus := float64(maxConsecutive) / float64(len(pattern)) * 0.3
-	
+
 	// Bonus for matching at start
 	startBonus := 0.0
 	if len(matchedIndices) > 0 && matchedIndices[0] == 0 {
 		startBonus = 0.2
 	}
-	
+
 	// Penalty for spread-out matches
 	spreadPenalty := 0.0
 	if len(matchedIndices) > 1 {
@@ -363,9 +363,9 @@ func (mm *MentionMatcher) fuzzyMatch(pattern, text string) (float64, []int) {
 			spreadPenalty = float64(spread) / float64(maxSpread) * 0.1
 		}
 	}
-	
+
 	score := baseScore + consecutiveBonus + startBonus - spreadPenalty
-	
+
 	// Clamp score to [0, 1]
 	if score > 1.0 {
 		score = 1.0
@@ -373,7 +373,7 @@ func (mm *MentionMatcher) fuzzyMatch(pattern, text string) (float64, []int) {
 	if score < 0 {
 		score = 0
 	}
-	
+
 	// Build ranges from matched indices
 	ranges := make([]int, 0)
 	if len(matchedIndices) > 0 {
@@ -390,7 +390,7 @@ func (mm *MentionMatcher) fuzzyMatch(pattern, text string) (float64, []int) {
 		}
 		ranges = append(ranges, start, end+1)
 	}
-	
+
 	return score, ranges
 }
 
@@ -400,7 +400,7 @@ func (mm *MentionMatcher) MatchByType(ctx context.Context, query string, mention
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Filter by type
 	filtered := make([]*MentionMatch, 0)
 	for _, m := range result.Matches {
@@ -408,7 +408,7 @@ func (mm *MentionMatcher) MatchByType(ctx context.Context, query string, mention
 			filtered = append(filtered, m)
 		}
 	}
-	
+
 	result.Matches = filtered
 	result.Total = len(filtered)
 	return result, nil
@@ -418,10 +418,10 @@ func (mm *MentionMatcher) MatchByType(ctx context.Context, query string, mention
 func (mm *MentionMatcher) GetSuggestions(prefix string, limit int) []string {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	suggestions := make([]string, 0)
 	prefix = strings.ToLower(prefix)
-	
+
 	// Check basename index first
 	for basename, paths := range mm.basenameIndex {
 		if strings.HasPrefix(strings.ToLower(basename), prefix) {
@@ -433,7 +433,7 @@ func (mm *MentionMatcher) GetSuggestions(prefix string, limit int) []string {
 			break
 		}
 	}
-	
+
 	return suggestions
 }
 
@@ -448,12 +448,12 @@ func (mm *MentionMatcher) ClearCache() {
 func (mm *MentionMatcher) GetStats() map[string]interface{} {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"indexed_files":  len(mm.files),
-		"open_files":     len(mm.openFiles),
-		"recent_files":   len(mm.recentFiles),
-		"cached_queries": len(mm.queryCache),
+		"indexed_files":    len(mm.files),
+		"open_files":       len(mm.openFiles),
+		"recent_files":     len(mm.recentFiles),
+		"cached_queries":   len(mm.queryCache),
 		"unique_basenames": len(mm.basenameIndex),
 	}
 }
@@ -469,17 +469,17 @@ func (mm *MentionMatcher) UpdateConfig(config *MentionConfig) {
 func (mm *MentionMatcher) ResolveMention(mention string) (string, bool) {
 	mm.mu.RLock()
 	defer mm.mu.RUnlock()
-	
+
 	// Direct path match
 	if _, ok := mm.files[mention]; ok {
 		return mention, true
 	}
-	
+
 	// Check basename index
 	if paths, ok := mm.basenameIndex[mention]; ok && len(paths) > 0 {
 		return paths[0], true
 	}
-	
+
 	// Try case-insensitive basename match
 	lowerMention := strings.ToLower(mention)
 	for basename, paths := range mm.basenameIndex {
@@ -487,26 +487,26 @@ func (mm *MentionMatcher) ResolveMention(mention string) (string, bool) {
 			return paths[0], true
 		}
 	}
-	
+
 	return "", false
 }
 
 // ToMarkdown generates a markdown representation of the mention result.
 func (r *MentionResult) ToMarkdown() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("### @ Mention Results\n\n")
 	sb.WriteString("Query: `")
 	sb.WriteString(r.Query)
 	sb.WriteString("` (")
 	sb.WriteString(r.Duration.String())
 	sb.WriteString(")\n\n")
-	
+
 	if len(r.Matches) == 0 {
 		sb.WriteString("No matches found.\n")
 		return sb.String()
 	}
-	
+
 	for _, m := range r.Matches {
 		sb.WriteString("- **")
 		sb.WriteString(m.Name)
@@ -522,6 +522,6 @@ func (r *MentionResult) ToMarkdown() string {
 			sb.WriteString("  📄 *open*\n")
 		}
 	}
-	
+
 	return sb.String()
 }
