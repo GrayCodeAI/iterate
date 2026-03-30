@@ -63,24 +63,58 @@ func gitStatus() (staged, unstaged int) {
 	if RepoPath == "" {
 		return 0, 0
 	}
-	// Count staged files (index vs HEAD)
-	out, err := exec.Command("git", "-C", RepoPath, "diff", "--cached", "--name-only").Output()
-	if err == nil {
+
+	type result struct {
+		count int
+		err   error
+	}
+
+	stagedCh := make(chan result, 1)
+	unstagedCh := make(chan result, 1)
+
+	// Count staged files (index vs HEAD) concurrently
+	go func() {
+		out, err := exec.Command("git", "-C", RepoPath, "diff", "--cached", "--name-only").Output()
+		if err != nil {
+			stagedCh <- result{err: err}
+			return
+		}
+		count := 0
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			if strings.TrimSpace(line) != "" {
-				staged++
+				count++
 			}
 		}
-	}
-	// Count unstaged files (working tree vs index)
-	out, err = exec.Command("git", "-C", RepoPath, "diff", "--name-only").Output()
-	if err == nil {
+		stagedCh <- result{count: count}
+	}()
+
+	// Count unstaged files (working tree vs index) concurrently
+	go func() {
+		out, err := exec.Command("git", "-C", RepoPath, "diff", "--name-only").Output()
+		if err != nil {
+			unstagedCh <- result{err: err}
+			return
+		}
+		count := 0
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			if strings.TrimSpace(line) != "" {
-				unstaged++
+				count++
 			}
 		}
+		unstagedCh <- result{count: count}
+	}()
+
+	// Collect results
+	stagedRes := <-stagedCh
+	unstagedRes := <-unstagedCh
+
+	if stagedRes.err == nil {
+		staged = stagedRes.count
 	}
+	if unstagedRes.err == nil {
+		unstaged = unstagedRes.count
+	}
+
 	return staged, unstaged
 }
 
