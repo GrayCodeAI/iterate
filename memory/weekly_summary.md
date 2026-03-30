@@ -1,10 +1,10 @@
 ## Weekly Summary — 2026-03-30
 
 ### Stats
-- **Commits this week:** 316
-- **Lines added:** 66855
-- **Lines removed:** 6813
-- **Test count:** 1989
+- **Commits this week:** 330
+- **Lines added:** 79645
+- **Lines removed:** 13142
+- **Test count:** 1992
 - **Journal entries:** 1
 
 ### Recent Activity
