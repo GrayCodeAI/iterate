@@ -191,10 +191,12 @@ log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
 # ── Request Rate Limiter ──
 # OpenRouter free tier: 20 requests/minute. We cap at 15 to leave headroom.
+# Each phase invocation makes ~3 internal API calls (health check + main + retry).
 REQUEST_COUNT=0
 REQUEST_WINDOW_START=$(date +%s)
 MAX_REQUESTS_PER_WINDOW=15
 WINDOW_DURATION=60
+ESTIMATED_CALLS_PER_PHASE=3
 
 check_rate_limit() {
   local now=$(date +%s)
@@ -212,6 +214,24 @@ check_rate_limit() {
     local wait=$(( WINDOW_DURATION - elapsed ))
     if [[ $wait -gt 0 ]]; then
       log "Rate limit approaching ($REQUEST_COUNT/$MAX_REQUESTS_PER_WINDOW) — waiting ${wait}s for window reset..."
+      sleep "$wait"
+      REQUEST_COUNT=0
+      REQUEST_WINDOW_START=$(date +%s)
+    fi
+  fi
+}
+
+# sleep_between_phases ensures we don't exceed 15 API calls per minute
+# by spacing out phase invocations based on estimated call count.
+sleep_between_phases() {
+  local now=$(date +%s)
+  local elapsed=$(( now - REQUEST_WINDOW_START ))
+  local projected=$(( REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE ))
+
+  if [[ $projected -gt $MAX_REQUESTS_PER_WINDOW ]]; then
+    local wait=$(( WINDOW_DURATION - elapsed ))
+    if [[ $wait -gt 0 ]]; then
+      log "Spreading requests: waiting ${wait}s to stay under ${MAX_REQUESTS_PER_WINDOW} req/min..."
       sleep "$wait"
       REQUEST_COUNT=0
       REQUEST_WINDOW_START=$(date +%s)
@@ -348,6 +368,7 @@ else
   if ! run_with_rotation "plan"; then
     log "WARNING: plan phase exited with error — checking for fallback"
   fi
+  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
 
   # Fallback plan if agent didn't create one
   if [[ ! -f "$PLAN_FILE" ]]; then
@@ -378,11 +399,49 @@ EOF
   fi
 
   # ── Phase 2: Implementation ──
+  sleep_between_phases
   log "Phase 2: Implementation..."
-  sleep 5  # Brief pause between phases
   if ! run_with_rotation "implement"; then
     log "WARNING: implement phase exited with error — continuing"
   fi
+  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
+  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
+
+  # Fallback plan if agent didn't create one
+  if [[ ! -f "$PLAN_FILE" ]]; then
+    log "Agent did not create SESSION_PLAN.md — writing fallback"
+    cat > "$PLAN_FILE" <<EOF
+## Session Plan
+
+Session Title: Day $DAY evolution — code quality and reliability
+
+### Task 1: Fix error handling gaps
+Files: cmd/iterate/, internal/
+Description: Find functions that ignore errors (using _ or not checking return values). Add proper error handling with descriptive messages. Write a test that validates the error path.
+
+### Task 2: Add missing tests
+Files: internal/
+Description: Find exported functions without corresponding tests. Write at least one test per function covering the happy path and one edge case.
+
+### Task 3: Clean up code smells
+Files: cmd/iterate/, internal/
+Description: Look for: defer in loops, unused variables/imports, hardcoded values that should be constants, missing context propagation. Fix one issue with a test.
+
+### Task 4: Improve documentation
+Files: cmd/iterate/, internal/
+Description: Add or improve Go doc comments on exported functions that are missing them. This is a lower-priority task.
+
+Criteria: Each task must modify at least one .go source file. Tests are encouraged but not mandatory for small fixes.
+EOF
+  fi
+
+  # ── Phase 2: Implementation ──
+  sleep_between_phases
+  log "Phase 2: Implementation..."
+  if ! run_with_rotation "implement"; then
+    log "WARNING: implement phase exited with error — continuing"
+  fi
+  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
 
   # Update DAY_COUNT before creating PR
   echo "$DAY" > "${REPOPATH}/DAY_COUNT"
@@ -406,11 +465,12 @@ EOF
   git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
 
   # ── Phase 3: Pull Request ──
+  sleep_between_phases
   log "Phase 3: Pull Request..."
-  sleep 5
   if ! run_with_rotation "pr"; then
     log "WARNING: PR phase exited with error — continuing"
   fi
+  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
 fi
 
 BRANCH="evolution/day-${DAY}"
@@ -419,8 +479,8 @@ PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq
 PIPELINE_OK=true
 
 # ── Phase 4: Review with Auto-Retry ──
+sleep_between_phases
 log "Phase 4: Review..."
-sleep 5
 
 REVIEW_RETRIES=0
 MAX_REVIEW_RETRIES=2
@@ -447,16 +507,23 @@ if [[ "$REVIEW_PASSED" == "false" ]]; then
 fi
 
 # ── Phase 5: Merge ──
+sleep_between_phases
 log "Phase 5: Merge..."
-sleep 5
 if ! run_with_rotation "merge"; then
   log "WARNING: merge phase failed — PR may still be open"
   PIPELINE_OK=false
 fi
 
 # ── Phase 6: Communication (always attempt, even if earlier phases failed) ──
+sleep_between_phases
 log "Phase 6: Communication..."
-sleep 5
+if ! run_with_rotation "communicate"; then
+  log "WARNING: communicate phase exited with error"
+fi
+
+# ── Phase 6: Communication (always attempt, even if earlier phases failed) ──
+sleep_between_phases
+log "Phase 6: Communication..."
 if ! run_with_rotation "communicate"; then
   log "WARNING: communicate phase exited with error"
 fi
