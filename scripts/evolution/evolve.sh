@@ -189,6 +189,36 @@ fi
 
 log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
+# ── Request Rate Limiter ──
+# OpenRouter free tier: 20 requests/minute. We cap at 15 to leave headroom.
+REQUEST_COUNT=0
+REQUEST_WINDOW_START=$(date +%s)
+MAX_REQUESTS_PER_WINDOW=15
+WINDOW_DURATION=60
+
+check_rate_limit() {
+  local now=$(date +%s)
+  local elapsed=$(( now - REQUEST_WINDOW_START ))
+
+  # Reset window if minute has passed
+  if [[ $elapsed -ge $WINDOW_DURATION ]]; then
+    REQUEST_COUNT=0
+    REQUEST_WINDOW_START=$now
+    return 0
+  fi
+
+  # Approaching limit — wait for window to reset
+  if [[ $REQUEST_COUNT -ge $MAX_REQUESTS_PER_WINDOW ]]; then
+    local wait=$(( WINDOW_DURATION - elapsed ))
+    if [[ $wait -gt 0 ]]; then
+      log "Rate limit approaching ($REQUEST_COUNT/$MAX_REQUESTS_PER_WINDOW) — waiting ${wait}s for window reset..."
+      sleep "$wait"
+      REQUEST_COUNT=0
+      REQUEST_WINDOW_START=$(date +%s)
+    fi
+  fi
+}
+
 run_with_rotation() {
   local phase="$1"
   local max_retries=3
@@ -205,12 +235,18 @@ run_with_rotation() {
   fi
 
   while [[ $attempt -le $max_retries ]]; do
+    # Check rate limit before each attempt
+    check_rate_limit
+
     log "Running phase $phase (attempt $attempt/$max_retries)..."
     log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-openrouter}"
 
     local phase_output
     phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
     local phase_exit=$?
+
+    # Count this as a request (each phase call makes multiple internal API calls)
+    REQUEST_COUNT=$((REQUEST_COUNT + 1))
 
     # Always log phase output for debugging
     if [[ -n "$phase_output" ]]; then
@@ -224,11 +260,13 @@ run_with_rotation() {
 
     log "Phase $phase failed (attempt $attempt/$max_retries)"
 
-    # Check if it's a rate limit error — wait 30s to clear per-minute window
+    # Check if it's a rate limit error — wait 60s to clear per-minute window
     if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
       if [[ $attempt -lt $max_retries ]]; then
-        log "Rate limited — waiting 30s before retry..."
-        sleep 30
+        log "Rate limited — waiting 60s before retry..."
+        sleep 60
+        REQUEST_COUNT=0
+        REQUEST_WINDOW_START=$(date +%s)
         continue
       fi
     fi
