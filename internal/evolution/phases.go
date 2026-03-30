@@ -384,11 +384,29 @@ Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Descriptio
 		userMsg = strings.Replace(userMsg, "\n\n\n", "\n\n", 1)
 	}
 
+	// Track tool usage to ensure edit_file is actually used
+	toolUsage := make(map[string]int)
+
 	a := e.newAgent(p, tools, systemPrompt, skills)
 	var outputBuilder strings.Builder
 	var taskOutput string
 	var taskErr error
+
+	// Monitor events for tool calls
 	for ev := range a.Prompt(ctx, userMsg) {
+		if e.eventSink != nil {
+			select {
+			case e.eventSink <- ev:
+			default:
+			}
+		}
+
+		// Track tool usage from tool execution events
+		if ev.Type == "tool_execution" && ev.ToolName != "" {
+			toolUsage[ev.ToolName]++
+			e.logger.Info("tool executed", "tool", ev.ToolName, "task", task.Number)
+		}
+
 		if ev.Type == string(iteragent.EventMessageUpdate) {
 			outputBuilder.WriteString(ev.Content)
 		}
@@ -411,6 +429,13 @@ Begin NOW. Read files, find issues, and FIX THEM.`, task.Number, task.Descriptio
 		e.logger.Warn("task error", "number", task.Number, "err", taskErr)
 		_ = e.revert(ctx)
 		return false, fmt.Sprintf("Agent error: %s", taskErr)
+	}
+
+	// CRITICAL: Verify edit_file was actually used
+	if toolUsage["edit_file"] == 0 {
+		e.logger.Error("AGENT FAILED: Did not use edit_file tool", "number", task.Number, "tools_used", toolUsage)
+		_ = e.revert(ctx)
+		return false, "CRITICAL FAILURE: Agent did not use edit_file tool. Must use edit_file to fix bugs."
 	}
 
 	if violations, err := e.verifyProtected(ctx); err != nil {
