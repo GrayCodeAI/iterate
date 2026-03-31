@@ -312,20 +312,34 @@ func (e *Engine) runAgentAndCollectEvents(ctx context.Context, a *iteragent.Agen
 	eventCh := a.Prompt(ctx, userMessage)
 	var output string
 	var errs []string
-	for ev := range eventCh {
-		if e.eventSink != nil {
-			select {
-			case e.eventSink <- ev:
-			default:
+
+	// Guard against provider ignoring context cancellation
+	done := make(chan struct{})
+	go func() {
+		for ev := range eventCh {
+			if e.eventSink != nil {
+				select {
+				case e.eventSink <- ev:
+				default:
+				}
+			}
+			if ev.Type == string(iteragent.EventMessageEnd) {
+				output = ev.Content
+			}
+			if ev.Type == string(iteragent.EventError) {
+				errs = append(errs, ev.Content)
 			}
 		}
-		if ev.Type == string(iteragent.EventMessageEnd) {
-			output = ev.Content
-		}
-		if ev.Type == string(iteragent.EventError) {
-			errs = append(errs, ev.Content)
-		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		a.Finish()
+		return output, ctx.Err()
 	}
+
 	if len(errs) > 0 {
 		return output, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}

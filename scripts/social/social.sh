@@ -25,7 +25,7 @@ python3 scripts/build/format_discussions.py > "${REPOPATH}/.iterate/DISCUSSIONS_
 # Social session: read discussions, participate, extract learnings
 log "Running social session..."
 ./iterate --social --gh-owner GrayCodeAI --gh-repo iterate \
-  2>/dev/null || log "Social session completed with status $?"
+  2>>"$LOG_FILE" || log "Social session completed with status $?"
 
 # Synthesize social learnings into active context
 log "Synthesizing social learnings..."

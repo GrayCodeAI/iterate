@@ -578,6 +578,11 @@ func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]str
 	matches := jsonRe.FindAllString(output, -1)
 
 	for _, match := range matches {
+		// Validate it's proper JSON before processing
+		var raw json.RawMessage
+		if err := json.Unmarshal([]byte(match), &raw); err != nil {
+			continue
+		}
 		// Try to parse as tool call
 		var toolCall map[string]interface{}
 		if err := json.Unmarshal([]byte(match), &toolCall); err != nil {

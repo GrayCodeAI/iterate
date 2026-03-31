@@ -24,11 +24,17 @@ func contextStats(messages []iteragent.Message) string {
 		totalChars += len(m.Content)
 	}
 	approxTokens := totalChars / 4
-	pct := float64(approxTokens) / float64(highlight.ContextWindow) * 100 // assume 200k context window
+	win := highlight.ContextWindow
+	if win == 0 {
+		win = 200000
+	}
+	pct := float64(approxTokens) / float64(win) * 100
 	return fmt.Sprintf("Messages: %d  |  ~%d tokens  |  ~%.0f%% of context window",
 		len(messages), approxTokens, pct)
 }
 
+// ---------------------------------------------------------------------------
+// /export — export conversation to markdown
 // ---------------------------------------------------------------------------
 // /export — export conversation to markdown
 // ---------------------------------------------------------------------------

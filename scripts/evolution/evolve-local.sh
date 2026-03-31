@@ -40,11 +40,11 @@ fi
 echo "▶ Starting evolution..."
 
 if [ -n "$PHASE" ]; then
-    go run ./cmd/iterate/... --phase "$PHASE" ${ISSUES_FLAGS:-}
+    go run ./cmd/iterate --phase "$PHASE" ${ISSUES_FLAGS:-}
 else
     # Full 3-phase cycle.
     echo "  Phase A: Planning..."
-    go run ./cmd/iterate/... --phase plan ${ISSUES_FLAGS:-}
+    go run ./cmd/iterate --phase plan ${ISSUES_FLAGS:-}
 
     echo "  Phase B: Implementation..."
     go run ./cmd/iterate/... --phase implement ${ISSUES_FLAGS:-}
