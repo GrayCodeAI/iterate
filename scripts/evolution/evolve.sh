@@ -186,7 +186,6 @@ run_with_rotation() {
           log "Rate limited — all keys and models exhausted, waiting 30s..."
           sleep 30
         fi
-        continue
       fi
     else
       # Non-rate-limit failure — rotate model and retry
@@ -197,7 +196,6 @@ run_with_rotation() {
           log "Retrying phase $phase in 10s..."
           sleep 10
         fi
-        continue
       fi
     fi
     ((attempt++))
