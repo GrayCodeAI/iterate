@@ -64,9 +64,9 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	}
 	e.logger.Info("created feature branch", "branch", branchName)
 
-	// Push with lease; fall back to a plain push on failure.
+	// Push the branch to remote.
 	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("git push -u origin %q --force-with-lease 2>/dev/null || git push -u origin %q", branchName, branchName),
+		"cmd": fmt.Sprintf("git push -u origin %s", branchName),
 	}); err != nil {
 		return fmt.Errorf("failed to push branch: %w (output: %s)", err, out)
 	}
