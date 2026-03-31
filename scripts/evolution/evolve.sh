@@ -350,11 +350,6 @@ EOF
     log "WARNING: implement phase exited with error — continuing"
   fi
 
-  # Update DAY_COUNT before creating PR
-  echo "$DAY" > "${REPOPATH}/DAY_COUNT"
-  git add DAY_COUNT 2>/dev/null || true
-  git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
-
   # ── Track coverage and generate stats before PR ──
   log "Tracking test coverage..."
   python3 scripts/build/track_coverage.py . 2>/dev/null || true
@@ -424,30 +419,11 @@ if ! run_with_rotation "communicate"; then
 fi
 
 # ── Verify journal was written ──
+# After merge we're on main — write journal and DAY_COUNT directly
 if grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  log "Journal entry written for Day $DAY"
+  log "Journal entry already written for Day $DAY"
 else
-  log "WARNING: No journal entry found for Day $DAY — writing fallback"
-  SESSION_TIME_NOW=$(date -u +'%H:%M')
-  cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
-
-## Day ${DAY} — ${SESSION_TIME_NOW} — Evolution session completed
-
-Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
-JEOF
-  git add docs/JOURNAL.md 2>/dev/null || true
-  git diff --cached --quiet || git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
-fi
-
-# ── Ensure journal entry is on main ──
-# The communicate phase writes on the feature branch, but squash merge may not
-# include the journal commit. Push it directly to main to guarantee persistence.
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-git checkout main 2>/dev/null || true
-git pull origin main 2>/dev/null || true
-
-if ! grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  log "Journal entry missing on main — writing directly"
+  log "Writing journal entry for Day $DAY"
   SESSION_TIME_NOW=$(date -u +'%H:%M')
   cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
 
@@ -456,40 +432,50 @@ if ! grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
 Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
 JEOF
 fi
+
 git add docs/JOURNAL.md 2>/dev/null || true
 git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
-git push origin main 2>/dev/null || log "WARNING: failed to push journal to main"
 
-# Switch back to the feature branch for remaining cleanup
-if [[ "$CURRENT_BRANCH" != "main" && -n "$CURRENT_BRANCH" ]]; then
-  git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+# ── Increment DAY_COUNT ──
+DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
+CURRENT_DAY=0
+if [[ -f "$DAY_COUNT_FILE" ]]; then
+  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
+  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
+    CURRENT_DAY=0
+  fi
 fi
+NEXT_DAY=$((CURRENT_DAY + 1))
+echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
+log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
 
-# ── Ensure journal entry is on main ──
-# The communicate phase writes on the feature branch, but squash merge may not
-# include the journal commit. Push it directly to main to guarantee persistence.
-CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-git checkout main 2>/dev/null || true
-git pull origin main 2>/dev/null || true
+git add "$DAY_COUNT_FILE" 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
 
-if ! grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  log "Journal entry missing on main — writing directly"
-  SESSION_TIME_NOW=$(date -u +'%H:%M')
-  cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
+# Push journal and DAY_COUNT to main
+git push origin main 2>/dev/null || log "WARNING: failed to push journal/DAY_COUNT to main"
 
-## Day ${DAY} — ${SESSION_TIME_NOW} — Evolution session completed
-
-Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
-JEOF
-fi
 git add docs/JOURNAL.md 2>/dev/null || true
 git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
-git push origin main 2>/dev/null || log "WARNING: failed to push journal to main"
 
-# Switch back to the feature branch for remaining cleanup
-if [[ "$CURRENT_BRANCH" != "main" && -n "$CURRENT_BRANCH" ]]; then
-  git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+# ── Increment DAY_COUNT ──
+DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
+CURRENT_DAY=0
+if [[ -f "$DAY_COUNT_FILE" ]]; then
+  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
+  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
+    CURRENT_DAY=0
+  fi
 fi
+NEXT_DAY=$((CURRENT_DAY + 1))
+echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
+log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
+
+git add "$DAY_COUNT_FILE" 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
+
+# Push journal and DAY_COUNT to main
+git push origin main 2>/dev/null || log "WARNING: failed to push journal/DAY_COUNT to main"
 
 # ── Cleanup stale branches ──
 log "Cleaning up old evolution branches..."
@@ -524,44 +510,6 @@ if [[ -f "$PLAN_FILE" ]]; then
   git diff --cached --quiet || git commit -m "chore: cleanup SESSION_PLAN.md after evolution" 2>/dev/null || true
   git push origin "$BRANCH" 2>/dev/null || true
 fi
-
-# ── Increment DAY_COUNT for next session ──
-DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
-CURRENT_DAY=0
-if [[ -f "$DAY_COUNT_FILE" ]]; then
-  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
-  # Validate it's a number
-  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
-    CURRENT_DAY=0
-  fi
-fi
-NEXT_DAY=$((CURRENT_DAY + 1))
-echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
-log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
-
-# Push DAY_COUNT change to main
-git add "$DAY_COUNT_FILE" 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
-git push origin main 2>/dev/null || log "WARNING: failed to push DAY_COUNT update"
-
-# ── Increment DAY_COUNT for next session ──
-DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
-CURRENT_DAY=0
-if [[ -f "$DAY_COUNT_FILE" ]]; then
-  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
-  # Validate it's a number
-  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
-    CURRENT_DAY=0
-  fi
-fi
-NEXT_DAY=$((CURRENT_DAY + 1))
-echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
-log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
-
-# Push DAY_COUNT change to main
-git add "$DAY_COUNT_FILE" 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
-git push origin main 2>/dev/null || log "WARNING: failed to push DAY_COUNT update"
 
 # ── Discord Success Notification ──
 JOURNAL_ENTRY=$(grep -A3 "## Day ${DAY}" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
