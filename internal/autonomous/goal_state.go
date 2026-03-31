@@ -76,11 +76,12 @@ type Milestone struct {
 
 // GoalTracker manages goal states for autonomous operations.
 type GoalTracker struct {
-	mu         sync.RWMutex
-	goals      map[string]*GoalState
-	activeGoal *GoalState
-	maxRetries int
-	history    []*GoalState
+	mu          sync.RWMutex
+	goals       map[string]*GoalState
+	activeGoal  *GoalState
+	maxRetries  int
+	history     []*GoalState
+	goalCounter int64
 }
 
 // GoalTrackerConfig holds configuration for the goal tracker.
@@ -113,9 +114,10 @@ func (gt *GoalTracker) CreateGoal(name string, description string, priority Goal
 	gt.mu.Lock()
 	defer gt.mu.Unlock()
 
+	gt.goalCounter++
 	now := time.Now().Unix()
 	goal := &GoalState{
-		ID:                fmt.Sprintf("goal_%d_%d", time.Now().UnixNano(), len(gt.goals)),
+		ID:                fmt.Sprintf("goal_%d", gt.goalCounter),
 		Name:              name,
 		Description:       description,
 		Priority:          priority,
@@ -203,8 +205,9 @@ func (gt *GoalTracker) AddMilestone(goalID string, name string, description stri
 		return nil, fmt.Errorf("goal %s not found", goalID)
 	}
 
+	gt.goalCounter++
 	milestone := Milestone{
-		ID:          fmt.Sprintf("ms_%d", time.Now().UnixNano()),
+		ID:          fmt.Sprintf("ms_%d", gt.goalCounter),
 		Name:        name,
 		Description: description,
 		Completed:   false,
