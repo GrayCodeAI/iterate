@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-BIRTH_DATE = datetime(2026, 3, 23)
+BIRTH_DATE = datetime(2026, 3, 31)
 try:
     bf = ROOT / "BIRTH_DATE"
     if bf.exists():
@@ -173,7 +173,7 @@ BENTO_CELLS = [
             '  <span class="fn">review</span>(ctx)      <span class="cm">// ④ second agent reads diff</span>\n'
             '  <span class="fn">merge</span>(ctx)       <span class="cm">// ⑤ merge if green</span>\n'
             '  <span class="fn">communicate</span>(ctx)  <span class="cm">// ⑥ reply + journal</span>\n'
-            '}'
+            "}"
             "</div>"
         ),
         "wide": True,
@@ -303,7 +303,8 @@ def main():
     gh = GITHUB_REPOSITORY
 
     journal_nav_link = '<a href="#journal">Journal</a>' if journal_html else ""
-    journal_section = f"""<section id="journal">
+    journal_section = (
+        f"""<section id="journal">
     <div class="section-head">
       <span class="section-label">journal</span>
       <div class="section-rule"></div>
@@ -313,7 +314,10 @@ def main():
     <div class="journal-list">
 {journal_html}
     </div>
-  </section>""" if journal_html else ""
+  </section>"""
+        if journal_html
+        else ""
+    )
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
