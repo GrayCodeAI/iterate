@@ -178,11 +178,14 @@ func CreateDiscussion(ctx context.Context, owner, repo, category, title, body st
 	`
 
 	repoID := fmt.Sprintf("R_repo:%s/%s", owner, repo)
-	_ = category
+	categoryID := category
+	if categoryID == "" {
+		categoryID = "DIC_kwDOJ4DmMc4B_2_p" // default: General
+	}
 
 	_, err := runGraphQLRequest(ctx, token, mutation, map[string]interface{}{
 		"repoId":     repoID,
-		"categoryId": "DIC_kwDOJ4DmMc4B_2_p",
+		"categoryId": categoryID,
 		"title":      title,
 		"body":       body,
 	})

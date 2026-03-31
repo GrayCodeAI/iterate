@@ -25,7 +25,10 @@ var spinnerActive atomic.Int32
 
 // spinnerQuiet is closed by the spinner goroutine when it finishes clearing
 // the terminal line. Safe-mode prompts wait on this instead of busy-looping.
-var spinnerQuiet = make(chan struct{})
+var (
+	spinnerQuiet   = make(chan struct{})
+	spinnerQuietMu sync.RWMutex
+)
 
 func init() {
 	// Start closed so the first prompt doesn't block if no spinner ever ran.
@@ -35,8 +38,10 @@ func init() {
 // notifySpinnerQuiet replaces spinnerQuiet with a new open channel, then
 // closes the old one so any waiters unblock. Called by the spinner when done.
 func notifySpinnerQuiet() {
+	spinnerQuietMu.Lock()
 	old := spinnerQuiet
 	spinnerQuiet = make(chan struct{})
+	spinnerQuietMu.Unlock()
 	select {
 	case <-old:
 	default:
@@ -47,8 +52,11 @@ func notifySpinnerQuiet() {
 // waitForSpinner blocks until the spinner has stopped and cleared the line,
 // or until 500 ms have elapsed (so a stuck spinner never deadlocks a prompt).
 func waitForSpinner() {
+	spinnerQuietMu.RLock()
+	ch := spinnerQuiet
+	spinnerQuietMu.RUnlock()
 	select {
-	case <-spinnerQuiet:
+	case <-ch:
 	case <-time.After(500 * time.Millisecond):
 	}
 }

@@ -188,8 +188,13 @@ func (m *EmergencyStopManager) Trigger(reason EmergencyStopReason, severity Emer
 		m.logger.Warn("Alert channel full, notification may be delayed")
 	}
 
-	// Close stop channel to signal all listeners
-	close(m.stopChan)
+	// Close stop channel to signal all listeners (guard against double-close)
+	select {
+	case <-m.stopChan:
+		// already closed
+	default:
+		close(m.stopChan)
+	}
 
 	// Trigger engine stop if linked
 	if m.engine != nil {

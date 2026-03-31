@@ -301,8 +301,15 @@ func (s *Sandbox) ExecuteWithOutput(ctx context.Context, command string, args ..
 	var outputBuilder strings.Builder
 	outputChan := make(chan string, 100)
 
-	go s.streamOutput(stdout, outputChan)
-	go s.streamOutput(stderr, outputChan)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go s.streamOutput(stdout, outputChan, &wg)
+	go s.streamOutput(stderr, outputChan, &wg)
+
+	go func() {
+		wg.Wait()
+		close(outputChan)
+	}()
 
 	go func() {
 		for line := range outputChan {
@@ -526,8 +533,8 @@ func (s *Sandbox) cleanupContainer(ctx context.Context) {
 }
 
 // streamOutput streams output from a reader.
-func (s *Sandbox) streamOutput(reader io.Reader, outputChan chan<- string) {
-	defer close(outputChan)
+func (s *Sandbox) streamOutput(reader io.Reader, outputChan chan<- string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		outputChan <- scanner.Text() + "\n"

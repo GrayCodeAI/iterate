@@ -110,7 +110,7 @@ func (e *Engine) runGHCommandWithBackoff(ctx context.Context, args []string) (st
 	const maxRetries = 4
 	wait := 30 * time.Second
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		cmd := exec.Command("gh", args...)
+		cmd := exec.CommandContext(ctx, "gh", args...)
 		cmd.Dir = e.repoPath
 		outBytes, err := cmd.CombinedOutput()
 		out := strings.TrimSpace(string(outBytes))

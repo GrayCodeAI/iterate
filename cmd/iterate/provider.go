@@ -77,6 +77,7 @@ func runProviderHealthCheck(p iteragent.Provider, logger *slog.Logger) {
 	defer cancel()
 
 	ag := iteragent.New(p, nil, logger)
+	defer ag.Finish()
 	events := ag.Prompt(ctx, "ping")
 	for e := range events {
 		if iteragent.EventType(e.Type) == iteragent.EventError {
@@ -90,7 +91,6 @@ func runProviderHealthCheck(p iteragent.Provider, logger *slog.Logger) {
 		}
 		// Got any non-error event — provider is reachable.
 		if iteragent.EventType(e.Type) == iteragent.EventTokenUpdate {
-			ag.Finish()
 			return
 		}
 	}

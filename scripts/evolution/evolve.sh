@@ -52,14 +52,10 @@ send_discord_notification() {
   fi
 
   local payload
-  payload=$(jq -n \
-    --arg title "$title" \
-    --arg desc "$message" \
-    --arg status "$status" \
-    --arg pr "$pr_url" \
-    --argjson color "$color" \
-    --arg ts "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    '{embeds:[{title:$title,description:$desc,color:$color,timestamp:$ts,footer:{text:"iterate-evolve[bot]"}}]}' 2>/dev/null) || return 0
+  payload=$(python3 -c "
+import json,sys
+print(json.dumps({'embeds':[{'title':sys.argv[1],'description':sys.argv[2],'color':int(sys.argv[3]),'timestamp':sys.argv[4],'footer':{'text':'iterate-evolve[bot]'}}]}),
+  '$title','$message','$color','$(date -u +'%Y-%m-%dT%H:%M:%SZ')')" 2>/dev/null) || return 0
 
   curl -s -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
 }
@@ -97,7 +93,9 @@ acquire_lock
 log "=== iterate evolution cycle started ==="
 
 # ── API Key Rotation Setup ──
-API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}")
+API_KEYS=()
+[[ -n "${OPENCODE_API_KEY:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY")
+[[ -n "${OPENCODE_API_KEY_2:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY_2")
 CURRENT_KEY_INDEX=0
 
 rotate_api_key() {
@@ -126,21 +124,15 @@ run_with_rotation() {
   local max_retries=3
   local attempt=1
 
-  local model_arg=""
-  if [[ -n "$ITERATE_MODEL" ]]; then
-    model_arg="--model $ITERATE_MODEL"
-  fi
-
-  local provider_arg=""
-  if [[ -n "$ITERATE_PROVIDER" ]]; then
-    provider_arg="--provider $ITERATE_PROVIDER"
-  fi
+  local cmd_args=(./iterate --phase "$phase" --gh-owner "${GH_OWNER:-GrayCodeAI}" --gh-repo "${GH_REPO:-iterate}")
+  [[ -n "$ITERATE_MODEL" ]] && cmd_args+=(--model "$ITERATE_MODEL")
+  [[ -n "$ITERATE_PROVIDER" ]] && cmd_args+=(--provider "$ITERATE_PROVIDER")
 
   while [[ $attempt -le $max_retries ]]; do
     log "Running phase $phase (attempt $attempt/$max_retries)..."
 
     local phase_output
-    phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
+    phase_output=$("${cmd_args[@]}" 2>&1)
     local phase_exit=$?
 
     # Always log phase output
@@ -223,6 +215,10 @@ send_discord_notification "started" "Evolution Day $DAY starting"
 
 # ── Check CI status ──
 GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
+GH_OWNER="${GITHUB_REPOSITORY%%/*}"
+GH_REPO="${GITHUB_REPOSITORY#*/}"
+GH_OWNER="${GITHUB_REPOSITORY%%/*}"
+GH_REPO="${GITHUB_REPOSITORY#*/}"
 if command -v gh &>/dev/null; then
   LAST_CI=$(gh run list --repo "$GITHUB_REPO" --workflow ci.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo "")
   if [[ "$LAST_CI" == "failure" ]]; then
