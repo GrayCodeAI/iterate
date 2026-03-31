@@ -110,6 +110,12 @@ if [[ -n "${OPENROUTER_API_KEY:-}" ]] && [[ -z "${ITERATE_API_KEY:-}" ]]; then
   export ITERATE_API_KEY="$OPENROUTER_API_KEY"
 fi
 
+# Skip health checks to conserve API calls on rate-limited free tiers
+export ITERATE_SKIP_HEALTH_CHECK=1
+
+# Skip health checks to conserve API calls on rate-limited free tiers
+export ITERATE_SKIP_HEALTH_CHECK=1
+
 # Wire API key for iteragent's custom provider path (uses ITERATE_API_KEY)
 if [[ -n "${OPENROUTER_API_KEY:-}" ]] && [[ -z "${ITERATE_API_KEY:-}" ]]; then
   export ITERATE_API_KEY="$OPENROUTER_API_KEY"
@@ -191,12 +197,13 @@ log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
 
 # ── Request Rate Limiter ──
 # OpenRouter free tier: 20 requests/minute. We cap at 15 to leave headroom.
-# Each phase invocation makes ~3 internal API calls (health check + main + retry).
+# Each phase makes ~2 API calls (main + internal retries).
+# We spread phases across 30s intervals to stay under limit.
 REQUEST_COUNT=0
 REQUEST_WINDOW_START=$(date +%s)
 MAX_REQUESTS_PER_WINDOW=15
 WINDOW_DURATION=60
-ESTIMATED_CALLS_PER_PHASE=3
+ESTIMATED_CALLS_PER_PHASE=2
 
 check_rate_limit() {
   local now=$(date +%s)
@@ -214,6 +221,24 @@ check_rate_limit() {
     local wait=$(( WINDOW_DURATION - elapsed ))
     if [[ $wait -gt 0 ]]; then
       log "Rate limit approaching ($REQUEST_COUNT/$MAX_REQUESTS_PER_WINDOW) — waiting ${wait}s for window reset..."
+      sleep "$wait"
+      REQUEST_COUNT=0
+      REQUEST_WINDOW_START=$(date +%s)
+    fi
+  fi
+}
+
+# sleep_between_phases ensures we don't exceed 15 API calls per minute
+# by spacing out phase invocations based on estimated call count.
+sleep_between_phases() {
+  local now=$(date +%s)
+  local elapsed=$(( now - REQUEST_WINDOW_START ))
+  local projected=$(( REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE ))
+
+  if [[ $projected -gt $MAX_REQUESTS_PER_WINDOW ]]; then
+    local wait=$(( WINDOW_DURATION - elapsed ))
+    if [[ $wait -gt 0 ]]; then
+      log "Spreading requests: waiting ${wait}s to stay under ${MAX_REQUESTS_PER_WINDOW} req/min..."
       sleep "$wait"
       REQUEST_COUNT=0
       REQUEST_WINDOW_START=$(date +%s)

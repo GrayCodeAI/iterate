@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/provider"
@@ -26,6 +27,8 @@ func resolveThinkingLevel(flagThinking string, cfg iterConfig) string {
 // initProvider creates an LLM provider from the given name and API key.
 // It also wires the provider's context window into the selector for display,
 // and runs a background health check to surface auth errors early.
+// Health check is skipped in evolution mode (non-interactive) to avoid wasting
+// API calls on rate-limited free tiers.
 func initProvider(providerName, apiKey string, logger *slog.Logger) (iteragent.Provider, error) {
 	p, err := provider.New(providerName, apiKey)
 	if err != nil {
@@ -34,13 +37,16 @@ func initProvider(providerName, apiKey string, logger *slog.Logger) (iteragent.P
 	logger.Info("using provider", "name", p.Name())
 	selector.ContextWindow = provider.ContextWindow(p)
 
-	provider.RunHealthCheckInBackground(p, logger, func(err error) {
-		hint := provider.AuthErrorHint(err.Error())
-		fmt.Printf("\n%s⚠  Provider health check failed: %s%s\n", colorYellow, err, colorReset)
-		if hint != "" {
-			fmt.Printf("%s   Fix: %s%s\n", colorYellow, hint, colorReset)
-		}
-	})
+	// Skip health check in evolution mode (phase != "") to conserve API calls
+	if os.Getenv("ITERATE_SKIP_HEALTH_CHECK") != "1" {
+		provider.RunHealthCheckInBackground(p, logger, func(err error) {
+			hint := provider.AuthErrorHint(err.Error())
+			fmt.Printf("\n%s⚠  Provider health check failed: %s%s\n", colorYellow, err, colorReset)
+			if hint != "" {
+				fmt.Printf("%s   Fix: %s%s\n", colorYellow, hint, colorReset)
+			}
+		})
+	}
 
 	return p, nil
 }
