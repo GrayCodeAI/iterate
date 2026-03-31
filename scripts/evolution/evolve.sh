@@ -459,25 +459,6 @@ git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_
 # Push everything to main
 git push origin main 2>/dev/null || log "WARNING: failed to push to main"
 
-# ── Increment DAY_COUNT ──
-DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
-CURRENT_DAY=0
-if [[ -f "$DAY_COUNT_FILE" ]]; then
-  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
-  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
-    CURRENT_DAY=0
-  fi
-fi
-NEXT_DAY=$((CURRENT_DAY + 1))
-echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
-log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
-
-git add "$DAY_COUNT_FILE" 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
-
-# Push journal and DAY_COUNT to main
-git push origin main 2>/dev/null || log "WARNING: failed to push journal/DAY_COUNT to main"
-
 # ── Cleanup stale branches ──
 log "Cleaning up old evolution branches..."
 gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolution/day-" | while read -r branch; do
