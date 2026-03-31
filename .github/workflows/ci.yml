@@ -32,7 +32,9 @@ jobs:
 
       - name: Build
         working-directory: iterate
-        run: go build ./...
+        run: |
+          go mod tidy
+          go build ./...
 
       - name: Test
         working-directory: iterate
