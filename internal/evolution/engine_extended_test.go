@@ -194,24 +194,6 @@ func TestSaveAndLoadPRState(t *testing.T) {
 	}
 }
 
-	path := filepath.Join(dir, ".iterate", "pr_state.json")
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Error("pr_state.json should exist")
-	}
-
-	e2 := New(dir, slog.Default())
-	e2.loadPRState()
-	if e2.prNumber != 42 {
-		t.Errorf("expected prNumber 42, got %d", e2.prNumber)
-	}
-	if e2.prURL != "https://github.com/test/repo/pull/42" {
-		t.Errorf("expected prURL, got %q", e2.prURL)
-	}
-	if e2.branchName != "evolution/day-1" {
-		t.Errorf("expected branchName, got %q", e2.branchName)
-	}
-}
-
 func TestLoadPRState_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	e := New(dir, slog.Default())
