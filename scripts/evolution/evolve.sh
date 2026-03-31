@@ -104,11 +104,16 @@ acquire_lock
 
 log "=== iterate evolution cycle started ==="
 
-# ── API Key Rotation Setup ──
+# ── API Key & Model Rotation Setup ──
 API_KEYS=()
 [[ -n "${OPENCODE_API_KEY:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY")
 [[ -n "${OPENCODE_API_KEY_2:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY_2")
 CURRENT_KEY_INDEX=0
+
+MODELS=()
+[[ -n "${ITERATE_MODEL:-}" ]] && MODELS+=("$ITERATE_MODEL")
+[[ -n "${ITERATE_MODEL_2:-}" ]] && MODELS+=("$ITERATE_MODEL_2")
+CURRENT_MODEL_INDEX=0
 
 rotate_api_key() {
   local next_index=$((CURRENT_KEY_INDEX + 1))
@@ -121,27 +126,38 @@ rotate_api_key() {
   return 1
 }
 
+rotate_model() {
+  local next_index=$((CURRENT_MODEL_INDEX + 1))
+  if [[ $next_index -lt ${#MODELS[@]} ]]; then
+    CURRENT_MODEL_INDEX=$next_index
+    export ITERATE_MODEL="${MODELS[$CURRENT_MODEL_INDEX]}"
+    log "Rotated to model: $ITERATE_MODEL"
+    return 0
+  fi
+  return 1
+}
+
 # ── Guards ──
 if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
   log "ERROR: OPENCODE_API_KEY not set"
   exit 1
 fi
 
-log "Provider: ${ITERATE_PROVIDER:-opencode}, Model: ${ITERATE_MODEL:-glm-5}"
+log "Provider: ${ITERATE_PROVIDER:-opencode}, Models: ${MODELS[*]:-glm-5}"
 log "API keys: ${#API_KEYS[@]} configured"
 
-# ── Run phase with retry + key rotation ──
+# ── Run phase with retry + key/model rotation ──
 run_with_rotation() {
   local phase="$1"
-  local max_retries=3
+  local max_retries=4
   local attempt=1
 
-  local cmd_args=(./iterate --phase "$phase" --gh-owner "${GH_OWNER:-GrayCodeAI}" --gh-repo "${GH_REPO:-iterate}")
-  [[ -n "$ITERATE_MODEL" ]] && cmd_args+=(--model "$ITERATE_MODEL")
-  [[ -n "$ITERATE_PROVIDER" ]] && cmd_args+=(--provider "$ITERATE_PROVIDER")
-
   while [[ $attempt -le $max_retries ]]; do
-    log "Running phase $phase (attempt $attempt/$max_retries)..."
+    local cmd_args=(./iterate --phase "$phase" --gh-owner "${GH_OWNER:-GrayCodeAI}" --gh-repo "${GH_REPO:-iterate}")
+    [[ -n "$ITERATE_MODEL" ]] && cmd_args+=(--model "$ITERATE_MODEL")
+    [[ -n "$ITERATE_PROVIDER" ]] && cmd_args+=(--provider "$ITERATE_PROVIDER")
+
+    log "Running phase $phase (attempt $attempt/$max_retries, model: ${ITERATE_MODEL:-default})..."
 
     local phase_output
     phase_output=$("${cmd_args[@]}" 2>&1)
@@ -164,17 +180,24 @@ run_with_rotation() {
       if [[ $attempt -lt $max_retries ]]; then
         if rotate_api_key; then
           log "Rate limited — rotated key, retrying..."
+        elif rotate_model; then
+          log "Rate limited — rotated model, retrying..."
         else
-          log "Rate limited — all keys exhausted, waiting 30s..."
+          log "Rate limited — all keys and models exhausted, waiting 30s..."
           sleep 30
         fi
         continue
       fi
     else
-      # Non-rate-limit failure — still retry
+      # Non-rate-limit failure — rotate model and retry
       if [[ $attempt -lt $max_retries ]]; then
-        log "Retrying phase $phase in 10s..."
-        sleep 10
+        if rotate_model; then
+          log "Rotated model, retrying..."
+        else
+          log "Retrying phase $phase in 10s..."
+          sleep 10
+        fi
+        continue
       fi
     fi
     ((attempt++))
