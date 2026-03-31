@@ -49,8 +49,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
           ITERATE_PROVIDER: opencode
-          ITERATE_MODEL: minimax-m2.7
-          ITERATE_MODEL_2: kimi-k2.5
+          ITERATE_MODEL: kimi-k2.5
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
