@@ -1,0 +1,65 @@
+name: test-opencode-keys
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Test API Key 1
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          echo "Testing API key 1..."
+          RESP=$(curl -s -X POST "https://opencode.ai/zen/go/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENCODE_API_KEY" \
+            -d '{"model":"glm-5","messages":[{"role":"user","content":"say hello"}],"max_tokens":10}')
+          echo "$RESP" | python3 -m json.tool 2>/dev/null || echo "$RESP"
+          if echo "$RESP" | grep -q '"choices"'; then
+            echo "✅ API key 1 works"
+          else
+            echo "❌ API key 1 failed"
+          fi
+
+      - name: Test API Key 2
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY_2 }}
+        run: |
+          echo "Testing API key 2..."
+          RESP=$(curl -s -X POST "https://opencode.ai/zen/go/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENCODE_API_KEY" \
+            -d '{"model":"glm-5","messages":[{"role":"user","content":"say hello"}],"max_tokens":10}')
+          echo "$RESP" | python3 -m json.tool 2>/dev/null || echo "$RESP"
+          if echo "$RESP" | grep -q '"choices"'; then
+            echo "✅ API key 2 works"
+          else
+            echo "❌ API key 2 failed"
+          fi
+
+      - name: Test iterate binary build
+        run: |
+          cd ..
+          git clone --depth 1 --branch v1.6.0 https://github.com/GrayCodeAI/iteragent.git
+          cd iterate
+          go build -o ./iterate ./cmd/iterate
+          echo "✅ Build successful"
+
+      - name: Test iterate provider connection
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: glm-5
+        run: |
+          ./iterate --phase plan --gh-owner GrayCodeAI --gh-repo iterate --provider opencode --model glm-5 2>&1 | head -30
+          echo "✅ iterate binary ran"
