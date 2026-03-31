@@ -201,7 +201,7 @@ func (e *Engine) reviewPR(ctx context.Context, p iteragent.Provider, tools []ite
 
 	// Get PR files for safety checks
 	prFiles, _ := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("gh pr view %d --json files --jq '.files[].path'", e.prNumber, e.repo),
+		"cmd": fmt.Sprintf("gh pr view %d --repo %s --json files --jq '.files[].path'", e.prNumber, e.repo),
 	})
 	var files []string
 	for _, f := range strings.Split(strings.TrimSpace(prFiles), "\n") {
