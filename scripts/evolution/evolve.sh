@@ -188,63 +188,27 @@ preflight_checks() {
 }
 
 # ── Guards ──
-if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-  log "ERROR: OPENROUTER_API_KEY not set"
+if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
+  log "ERROR: OPENCODE_API_KEY not set"
   exit 1
 fi
 
-log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
+# API key rotation
+API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}")
+CURRENT_KEY=0
 
-# ── Request Rate Limiter ──
-# OpenRouter free tier: 20 requests/minute. We cap at 15 to leave headroom.
-# Each phase makes ~2 API calls (main + internal retries).
-# We spread phases across 30s intervals to stay under limit.
-REQUEST_COUNT=0
-REQUEST_WINDOW_START=$(date +%s)
-MAX_REQUESTS_PER_WINDOW=15
-WINDOW_DURATION=60
-ESTIMATED_CALLS_PER_PHASE=2
-
-check_rate_limit() {
-  local now=$(date +%s)
-  local elapsed=$(( now - REQUEST_WINDOW_START ))
-
-  # Reset window if minute has passed
-  if [[ $elapsed -ge $WINDOW_DURATION ]]; then
-    REQUEST_COUNT=0
-    REQUEST_WINDOW_START=$now
+rotate_key() {
+  local next=$((CURRENT_KEY + 1))
+  if [[ $next -lt ${#API_KEYS[@]} ]] && [[ -n "${API_KEYS[$next]}" ]]; then
+    CURRENT_KEY=$next
+    export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY]}"
+    log "⚠️ Rotated to API key #$((CURRENT_KEY + 1))"
     return 0
   fi
-
-  # Approaching limit — wait for window to reset
-  if [[ $REQUEST_COUNT -ge $MAX_REQUESTS_PER_WINDOW ]]; then
-    local wait=$(( WINDOW_DURATION - elapsed ))
-    if [[ $wait -gt 0 ]]; then
-      log "Rate limit approaching ($REQUEST_COUNT/$MAX_REQUESTS_PER_WINDOW) — waiting ${wait}s for window reset..."
-      sleep "$wait"
-      REQUEST_COUNT=0
-      REQUEST_WINDOW_START=$(date +%s)
-    fi
-  fi
+  return 1
 }
 
-# sleep_between_phases ensures we don't exceed 15 API calls per minute
-# by spacing out phase invocations based on estimated call count.
-sleep_between_phases() {
-  local now=$(date +%s)
-  local elapsed=$(( now - REQUEST_WINDOW_START ))
-  local projected=$(( REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE ))
-
-  if [[ $projected -gt $MAX_REQUESTS_PER_WINDOW ]]; then
-    local wait=$(( WINDOW_DURATION - elapsed ))
-    if [[ $wait -gt 0 ]]; then
-      log "Spreading requests: waiting ${wait}s to stay under ${MAX_REQUESTS_PER_WINDOW} req/min..."
-      sleep "$wait"
-      REQUEST_COUNT=0
-      REQUEST_WINDOW_START=$(date +%s)
-    fi
-  fi
-}
+log "Provider: ${ITERATE_PROVIDER:-opencode}, Model: ${ITERATE_MODEL:-default}"
 
 run_with_rotation() {
   local phase="$1"
@@ -262,18 +226,12 @@ run_with_rotation() {
   fi
 
   while [[ $attempt -le $max_retries ]]; do
-    # Check rate limit before each attempt
-    check_rate_limit
-
     log "Running phase $phase (attempt $attempt/$max_retries)..."
-    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-openrouter}"
+    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-opencode}"
 
     local phase_output
     phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
     local phase_exit=$?
-
-    # Count this as a request (each phase call makes multiple internal API calls)
-    REQUEST_COUNT=$((REQUEST_COUNT + 1))
 
     # Always log phase output for debugging
     if [[ -n "$phase_output" ]]; then
@@ -287,22 +245,23 @@ run_with_rotation() {
 
     log "Phase $phase failed (attempt $attempt/$max_retries)"
 
-    # Check if it's a rate limit error — wait 60s to clear per-minute window
-    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
+    # Check if it's a rate limit error — rotate key and retry
+    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimit"; then
       if [[ $attempt -lt $max_retries ]]; then
-        log "Rate limited — waiting 60s before retry..."
-        sleep 60
-        REQUEST_COUNT=0
-        REQUEST_WINDOW_START=$(date +%s)
+        if rotate_key; then
+          log "Rate limited — rotated key, retrying..."
+        else
+          log "Rate limited — waiting 30s before retry..."
+          sleep 30
+        fi
+        continue
       fi
-      ((attempt++))
-      continue
-    fi
-
-    # Non-rate-limit failure — still retry
-    if [[ $attempt -lt $max_retries ]]; then
-      log "Retrying phase $phase in 10s..."
-      sleep 10
+    else
+      # Non-rate-limit failure — still retry
+      if [[ $attempt -lt $max_retries ]]; then
+        log "Retrying phase $phase in 10s..."
+        sleep 10
+      fi
     fi
     ((attempt++))
   done
@@ -311,7 +270,67 @@ run_with_rotation() {
   return 1
 }
 
-# ── Calculate day from BIRTH_DATE ──
+log "Provider: ${ITERATE_PROVIDER:-opencode}, Model: ${ITERATE_MODEL:-default}"
+
+run_with_rotation() {
+  local phase="$1"
+  local max_retries=3
+  local attempt=1
+
+  local model_arg=""
+  if [[ -n "$ITERATE_MODEL" ]]; then
+    model_arg="--model $ITERATE_MODEL"
+  fi
+
+  local provider_arg=""
+  if [[ -n "$ITERATE_PROVIDER" ]]; then
+    provider_arg="--provider $ITERATE_PROVIDER"
+  fi
+
+  while [[ $attempt -le $max_retries ]]; do
+    log "Running phase $phase (attempt $attempt/$max_retries)..."
+    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-opencode}"
+
+    local phase_output
+    phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
+    local phase_exit=$?
+
+    # Always log phase output for debugging
+    if [[ -n "$phase_output" ]]; then
+      echo "$phase_output" >> "$LOG_FILE"
+    fi
+
+    if [[ $phase_exit -eq 0 ]]; then
+      log "Phase $phase completed successfully"
+      return 0
+    fi
+
+    log "Phase $phase failed (attempt $attempt/$max_retries)"
+
+    # Check if it's a rate limit error — rotate key and retry
+    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimit"; then
+      if [[ $attempt -lt $max_retries ]]; then
+        if rotate_key; then
+          log "Rate limited — rotated key, retrying..."
+        else
+          log "Rate limited — waiting 30s before retry..."
+          sleep 30
+        fi
+        continue
+      fi
+    else
+      # Non-rate-limit failure — still retry
+      if [[ $attempt -lt $max_retries ]]; then
+        log "Retrying phase $phase in 10s..."
+        sleep 10
+      fi
+    fi
+    ((attempt++))
+  done
+
+  log "Phase $phase failed after $max_retries attempts"
+  return 1
+}
 BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-25")
 SESSION_TIME=$(date -u +'%H:%M')
 if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
@@ -407,49 +426,10 @@ EOF
   fi
 
   # ── Phase 2: Implementation ──
-  sleep_between_phases
   log "Phase 2: Implementation..."
   if ! run_with_rotation "implement"; then
     log "WARNING: implement phase exited with error — continuing"
   fi
-  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
-  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
-
-  # Fallback plan if agent didn't create one
-  if [[ ! -f "$PLAN_FILE" ]]; then
-    log "Agent did not create SESSION_PLAN.md — writing fallback"
-    cat > "$PLAN_FILE" <<EOF
-## Session Plan
-
-Session Title: Day $DAY evolution — code quality and reliability
-
-### Task 1: Fix error handling gaps
-Files: cmd/iterate/, internal/
-Description: Find functions that ignore errors (using _ or not checking return values). Add proper error handling with descriptive messages. Write a test that validates the error path.
-
-### Task 2: Add missing tests
-Files: internal/
-Description: Find exported functions without corresponding tests. Write at least one test per function covering the happy path and one edge case.
-
-### Task 3: Clean up code smells
-Files: cmd/iterate/, internal/
-Description: Look for: defer in loops, unused variables/imports, hardcoded values that should be constants, missing context propagation. Fix one issue with a test.
-
-### Task 4: Improve documentation
-Files: cmd/iterate/, internal/
-Description: Add or improve Go doc comments on exported functions that are missing them. This is a lower-priority task.
-
-Criteria: Each task must modify at least one .go source file. Tests are encouraged but not mandatory for small fixes.
-EOF
-  fi
-
-  # ── Phase 2: Implementation ──
-  sleep_between_phases
-  log "Phase 2: Implementation..."
-  if ! run_with_rotation "implement"; then
-    log "WARNING: implement phase exited with error — continuing"
-  fi
-  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
 
   # Update DAY_COUNT before creating PR
   echo "$DAY" > "${REPOPATH}/DAY_COUNT"
@@ -473,12 +453,38 @@ EOF
   git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
 
   # ── Phase 3: Pull Request ──
-  sleep_between_phases
   log "Phase 3: Pull Request..."
   if ! run_with_rotation "pr"; then
     log "WARNING: PR phase exited with error — continuing"
   fi
-  REQUEST_COUNT=$((REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE))
+fi
+
+  # Update DAY_COUNT before creating PR
+  echo "$DAY" > "${REPOPATH}/DAY_COUNT"
+  git add DAY_COUNT 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update DAY_COUNT to day $DAY" 2>/dev/null || true
+
+  # ── Track coverage and generate stats before PR ──
+  log "Tracking test coverage..."
+  python3 scripts/build/track_coverage.py . 2>/dev/null || true
+  git add memory/coverage_history.jsonl 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update coverage history" 2>/dev/null || true
+
+  log "Generating stats..."
+  python3 scripts/build/generate_stats.py . 2>/dev/null || true
+  git add docs/stats.json memory/weekly_summary.md 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update stats" 2>/dev/null || true
+
+  log "Generating dashboard..."
+  python3 scripts/build/generate_dashboard.py . 2>/dev/null || true
+  git add docs/dashboard.html 2>/dev/null || true
+  git diff --cached --quiet || git commit -m "chore: update metrics dashboard" 2>/dev/null || true
+
+  # ── Phase 3: Pull Request ──
+  log "Phase 3: Pull Request..."
+  if ! run_with_rotation "pr"; then
+    log "WARNING: PR phase exited with error — continuing"
+  fi
 fi
 
 BRANCH="evolution/day-${DAY}"
@@ -487,7 +493,6 @@ PR_NUMBER=$(gh pr list --repo "$GITHUB_REPO" --head "$BRANCH" --json number --jq
 PIPELINE_OK=true
 
 # ── Phase 4: Review with Auto-Retry ──
-sleep_between_phases
 log "Phase 4: Review..."
 
 REVIEW_RETRIES=0
@@ -515,7 +520,6 @@ if [[ "$REVIEW_PASSED" == "false" ]]; then
 fi
 
 # ── Phase 5: Merge ──
-sleep_between_phases
 log "Phase 5: Merge..."
 if ! run_with_rotation "merge"; then
   log "WARNING: merge phase failed — PR may still be open"
