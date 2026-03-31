@@ -31,20 +31,33 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 
 	var contentBuilder strings.Builder
 	var lastContent string
+	eventCount := 0
 	for ev := range a.Prompt(ctx, userMessage) {
+		eventCount++
 		if ev.Type == string(iteragent.EventMessageUpdate) {
 			contentBuilder.WriteString(ev.Content)
 		}
 		if ev.Type == string(iteragent.EventMessageEnd) {
 			lastContent = ev.Content
 		}
+		if ev.Type == string(iteragent.EventError) {
+			e.logger.Warn("plan phase event error", "content", ev.Content)
+		}
 	}
 	a.Finish()
+	e.logger.Info("plan phase agent finished", "events", eventCount, "accumulated_len", contentBuilder.Len(), "lastContent_len", len(lastContent))
 
 	// Use accumulated content or final content, whichever is longer
 	accumulatedContent := contentBuilder.String()
 	if len(accumulatedContent) > len(lastContent) {
 		lastContent = accumulatedContent
+	}
+
+	// Debug: log what we got
+	if lastContent == "" {
+		e.logger.Warn("plan phase: agent produced NO output at all")
+	} else if len(lastContent) < 200 {
+		e.logger.Info("plan phase: short output", "len", len(lastContent), "content", lastContent[:min(len(lastContent), 200)])
 	}
 
 	// Extract plan from agent output if it didn't write the file via tool call.
