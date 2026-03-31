@@ -1,0 +1,1 @@
+{"day":0,"reason":"Agent error: empty streaming response from openai-compat","task":"Fix error handling gaps","ts":"2026-03-31T13:54:28Z","type":"failure"}
