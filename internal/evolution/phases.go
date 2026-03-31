@@ -17,6 +17,12 @@ import (
 // Each task gets its own git worktree so file edits never conflict.
 const maxParallelTasks = 3
 
+// Pre-compiled regexes for tool call parsing (avoids recompilation on every call).
+var (
+	jsonToolCallRe = regexp.MustCompile(`\{[^{}]*"(?:tool|function_call|action|name)"[^{}]*\}`)
+	fileContentRe  = regexp.MustCompile("(?s)([a-zA-Z0-9_/.-]+\\.go)\\n```(?:diff)?\\n(.*?)```")
+)
+
 // RunPlanPhase runs the planning phase. Creates SESSION_PLAN.md via agent or fallback.
 func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues string) error {
 	ctx, cancel := withPhaseTimeout(ctx, "plan")
@@ -580,8 +586,7 @@ func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]str
 	// Also handles: tool_call, tool_calls, or assistant messages with tool calls
 
 	// Find all JSON objects in the output - more flexible regex
-	jsonRe := regexp.MustCompile(`\{[^{}]*"(?:tool|function_call|action|name)"[^{}]*\}`)
-	matches := jsonRe.FindAllString(output, -1)
+	matches := jsonToolCallRe.FindAllString(output, -1)
 
 	for _, match := range matches {
 		// Validate it's proper JSON before processing
@@ -738,7 +743,6 @@ func (e *Engine) applyToolCallChanges(ctx context.Context, output string) ([]str
 	}
 
 	// Strategy 2: Look for file paths with content after them (markdown style)
-	fileContentRe := regexp.MustCompile("(?s)([a-zA-Z0-9_/.-]+\\.go)\\n```(?:diff)?\\n(.*?)```")
 	contentMatches := fileContentRe.FindAllStringSubmatch(output, -1)
 	for _, match := range contentMatches {
 		if len(match) > 2 {
