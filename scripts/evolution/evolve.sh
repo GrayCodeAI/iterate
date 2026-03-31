@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # iterate evolution pipeline: plan → implement → pr → review → merge → communicate
 # Autonomous evolution cycle — 6-phase self-evolving pipeline.
