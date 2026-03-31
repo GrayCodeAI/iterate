@@ -50,7 +50,7 @@ jobs:
           ITERATE_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ITERATE_BASE_URL: https://openrouter.ai/api/v1
           ITERATE_PROVIDER: openrouter
-          ITERATE_MODEL: qwen/qwen3.6-plus-preview:free:exacto:exacto
+          ITERATE_MODEL: minimax/minimax-m2.5:free:exacto
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
