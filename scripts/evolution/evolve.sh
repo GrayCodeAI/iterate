@@ -166,13 +166,22 @@ preflight_checks() {
   return 0
 }
 
-# ── Guards ──
-if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-  log "ERROR: OPENROUTER_API_KEY not set"
-  exit 1
-fi
+# ── API Key Setup ──
+API_KEYS=("${OPENCODE_API_KEY:-}" "${OPENCODE_API_KEY_2:-}")
+CURRENT_KEY=0
 
-log "Provider: ${PROVIDER:-openrouter}, Model: ${ITERATE_MODEL:-default}"
+rotate_key() {
+  local next=$((CURRENT_KEY + 1))
+  if [[ $next -lt ${#API_KEYS[@]} ]] && [[ -n "${API_KEYS[$next]}" ]]; then
+    CURRENT_KEY=$next
+    export OPENCODE_API_KEY="${API_KEYS[$CURRENT_KEY]}"
+    log "⚠️ Rotated to API key #$((CURRENT_KEY + 1))"
+    return 0
+  fi
+  return 1
+}
+
+log "Provider: ${ITERATE_PROVIDER:-opencode}, Model: ${ITERATE_MODEL:-default}"
 
 run_with_rotation() {
   local phase="$1"
@@ -191,13 +200,12 @@ run_with_rotation() {
 
   while [[ $attempt -le $max_retries ]]; do
     log "Running phase $phase (attempt $attempt/$max_retries)..."
-    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-openrouter}"
+    log "Using model: ${ITERATE_MODEL:-default}, provider: ${ITERATE_PROVIDER:-opencode}"
 
     local phase_output
     phase_output=$(./iterate --phase "$phase" --gh-owner GrayCodeAI --gh-repo iterate $model_arg $provider_arg 2>&1)
     local phase_exit=$?
 
-    # Always log phase output for debugging
     if [[ -n "$phase_output" ]]; then
       echo "$phase_output" >> "$LOG_FILE"
     fi
@@ -207,21 +215,23 @@ run_with_rotation() {
       return 0
     fi
 
-    log "Phase $phase failed (exit $attempt/$max_retries)"
+    log "Phase $phase failed (attempt $attempt/$max_retries)"
 
-    # Check if it's a rate limit error
-    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429"; then
+    if echo "$phase_output" | grep -qi "rate.*limit\|quota.*exceeded\|429\|SubscriptionUsageLimit"; then
       if [[ $attempt -lt $max_retries ]]; then
-        log "Rate limited — waiting 15s before retry..."
-        sleep 15
+        if rotate_key; then
+          log "Rate limited — rotated key, retrying..."
+        else
+          log "Rate limited — waiting 30s before retry..."
+          sleep 30
+        fi
         continue
       fi
-    fi
-
-    # Non-rate-limit failure — still retry
-    if [[ $attempt -lt $max_retries ]]; then
-      log "Retrying phase $phase in 5s..."
-      sleep 5
+    else
+      if [[ $attempt -lt $max_retries ]]; then
+        log "Retrying phase $phase in 10s..."
+        sleep 10
+      fi
     fi
     ((attempt++))
   done
