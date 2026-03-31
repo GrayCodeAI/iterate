@@ -68,10 +68,31 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 		}
 	}
 
-	// Verify a plan was produced
+	// If model returned nothing, write a minimal fallback plan
 	if _, err := os.Stat(planPath); os.IsNotExist(err) {
-		return fmt.Errorf("planning phase produced no SESSION_PLAN.md (output was empty)")
+		e.logger.Info("model returned empty output — writing fallback plan")
+		fallback := fmt.Sprintf(`## Session Plan
+
+Session Title: Day %s evolution — code quality and reliability
+
+### Task 1: Fix error handling gaps
+Files: cmd/iterate/, internal/
+Description: Find functions that ignore errors. Add proper error handling with descriptive messages.
+
+### Task 2: Add missing tests
+Files: internal/
+Description: Find exported functions without corresponding tests. Write at least one test per function.
+
+### Task 3: Clean up code smells
+Files: cmd/iterate/, internal/
+Description: Look for defer in loops, unused variables/imports, hardcoded values. Fix one issue.
+`, day)
+		if err := os.WriteFile(planPath, []byte(fallback), 0o644); err != nil {
+			return fmt.Errorf("failed to write fallback plan: %w", err)
+		}
+		e.logger.Info("wrote fallback SESSION_PLAN.md")
 	}
+
 	return nil
 }
 
