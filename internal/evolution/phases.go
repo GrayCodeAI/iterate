@@ -61,16 +61,16 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 				e.logger.Info("extracted SESSION_PLAN.md from agent output")
 			}
 		} else {
-			// Last resort: write raw output as the plan
+			// Accept ANY output as a plan — the model may not follow exact format
 			if err := os.WriteFile(planPath, []byte(lastContent), 0o644); err == nil {
-				e.logger.Info("wrote SESSION_PLAN.md from raw agent output")
+				e.logger.Info("wrote SESSION_PLAN.md from raw agent output", "len", len(lastContent))
 			}
 		}
 	}
 
-	// Verify a plan was produced — fail explicitly rather than silently proceeding.
+	// Verify a plan was produced
 	if _, err := os.Stat(planPath); os.IsNotExist(err) {
-		return fmt.Errorf("planning phase produced no SESSION_PLAN.md")
+		return fmt.Errorf("planning phase produced no SESSION_PLAN.md (output was empty)")
 	}
 	return nil
 }
