@@ -418,10 +418,15 @@ if ! run_with_rotation "communicate"; then
   log "WARNING: communicate phase exited with error"
 fi
 
-# ── Verify journal was written ──
-# After merge we're on main — write journal and DAY_COUNT directly
+# ── Post-merge: write journal and DAY_COUNT directly to main ──
+# In CI we're on a detached HEAD after merge, so we must checkout main first
+log "Switching to main for journal and DAY_COUNT updates..."
+git checkout main 2>/dev/null || git checkout -B main 2>/dev/null || true
+git pull origin main 2>/dev/null || true
+
+# Write journal entry
 if grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
-  log "Journal entry already written for Day $DAY"
+  log "Journal entry already exists for Day $DAY"
 else
   log "Writing journal entry for Day $DAY"
   SESSION_TIME_NOW=$(date -u +'%H:%M')
@@ -432,11 +437,10 @@ else
 Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
 JEOF
 fi
-
 git add docs/JOURNAL.md 2>/dev/null || true
 git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
 
-# ── Increment DAY_COUNT ──
+# Increment DAY_COUNT (only once, on main)
 DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
 CURRENT_DAY=0
 if [[ -f "$DAY_COUNT_FILE" ]]; then
@@ -452,11 +456,8 @@ log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
 git add "$DAY_COUNT_FILE" 2>/dev/null || true
 git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
 
-# Push journal and DAY_COUNT to main
-git push origin main 2>/dev/null || log "WARNING: failed to push journal/DAY_COUNT to main"
-
-git add docs/JOURNAL.md 2>/dev/null || true
-git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
+# Push everything to main
+git push origin main 2>/dev/null || log "WARNING: failed to push to main"
 
 # ── Increment DAY_COUNT ──
 DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
