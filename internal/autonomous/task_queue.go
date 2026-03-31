@@ -123,7 +123,7 @@ func NewTaskQueue(executor TaskExecutor, config TaskQueueConfig) *TaskQueue {
 	if config.Timeout <= 0 {
 		config.Timeout = 5 * time.Minute
 	}
-	if config.MaxRetries <= 0 {
+	if config.MaxRetries < 0 {
 		config.MaxRetries = 2
 	}
 
