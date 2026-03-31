@@ -439,6 +439,58 @@ JEOF
   git diff --cached --quiet || git commit -m "journal: Day $DAY fallback entry" 2>/dev/null || true
 fi
 
+# ── Ensure journal entry is on main ──
+# The communicate phase writes on the feature branch, but squash merge may not
+# include the journal commit. Push it directly to main to guarantee persistence.
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+git checkout main 2>/dev/null || true
+git pull origin main 2>/dev/null || true
+
+if ! grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
+  log "Journal entry missing on main — writing directly"
+  SESSION_TIME_NOW=$(date -u +'%H:%M')
+  cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
+
+## Day ${DAY} — ${SESSION_TIME_NOW} — Evolution session completed
+
+Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
+JEOF
+fi
+git add docs/JOURNAL.md 2>/dev/null || true
+git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
+git push origin main 2>/dev/null || log "WARNING: failed to push journal to main"
+
+# Switch back to the feature branch for remaining cleanup
+if [[ "$CURRENT_BRANCH" != "main" && -n "$CURRENT_BRANCH" ]]; then
+  git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+fi
+
+# ── Ensure journal entry is on main ──
+# The communicate phase writes on the feature branch, but squash merge may not
+# include the journal commit. Push it directly to main to guarantee persistence.
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+git checkout main 2>/dev/null || true
+git pull origin main 2>/dev/null || true
+
+if ! grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
+  log "Journal entry missing on main — writing directly"
+  SESSION_TIME_NOW=$(date -u +'%H:%M')
+  cat >> "${REPOPATH}/docs/JOURNAL.md" <<JEOF
+
+## Day ${DAY} — ${SESSION_TIME_NOW} — Evolution session completed
+
+Evolution session completed. Pipeline status: $([ "$PIPELINE_OK" == "true" ] && echo "success" || echo "partial")
+JEOF
+fi
+git add docs/JOURNAL.md 2>/dev/null || true
+git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
+git push origin main 2>/dev/null || log "WARNING: failed to push journal to main"
+
+# Switch back to the feature branch for remaining cleanup
+if [[ "$CURRENT_BRANCH" != "main" && -n "$CURRENT_BRANCH" ]]; then
+  git checkout "$CURRENT_BRANCH" 2>/dev/null || true
+fi
+
 # ── Cleanup stale branches ──
 log "Cleaning up old evolution branches..."
 gh api repos/"$GITHUB_REPO"/branches --jq '.[].name' 2>/dev/null | grep "^evolution/day-" | while read -r branch; do
