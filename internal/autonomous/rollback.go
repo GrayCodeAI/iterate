@@ -94,8 +94,11 @@ func (rs *RollbackStack) PushFileEdit(path string, originalContent string) *Roll
 	// Save backup to disk if backup dir exists
 	if rs.backupDir != "" {
 		backupPath := filepath.Join(rs.backupDir, entry.ID+filepath.Ext(path))
-		os.WriteFile(backupPath, []byte(originalContent), 0644)
-		entry.Metadata["backup_path"] = backupPath
+		if err := os.WriteFile(backupPath, []byte(originalContent), 0644); err != nil {
+			entry.Metadata["backup_error"] = err.Error()
+		} else {
+			entry.Metadata["backup_path"] = backupPath
+		}
 	}
 
 	rs.pushEntry(entry)

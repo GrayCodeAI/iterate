@@ -406,7 +406,9 @@ func trimSocialJSONL(path string) {
 	if err := os.WriteFile(tmp, []byte(strings.Join(kept, "\n")+"\n"), 0o644); err != nil {
 		return
 	}
-	_ = os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp) // clean up temp file
+	}
 }
 
 // --- GitHub REST API calls ---
