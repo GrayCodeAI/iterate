@@ -1,5 +1,7 @@
 {
   "generated_at": "2026-04-01T04:22:00+05:30",
+  "day_count": 1,
+  "sessions_shipped": 1,
   "total_commits": "1203",
   "commits_this_week": "442",
   "lines_changed": {
