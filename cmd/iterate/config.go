@@ -202,14 +202,27 @@ func checkBashPermission(cfg iterConfig, cmd string) (allowed, denied bool) {
 }
 
 // splitShellWords naively splits a shell command into words (for glob matching).
+// Note: does not handle backslash escapes, variable expansion, or heredocs.
 func splitShellWords(cmd string) []string {
 	var words []string
 	inQuote := false
+	quoteChar := byte(0)
 	var cur []byte
 	for i := 0; i < len(cmd); i++ {
 		c := cmd[i]
-		if c == '"' || c == '\'' {
-			inQuote = !inQuote
+		if c == '\\' && i+1 < len(cmd) && !inQuote {
+			cur = append(cur, cmd[i+1])
+			i++
+			continue
+		}
+		if (c == '"' || c == '\'') && !inQuote {
+			inQuote = true
+			quoteChar = c
+			continue
+		}
+		if c == quoteChar && inQuote {
+			inQuote = false
+			quoteChar = 0
 			continue
 		}
 		if c == ' ' && !inQuote {

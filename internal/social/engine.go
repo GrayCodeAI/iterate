@@ -362,10 +362,16 @@ func (e *Engine) appendLearningsJSONL(decisions []socialDecision, dayCount strin
 		if err != nil {
 			continue
 		}
-		f.Write(line)
-		f.Write([]byte("\n"))
+		if _, err := f.Write(line); err != nil {
+			return fmt.Errorf("write social learning: %w", err)
+		}
+		if _, err := f.Write([]byte("\n")); err != nil {
+			return fmt.Errorf("write social learning: %w", err)
+		}
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close social learnings file: %w", err)
+	}
 
 	// Trim entries older than 90 days.
 	trimSocialJSONL(path)

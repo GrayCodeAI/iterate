@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/fs"
@@ -92,11 +93,17 @@ func countLines(repoPath string) map[string]int {
 		if ext == "" {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		f, err := os.Open(path)
 		if err != nil {
 			return nil
 		}
-		lines := strings.Count(string(data), "\n") + 1
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		lines := 0
+		for scanner.Scan() {
+			lines++
+		}
 		counts[ext] += lines
 		return nil
 	})

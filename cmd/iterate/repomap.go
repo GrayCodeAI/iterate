@@ -115,7 +115,7 @@ var (
 	reRustFn      = regexp.MustCompile(`^(?:pub\s+)?(?:async\s+)?fn\s+(\w+)`)
 	reRustStruct  = regexp.MustCompile(`^(?:pub\s+)?struct\s+(\w+)`)
 	reRustEnum    = regexp.MustCompile(`^(?:pub\s+)?enum\s+(\w+)`)
-	reJavaMethod  = regexp.MustCompile(`^\s*(?:public|private|protected|static|final|abstract|synchronized|\s)+\s+\w+\s+(\w+)\s*\(`)
+	reJavaMethod  = regexp.MustCompile(`^\s*(?:public|private|protected|static|final|abstract|synchronized)\s+(?:public|private|protected|static|final|abstract|synchronized|\s)*\w+\s+(\w+)\s*\(`)
 	reRubyDef     = regexp.MustCompile(`^\s*def\s+(\w+)`)
 	reRubyClass   = regexp.MustCompile(`^\s*class\s+(\w+)`)
 )

@@ -185,7 +185,7 @@ func formatCostTable(inputTokens, outputTokens, cacheWrite, cacheRead int, model
 			cacheWrite, p.CacheWritePerMTok, estimate.CacheWriteCost))
 	}
 	if cacheRead > 0 {
-		sb.WriteString(fmt.Sprintf("  Cache R: %7d tokens  ($%.4f/MTok) → $%.5f\n",
+		sb.WriteString(fmt.Sprintf("  Cache R: %7d tokens  ($%.3f/MTok) → $%.5f\n",
 			cacheRead, p.CacheReadPerMTok, estimate.CacheReadCost))
 	}
 	sb.WriteString("  ─────────────────────────────────────────────────\n")

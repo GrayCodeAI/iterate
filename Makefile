@@ -30,4 +30,8 @@ install:
 	go install ./cmd/iterate
 
 clean:
-	rm -f iterate
+	rm -f iterate coverage.out
+	rm -rf .iterate/worktrees
+	rm -f .iterate/pr_state.json .iterate/evolution.log .iterate/ci_status.txt coverage.out
+	rm -rf .iterate/worktrees
+	rm -f .iterate/pr_state.json .iterate/evolution.log .iterate/ci_status.txt
