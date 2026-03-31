@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-BIRTH_DATE = datetime(2026, 3, 23)
+BIRTH_DATE = datetime(2026, 3, 31)
 try:
     bf = ROOT / "BIRTH_DATE"
     if bf.exists():
