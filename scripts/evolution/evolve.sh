@@ -218,14 +218,23 @@ fi
 # ── Calculate day from BIRTH_DATE ──
 BIRTH_DATE=$(cat "${REPOPATH}/BIRTH_DATE" 2>/dev/null || echo "2026-03-31")
 SESSION_TIME=$(date -u +'%H:%M')
-if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
-  DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
-elif date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
-  DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+
+# Read existing DAY_COUNT or calculate from birth date
+if [[ -f "${REPOPATH}/DAY_COUNT" ]]; then
+  DAY=$(cat "${REPOPATH}/DAY_COUNT" 2>/dev/null || echo "0")
+  if ! [[ "$DAY" =~ ^[0-9]+$ ]]; then
+    DAY=0
+  fi
 else
-  DAY=0
+  if date -d "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
+    DAY=$(( ($(date -u +%s) - $(date -d "$BIRTH_DATE" +%s)) / 86400 ))
+  elif date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s &>/dev/null 2>&1; then
+    DAY=$(( ($(date -u +%s) - $(date -j -f "%Y-%m-%d" "$BIRTH_DATE" +%s)) / 86400 ))
+  else
+    DAY=0
+  fi
+  echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 fi
-echo "$DAY" > "${REPOPATH}/DAY_COUNT"
 log "Day $DAY ($SESSION_TIME UTC)"
 
 # ── Pre-flight checks ──
@@ -248,8 +257,6 @@ send_discord_notification "started" "Evolution Day $DAY starting"
 
 # ── Check CI status ──
 GITHUB_REPO="${GITHUB_REPOSITORY:-GrayCodeAI/iterate}"
-GH_OWNER="${GITHUB_REPOSITORY%%/*}"
-GH_REPO="${GITHUB_REPOSITORY#*/}"
 GH_OWNER="${GITHUB_REPOSITORY%%/*}"
 GH_REPO="${GITHUB_REPOSITORY#*/}"
 if command -v gh &>/dev/null; then
@@ -466,6 +473,44 @@ if [[ -f "$PLAN_FILE" ]]; then
   git push origin "$BRANCH" 2>/dev/null || true
 fi
 
+# ── Increment DAY_COUNT for next session ──
+DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
+CURRENT_DAY=0
+if [[ -f "$DAY_COUNT_FILE" ]]; then
+  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
+  # Validate it's a number
+  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
+    CURRENT_DAY=0
+  fi
+fi
+NEXT_DAY=$((CURRENT_DAY + 1))
+echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
+log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
+
+# Push DAY_COUNT change to main
+git add "$DAY_COUNT_FILE" 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
+git push origin main 2>/dev/null || log "WARNING: failed to push DAY_COUNT update"
+
+# ── Increment DAY_COUNT for next session ──
+DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
+CURRENT_DAY=0
+if [[ -f "$DAY_COUNT_FILE" ]]; then
+  CURRENT_DAY=$(cat "$DAY_COUNT_FILE" 2>/dev/null || echo "0")
+  # Validate it's a number
+  if ! [[ "$CURRENT_DAY" =~ ^[0-9]+$ ]]; then
+    CURRENT_DAY=0
+  fi
+fi
+NEXT_DAY=$((CURRENT_DAY + 1))
+echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
+log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
+
+# Push DAY_COUNT change to main
+git add "$DAY_COUNT_FILE" 2>/dev/null || true
+git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
+git push origin main 2>/dev/null || log "WARNING: failed to push DAY_COUNT update"
+
 # ── Discord Success Notification ──
 JOURNAL_ENTRY=$(grep -A3 "## Day ${DAY}" docs/JOURNAL.md 2>/dev/null | head -4 || echo "No journal entry")
 SUCCESS_MSG="Evolution completed successfully!
@@ -474,6 +519,7 @@ SUCCESS_MSG="Evolution completed successfully!
 • PR: #${PR_NUMBER:-none}
 • Duration: ${SESSION_DURATION}s
 • Review retries: $REVIEW_RETRIES
+• Day: $NEXT_DAY
 
 **Journal:**
 $(echo "$JOURNAL_ENTRY" | head -2 | tr '\n' ' ')"
