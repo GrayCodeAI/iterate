@@ -41,6 +41,7 @@ type RollbackStack struct {
 	maxEntries int
 	baseDir    string
 	backupDir  string
+	counter    int64
 }
 
 // RollbackConfig holds configuration for the rollback stack.
@@ -81,8 +82,9 @@ func (rs *RollbackStack) PushFileEdit(path string, originalContent string) *Roll
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
+	rs.counter++
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
+		ID:        fmt.Sprintf("rb_%d", rs.counter),
 		Type:      RollbackTypeFileEdit,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -110,8 +112,9 @@ func (rs *RollbackStack) PushFileCreate(path string) *RollbackEntry {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
+	rs.counter++
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
+		ID:        fmt.Sprintf("rb_%d", rs.counter),
 		Type:      RollbackTypeFileCreate,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -128,8 +131,9 @@ func (rs *RollbackStack) PushFileDelete(path string, content string) *RollbackEn
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
+	rs.counter++
 	entry := RollbackEntry{
-		ID:        fmt.Sprintf("rb_%d", time.Now().UnixNano()),
+		ID:        fmt.Sprintf("rb_%d", rs.counter),
 		Type:      RollbackTypeFileDelete,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
@@ -154,8 +158,9 @@ func (rs *RollbackStack) PushGitCommit(commitHash string) *RollbackEntry {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
+	rs.counter++
 	entry := RollbackEntry{
-		ID:         fmt.Sprintf("rb_%d", time.Now().UnixNano()),
+		ID:         fmt.Sprintf("rb_%d", rs.counter),
 		Type:       RollbackTypeGitCommit,
 		Timestamp:  time.Now().Unix(),
 		CommitHash: commitHash,
