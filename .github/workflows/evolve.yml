@@ -44,13 +44,12 @@ jobs:
           git config user.name "iterate-evolve[bot]"
           git config user.email "iterate-evolve[bot]@users.noreply.github.com"
 
-      - name: Run evolution with OpenRouter
+      - name: Run evolution with OpenCode
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ITERATE_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ITERATE_BASE_URL: https://openrouter.ai/api/v1
-          ITERATE_PROVIDER: openrouter
-          ITERATE_MODEL: minimax/minimax-m2.5:free:exacto
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: glm-5
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
