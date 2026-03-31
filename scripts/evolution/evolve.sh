@@ -246,24 +246,6 @@ sleep_between_phases() {
   fi
 }
 
-# sleep_between_phases ensures we don't exceed 15 API calls per minute
-# by spacing out phase invocations based on estimated call count.
-sleep_between_phases() {
-  local now=$(date +%s)
-  local elapsed=$(( now - REQUEST_WINDOW_START ))
-  local projected=$(( REQUEST_COUNT + ESTIMATED_CALLS_PER_PHASE ))
-
-  if [[ $projected -gt $MAX_REQUESTS_PER_WINDOW ]]; then
-    local wait=$(( WINDOW_DURATION - elapsed ))
-    if [[ $wait -gt 0 ]]; then
-      log "Spreading requests: waiting ${wait}s to stay under ${MAX_REQUESTS_PER_WINDOW} req/min..."
-      sleep "$wait"
-      REQUEST_COUNT=0
-      REQUEST_WINDOW_START=$(date +%s)
-    fi
-  fi
-}
-
 run_with_rotation() {
   local phase="$1"
   local max_retries=3
@@ -312,8 +294,9 @@ run_with_rotation() {
         sleep 60
         REQUEST_COUNT=0
         REQUEST_WINDOW_START=$(date +%s)
-        continue
       fi
+      ((attempt++))
+      continue
     fi
 
     # Non-rate-limit failure — still retry
