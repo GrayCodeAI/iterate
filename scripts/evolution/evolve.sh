@@ -63,8 +63,20 @@ print(json.dumps({'embeds':[{'title':sys.argv[1],'description':sys.argv[2],'colo
 # ── Concurrent run lock ──
 acquire_lock() {
   if [[ -f "$PID_FILE" ]]; then
-    OLD_PID=$(cat "$PID_FILE" 2>/dev/null) || true
+    LOCK_LINE=$(cat "$PID_FILE" 2>/dev/null) || true
+    OLD_PID=$(echo "$LOCK_LINE" | awk '{print $1}')
+    OLD_START=$(echo "$LOCK_LINE" | awk '{print $2}')
     if [[ -n "$OLD_PID" ]] && kill -0 "$OLD_PID" 2>/dev/null; then
+      # Verify PID start time matches lock file to avoid PID recycling
+      if [[ -n "$OLD_START" ]]; then
+        ACTUAL_START=$(ps -o lstart= -p "$OLD_PID" 2>/dev/null | tr -s ' ' '_' || echo "")
+        if [[ "$ACTUAL_START" != "$OLD_START" ]]; then
+          log "WARNING: PID $OLD_PID recycled — stale lock, removing"
+          rm -f "$PID_FILE"
+          echo "$$ $(ps -o lstart= -p $$ 2>/dev/null | tr -s ' ' '_')" > "$PID_FILE"
+          return
+        fi
+      fi
       LOCK_AGE=$(( $(date +%s) - $(stat -c %Y "$PID_FILE" 2>/dev/null || echo 0) ))
       if [[ $LOCK_AGE -lt $LOCK_TIMEOUT ]]; then
         log "ERROR: Another evolution running (PID $OLD_PID, age ${LOCK_AGE}s) — aborting"
@@ -76,7 +88,7 @@ acquire_lock() {
     fi
     rm -f "$PID_FILE"
   fi
-  echo $$ > "$PID_FILE"
+  echo "$$ $(ps -o lstart= -p $$ 2>/dev/null | tr -s ' ' '_')" > "$PID_FILE"
 }
 
 release_lock() {

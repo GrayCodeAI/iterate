@@ -70,7 +70,7 @@ func runWatcher(ctx context.Context, repoPath string) {
 	var pendingChanged []string
 	pendingSet := make(map[string]struct{})
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {

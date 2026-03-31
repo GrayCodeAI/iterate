@@ -239,6 +239,12 @@ func (e *Engine) runWave(ctx context.Context, p iteragent.Provider, tasks []plan
 		wg.Add(1)
 		go func(i int, task planTask) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					e.logger.Error("task goroutine panicked", "number", task.Number, "panic", r)
+					results[i] = taskResult{task: task, success: false}
+				}
+			}()
 			sem <- struct{}{}
 			defer func() { <-sem }()
 

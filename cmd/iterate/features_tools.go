@@ -265,7 +265,9 @@ func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]i
 	if tool.Name == "bash" {
 		cmd := iteragent.ArgStr(args, "command")
 		if allowed, denied := checkBashPermission(cfg, cmd); allowed {
-			result, err := origExec(context.Background(), args)
+			autoCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			result, err := origExec(autoCtx, args)
 			logAudit(tool.Name, auditArgs, result)
 			if err != nil {
 				return err.Error(), true
