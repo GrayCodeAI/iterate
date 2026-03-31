@@ -123,78 +123,55 @@ func readPlanContext(repoPath string) ([]byte, []byte, string) {
 }
 
 func buildPlanPrompt(repoPath, journal, day, issues string) string {
-	learnings, _ := os.ReadFile(filepath.Join(repoPath, "memory", "ACTIVE_LEARNINGS.md"))
-	ciStatus, _ := os.ReadFile(filepath.Join(repoPath, ".iterate", "ci_status.txt"))
-
-	// Run codebase analysis for smarter task selection
-	analysis := AnalyzeCodebase(repoPath)
-	analysisStr := analysis.FormatAnalysis()
-
+	// Keep it simple — free models fail on complex prompts
 	var sb strings.Builder
-	appendPlanInstructions(&sb, ciStatus, day)
-	sb.WriteString("## Codebase Analysis\n\n")
-	sb.WriteString(analysisStr)
-	appendPlanContext(&sb, learnings, journal, issues)
-
-	// Inject recent failures so the planner avoids repeating bad approaches.
-	if failures := recentFailures(repoPath, 10); failures != "" {
-		sb.WriteString("\n" + failures)
-	}
-	return sb.String()
-}
-
-func appendPlanInstructions(sb *strings.Builder, ciStatus []byte, day string) {
-	if len(ciStatus) > 0 {
-		sb.WriteString(strings.TrimSpace(string(ciStatus)) + "\n\n")
-	}
-	sb.WriteString("## Phase: Planning\n\n")
-	sb.WriteString("Read your source code, then write SESSION_PLAN.md.\n\n")
-	sb.WriteString("**Step 1 — Read your codebase:**\n")
-	sb.WriteString("- list_files on cmd/ and internal/ recursively\n")
-	sb.WriteString("- Read key source files\n")
-	sb.WriteString("- Run: go build ./... && go test ./... && go vet ./...\n")
-	sb.WriteString("- grep -rn 'TODO\\|FIXME\\|panic(' --include='*.go' cmd/ internal/\n\n")
-	sb.WriteString("**Step 2 — Pick tasks by priority:**\n")
-	sb.WriteString("0. Fix broken builds or failing tests\n")
-	sb.WriteString("1. Bugs, crashes, or silent failures\n")
-	sb.WriteString("2. Missing tests for existing features\n")
-	sb.WriteString("3. Community issues\n")
-	sb.WriteString("4. UX improvements\n\n")
-	sb.WriteString("**Step 3 — Write SESSION_PLAN.md using the write_file tool:**\n\n")
-	sb.WriteString("Format:\n")
-	sb.WriteString("```\n## Session Plan\n\n")
+	sb.WriteString("You are iterate, a self-evolving Go agent.\n\n")
+	sb.WriteString("## TASK\n")
+	sb.WriteString("Write a SESSION_PLAN.md file with 3 tasks to improve this codebase.\n\n")
+	sb.WriteString("## RULES\n")
+	sb.WriteString("- Use the write_file tool to create SESSION_PLAN.md\n")
+	sb.WriteString("- Each task must modify at least one .go source file\n")
+	sb.WriteString("- Be specific: name exact files and what to change\n")
+	sb.WriteString("- Do NOT write code — just plan tasks\n\n")
+	sb.WriteString("## FORMAT\n")
+	sb.WriteString("## Session Plan\n\n")
 	sb.WriteString("Session Title: [short title]\n\n")
 	sb.WriteString("### Task 1: [title]\n")
 	sb.WriteString("Files: [files to modify]\n")
-	sb.WriteString("Description: [specific enough to implement blindly]\n")
-	sb.WriteString("Issue: #N (or none)\n\n")
-	sb.WriteString("### Issue Responses\n")
-	sb.WriteString("- #N: implement — [reason]\n")
-	sb.WriteString("```\n\n")
-	sb.WriteString("After writing, STOP. Do not implement. Planning only.\n\n")
-}
+	sb.WriteString("Description: [specific enough to implement blindly]\n\n")
+	sb.WriteString("### Task 2: [title]\n")
+	sb.WriteString("Files: [files to modify]\n")
+	sb.WriteString("Description: [specific enough to implement blindly]\n\n")
+	sb.WriteString("### Task 3: [title]\n")
+	sb.WriteString("Files: [files to modify]\n")
+	sb.WriteString("Description: [specific enough to implement blindly]\n\n")
+	sb.WriteString("## WHAT TO IMPROVE\n")
+	sb.WriteString("Pick from this priority list:\n")
+	sb.WriteString("1. Fix broken builds or failing tests\n")
+	sb.WriteString("2. Bugs, crashes, or silent failures\n")
+	sb.WriteString("3. Missing tests for existing features\n")
+	sb.WriteString("4. Code smells (defer in loops, unused vars, hardcoded values)\n")
+	sb.WriteString("5. Missing error handling\n")
+	sb.WriteString("6. Community issues if any exist\n\n")
 
-func appendPlanContext(sb *strings.Builder, learnings []byte, journal string, issues string) {
-	if len(learnings) > 0 {
-		l := string(learnings)
-		if len(l) > 1000 {
-			l = l[:1000] + "\n...[truncated]"
-		}
-		sb.WriteString("## What you have learned so far\n\n")
-		sb.WriteString(l + "\n\n")
+	// Add issues if available
+	if len(issues) > 0 {
+		sb.WriteString("## Community Issues\n")
+		sb.WriteString(issues + "\n\n")
 	}
+
+	// Add recent journal for context (keep it short)
 	if len(journal) > 0 {
 		recent := journal
-		if len(recent) > 800 {
-			recent = "...\n" + recent[len(recent)-800:]
+		if len(recent) > 400 {
+			recent = "...\n" + recent[len(recent)-400:]
 		}
-		sb.WriteString("## Recent journal\n\n")
+		sb.WriteString("## Recent Journal\n")
 		sb.WriteString(recent + "\n\n")
 	}
-	if len(issues) > 0 {
-		sb.WriteString("## Community input\n\n")
-		sb.WriteString(issues + "\n")
-	}
+
+	sb.WriteString("Now write SESSION_PLAN.md using the write_file tool.\n")
+	return sb.String()
 }
 
 // RunImplementPhase reads SESSION_PLAN.md and executes tasks.
