@@ -160,6 +160,12 @@ func TestWithTimeout_DefaultTimeout(t *testing.T) {
 func TestSaveAndLoadPRState(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, ".iterate"), 0o755)
+
+	// Ensure we're not in CI mode so loadPRState doesn't try GitHub API
+	oldActions := os.Getenv("GITHUB_ACTIONS")
+	os.Setenv("GITHUB_ACTIONS", "")
+	defer os.Setenv("GITHUB_ACTIONS", oldActions)
+
 	e := New(dir, slog.Default())
 
 	e.prNumber = 42
@@ -169,6 +175,24 @@ func TestSaveAndLoadPRState(t *testing.T) {
 	if err := e.savePRState(); err != nil {
 		t.Fatalf("savePRState failed: %v", err)
 	}
+
+	path := filepath.Join(dir, ".iterate", "pr_state.json")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Error("pr_state.json should exist")
+	}
+
+	e2 := New(dir, slog.Default())
+	e2.loadPRState()
+	if e2.prNumber != 42 {
+		t.Errorf("expected prNumber 42, got %d", e2.prNumber)
+	}
+	if e2.prURL != "https://github.com/test/repo/pull/42" {
+		t.Errorf("expected prURL, got %q", e2.prURL)
+	}
+	if e2.branchName != "evolution/day-1" {
+		t.Errorf("expected branchName, got %q", e2.branchName)
+	}
+}
 
 	path := filepath.Join(dir, ".iterate", "pr_state.json")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
