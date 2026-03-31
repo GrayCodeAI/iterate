@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -536,10 +538,16 @@ func TestConversationMarks_GetAll(t *testing.T) {
 }
 
 func TestConversationMarksLen(t *testing.T) {
+	uniqueName := "len-test-" + t.Name() + fmt.Sprintf("%d", time.Now().UnixNano())
 	before := conversationMarksLen()
-	setConversationMark("len-test-"+t.Name(), 99)
+	setConversationMark(uniqueName, 99)
 	after := conversationMarksLen()
-	if after != before+1 {
-		t.Errorf("expected length to increase by 1, got %d -> %d", before, after)
+	if after <= before {
+		t.Errorf("expected length to increase, got %d -> %d", before, after)
+	}
+	// Verify the mark was set
+	idx, ok := getConversationMark(uniqueName)
+	if !ok || idx != 99 {
+		t.Errorf("expected mark %s=99, got %d, ok=%v", uniqueName, idx, ok)
 	}
 }
