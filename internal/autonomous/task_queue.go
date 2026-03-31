@@ -97,6 +97,7 @@ type TaskQueue struct {
 	maxRetries  int
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
+	taskCounter int64
 }
 
 // TaskQueueConfig holds configuration for the task queue.
@@ -145,8 +146,9 @@ func (tq *TaskQueue) AddTask(name string, description string, priority TaskPrior
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 
+	tq.taskCounter++
 	task := &QueuedTask{
-		ID:           fmt.Sprintf("task_%d", time.Now().UnixNano()),
+		ID:           fmt.Sprintf("task_%d", tq.taskCounter),
 		Name:         name,
 		Description:  description,
 		Priority:     priority,

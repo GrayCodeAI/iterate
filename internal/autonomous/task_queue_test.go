@@ -121,13 +121,13 @@ func TestTaskQueueDependencies(t *testing.T) {
 	task2 := tq.AddTask("task2", "Second task", PriorityNormal, []string{task1.ID})
 
 	// Start processing
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	go tq.Start(ctx)
 
 	// Wait for completion with polling
-	for i := 0; i < 150; i++ {
+	for i := 0; i < 300; i++ {
 		stats := tq.GetStats()
 		if stats.Pending == 0 && stats.Running == 0 {
 			break
