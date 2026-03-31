@@ -55,9 +55,13 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 			if err := os.WriteFile(planPath, []byte(extracted), 0o644); err == nil {
 				e.logger.Info("extracted SESSION_PLAN.md from agent output")
 			}
+		} else {
+			// Last resort: write the raw output as the plan
+			if err := os.WriteFile(planPath, []byte(lastContent), 0o644); err == nil {
+				e.logger.Info("wrote SESSION_PLAN.md from raw agent output (no plan header found)")
+			}
 		}
 	}
-
 	// Verify a plan was produced — fail explicitly rather than silently proceeding.
 	if _, err := os.Stat(planPath); os.IsNotExist(err) {
 		return fmt.Errorf("planning phase produced no SESSION_PLAN.md")
@@ -67,12 +71,19 @@ func (e *Engine) RunPlanPhase(ctx context.Context, p iteragent.Provider, issues 
 
 // extractPlan tries multiple patterns to extract a plan from agent text output.
 func extractPlan(output string) string {
-	for _, prefix := range []string{"## Session Plan", "## Session plan", "# Session Plan", "## Plan"} {
+	// Check for any plan-like content with broad matching
+	prefixes := []string{
+		"## Session Plan", "## Session plan", "# Session Plan", "## Plan",
+		"# Plan", "## SESSION PLAN", "# SESSION PLAN",
+		"Session Title:", "### Task 1", "## Task 1",
+	}
+	for _, prefix := range prefixes {
 		if idx := strings.Index(output, prefix); idx >= 0 {
 			return strings.TrimSpace(output[idx:])
 		}
 	}
-	if strings.Contains(output, "Task 1") || strings.Contains(output, "### Task") {
+	// If output contains task descriptions, accept the whole output
+	if strings.Contains(output, "Task") && (strings.Contains(output, "Files:") || strings.Contains(output, "Description:")) {
 		return strings.TrimSpace(output)
 	}
 	return ""

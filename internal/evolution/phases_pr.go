@@ -56,8 +56,9 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	// Delete any stale branch with the same name.
 	_ = e.deleteBranch(ctx, branchName)
 
+	// Try to create branch; if it already exists locally, reset it to current HEAD.
 	if out, err := e.runTool(ctx, "bash", map[string]interface{}{
-		"cmd": fmt.Sprintf("git checkout -b %s", branchName),
+		"cmd": fmt.Sprintf("git checkout -b %s 2>/dev/null || git checkout %s && git reset --hard HEAD", branchName, branchName),
 	}); err != nil {
 		return fmt.Errorf("failed to create feature branch %s: %w (output: %s)", branchName, err, out)
 	}
