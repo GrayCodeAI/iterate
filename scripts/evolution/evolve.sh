@@ -106,8 +106,8 @@ log "=== iterate evolution cycle started ==="
 
 # ── API Key & Model Rotation Setup ──
 API_KEYS=()
-[[ -n "${OPENCODE_API_KEY:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY")
 [[ -n "${OPENCODE_API_KEY_2:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY_2")
+[[ -n "${OPENCODE_API_KEY:-}" ]] && API_KEYS+=("$OPENCODE_API_KEY")
 CURRENT_KEY_INDEX=0
 
 MODELS=()
