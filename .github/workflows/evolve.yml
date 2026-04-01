@@ -44,11 +44,12 @@ jobs:
           git config user.name "iterate-evolve[bot]"
           git config user.email "iterate-evolve[bot]@users.noreply.github.com"
 
-      - name: Run evolution with Gemini
+      - name: Run evolution with OpenCode
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ITERATE_PROVIDER: gemini
-          ITERATE_MODEL: gemini-2.0-flash
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
+          ITERATE_PROVIDER: opencode
+          ITERATE_MODEL: mimo-v2-pro-free
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

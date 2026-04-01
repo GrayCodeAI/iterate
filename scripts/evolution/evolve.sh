@@ -138,9 +138,15 @@ rotate_model() {
 }
 
 # ── Guards ──
-if [[ -z "${OPENCODE_API_KEY:-}" ]]; then
-  log "ERROR: OPENCODE_API_KEY not set"
+if [[ -z "${OPENCODE_API_KEY_2:-}" ]] && [[ -z "${OPENCODE_API_KEY:-}" ]] && [[ -z "${GEMINI_API_KEY:-}" ]]; then
+  log "ERROR: No API key set (OPENCODE_API_KEY_2, OPENCODE_API_KEY, or GEMINI_API_KEY)"
   exit 1
+fi
+
+# Use KEY_2 if available
+if [[ -n "${OPENCODE_API_KEY_2:-}" ]]; then
+  export OPENCODE_API_KEY="$OPENCODE_API_KEY_2"
+  log "Using OPENCODE_API_KEY_2"
 fi
 
 log "Provider: ${ITERATE_PROVIDER:-opencode}, Models: ${MODELS[*]:-glm-5}"
