@@ -48,7 +48,7 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
-          ITERATE_PROVIDER: opencode
+          ITERATE_PROVIDER: opencode-cli
           ITERATE_MODEL: mimo-v2-pro-free
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
