@@ -1,0 +1,30 @@
+name: test-api-key
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test OpenCode API Key
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_API_KEY_2: ${{ secrets.OPENCODE_API_KEY_2 }}
+        run: |
+          echo "=== Testing OPENCODE_API_KEY ==="
+          echo "Key length: ${#OPENCODE_API_KEY}"
+          echo "Key prefix: ${OPENCODE_API_KEY:0:10}..."
+          curl -s -w "\nHTTP: %{http_code}\n" \
+            -H "Authorization: Bearer $OPENCODE_API_KEY" \
+            -H "Content-Type: application/json" \
+            https://api.opencode.ai/v1/models || echo "Curl failed"
+          
+          echo ""
+          echo "=== Testing OPENCODE_API_KEY_2 ==="
+          echo "Key length: ${#OPENCODE_API_KEY_2}"
+          echo "Key prefix: ${OPENCODE_API_KEY_2:0:10}..."
+          curl -s -w "\nHTTP: %{http_code}\n" \
+            -H "Authorization: Bearer $OPENCODE_API_KEY_2" \
+            -H "Content-Type: application/json" \
+            https://api.opencode.ai/v1/models || echo "Curl failed"
