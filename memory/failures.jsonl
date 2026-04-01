@@ -68,3 +68,4 @@
 {"day":0,"reason":"Agent error: empty streaming response from openai-compat","task":"Clean up code smells","ts":"2026-04-01T05:19:53Z","type":"failure"}
 {"day":3,"reason":"Agent error: opencode CLI not found in PATH: exec: \"opencode\": executable file not found in $PATH","task":"Fix error handling gaps","ts":"2026-04-01T05:27:21Z","type":"failure"}
 {"day":3,"reason":"Agent error: opencode CLI not found in PATH: exec: \"opencode\": executable file not found in $PATH","task":"Add missing tests","ts":"2026-04-01T05:27:22Z","type":"failure"}
+{"day":3,"reason":"Agent error: opencode CLI not found in PATH: exec: \"opencode\": executable file not found in $PATH","task":"Clean up code smells","ts":"2026-04-01T05:27:22Z","type":"failure"}
