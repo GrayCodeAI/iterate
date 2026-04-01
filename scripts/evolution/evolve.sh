@@ -422,7 +422,9 @@ fi
 # In CI we're on a detached HEAD after merge, so we must checkout main first
 log "Switching to main for journal and DAY_COUNT updates..."
 git checkout main 2>/dev/null || git checkout -B main 2>/dev/null || true
-git pull origin main 2>/dev/null || true
+git config pull.rebase true
+git fetch origin
+git reset --hard origin/main 2>/dev/null || true
 
 # Write journal entry
 if grep -q "## Day ${DAY}" "${REPOPATH}/docs/JOURNAL.md" 2>/dev/null; then
@@ -440,7 +442,10 @@ fi
 git add docs/JOURNAL.md 2>/dev/null || true
 git diff --cached --quiet || git commit -m "journal: Day $DAY session entry" 2>/dev/null || true
 
-# Increment DAY_COUNT (only once, on main)
+# Increment DAY_COUNT only after PM run (Session 2)
+# AM run (UTC hour < 12) = Session 1, don't increment
+# PM run (UTC hour >= 12) = Session 2, increment
+UTC_HOUR=$(date -u +'%H')
 DAY_COUNT_FILE="${REPOPATH}/DAY_COUNT"
 CURRENT_DAY=0
 if [[ -f "$DAY_COUNT_FILE" ]]; then
@@ -449,12 +454,24 @@ if [[ -f "$DAY_COUNT_FILE" ]]; then
     CURRENT_DAY=0
   fi
 fi
-NEXT_DAY=$((CURRENT_DAY + 1))
-echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
-log "Day count updated: $CURRENT_DAY → $NEXT_DAY"
+
+if [[ "$UTC_HOUR" -ge 12 ]]; then
+  # PM run = Session 2, increment day
+  NEXT_DAY=$((CURRENT_DAY + 1))
+  echo "$NEXT_DAY" > "$DAY_COUNT_FILE"
+  log "Session 2 complete. Day count updated: $CURRENT_DAY → $NEXT_DAY"
+else
+  # AM run = Session 1, don't increment
+  NEXT_DAY=$CURRENT_DAY
+  log "Session 1 complete. Day count unchanged: $CURRENT_DAY"
+fi
 
 git add "$DAY_COUNT_FILE" 2>/dev/null || true
-git diff --cached --quiet || git commit -m "chore: increment DAY_COUNT to $NEXT_DAY" 2>/dev/null || true
+if [[ "$UTC_HOUR" -ge 12 ]]; then
+  git diff --cached --quiet || git commit -m "chore: Day $CURRENT_DAY Session 2 complete, increment to $NEXT_DAY" 2>/dev/null || true
+else
+  git diff --cached --quiet || git commit -m "chore: Day $CURRENT_DAY Session 1 complete" 2>/dev/null || true
+fi
 
 # Push everything to main
 git push origin main 2>/dev/null || log "WARNING: failed to push to main"
