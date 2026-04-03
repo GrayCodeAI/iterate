@@ -169,9 +169,20 @@ func colorize(line string, keywords []string, color string) string {
 func colorizeStrings(line string) string {
 	var b strings.Builder
 	inStr := false
+	escaped := false
 	quote := byte(0)
 	for i := 0; i < len(line); i++ {
 		c := line[i]
+		if escaped {
+			b.WriteByte(c)
+			escaped = false
+			continue
+		}
+		if c == '\\' && inStr {
+			b.WriteByte(c)
+			escaped = true
+			continue
+		}
 		if !inStr && (c == '"' || c == '\'') {
 			inStr = true
 			quote = c

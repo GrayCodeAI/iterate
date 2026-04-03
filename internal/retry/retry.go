@@ -100,7 +100,7 @@ func WithRetry(ctx context.Context, config RetryConfig, operation func() error, 
 		lastErr = err
 
 		// Don't retry if it's not a retryable error
-		if !IsRetryable(err) && attempt == 0 {
+		if !IsRetryable(err) {
 			logger.Error("non-retryable error", "error", err)
 			return err
 		}
@@ -217,7 +217,7 @@ func ExecuteWithTracking(ctx context.Context, config RetryConfig, operation func
 
 		lastErr = TryAutoFix(err)
 
-		if !IsRetryable(err) && attempt == 0 {
+		if !IsRetryable(err) {
 			result.Error = lastErr
 			result.Duration = time.Since(start)
 			return result

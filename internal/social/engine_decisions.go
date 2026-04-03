@@ -35,12 +35,25 @@ func buildSocialPrompt(discussions []Discussion) string {
 }
 
 func parseSocialDecisions(response string) ([]socialDecision, error) {
-	// Strip markdown code fences if present
+	// Strip markdown code fences if present, handling whitespace.
 	response = strings.TrimSpace(response)
-	response = strings.TrimPrefix(response, "```json")
-	response = strings.TrimPrefix(response, "```")
-	response = strings.TrimSuffix(response, "```")
+	if strings.HasPrefix(response, "```") {
+		// Remove opening fence (```json, ``` json, or ```) and rest of first line.
+		firstLineEnd := strings.IndexByte(response, '\n')
+		if firstLineEnd != -1 {
+			response = strings.TrimSpace(response[firstLineEnd+1:])
+		} else {
+			response = response[3:]
+			if len(response) > 0 && response[0] == ' ' {
+				response = strings.TrimSpace(response)
+			}
+		}
+	}
+	// Remove closing fence.
 	response = strings.TrimSpace(response)
+	if strings.HasSuffix(response, "```") {
+		response = strings.TrimSpace(strings.TrimSuffix(response, "```"))
+	}
 
 	var decisions []socialDecision
 	if err := json.Unmarshal([]byte(response), &decisions); err != nil {

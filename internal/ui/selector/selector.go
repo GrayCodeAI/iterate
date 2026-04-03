@@ -113,14 +113,6 @@ func formatContextWindow(total int) string {
 	if windowTokens <= 0 {
 		windowTokens = 200_000
 	}
-	pct := 0
-	if total > 0 {
-		pct = total * 100 / windowTokens
-		if pct > 100 {
-			pct = 100
-		}
-	}
-	_ = pct
 	ctxColor := colorBlue
 	ratio := float64(total) * 100 / float64(windowTokens)
 	if ratio > 75 {

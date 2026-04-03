@@ -20,6 +20,7 @@ func TestTruncate(t *testing.T) {
 		{"longer than maxLen len 7", "hello world", 7, "hello …"},
 		{"single char maxLen 5", "x", 5, "x"},
 		{"unicode longer", "abcdef", 5, "abcd…"},
+		{"unicode rune truncated by bytes", "caf\u00e9\u00e9\u00e9", 6, "caf\u00e9…"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

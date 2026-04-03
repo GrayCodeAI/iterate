@@ -375,6 +375,9 @@ func (ir *IncrementalRefresher) GetChangedFiles(files []string) ([]string, error
 		// Check mod time first (faster)
 		info, err := os.Stat(file)
 		if err != nil {
+			if os.IsNotExist(err) {
+				changed = append(changed, file)
+			}
 			continue
 		}
 
@@ -383,10 +386,6 @@ func (ir *IncrementalRefresher) GetChangedFiles(files []string) ([]string, error
 			continue
 		}
 
-		// Check if file was deleted
-		if os.IsNotExist(err) {
-			changed = append(changed, file)
-		}
 	}
 
 	return changed, nil

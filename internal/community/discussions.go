@@ -1,6 +1,7 @@
 package community
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,39 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 )
+
+// sharedHTTPClient is a singleton http.Client reused across all GraphQL requests
+// to avoid creating a new client (and its connection pool) per request.
+var (
+	sharedHTTPClient   *http.Client
+	sharedHTTPClientMu sync.Once
+)
+
+// testClient overrides the default client for testing.
+var testClient *http.Client
+var testClientMu sync.RWMutex
+
+// SetGraphQLClientForTests allows tests to inject a custom http.Client.
+func SetGraphQLClientForTests(c *http.Client) {
+	testClientMu.Lock()
+	defer testClientMu.Unlock()
+	testClient = c
+}
+
+func getGraphQLClient() *http.Client {
+	testClientMu.RLock()
+	ov := testClient
+	testClientMu.RUnlock()
+	if ov != nil {
+		return ov
+	}
+	sharedHTTPClientMu.Do(func() {
+		sharedHTTPClient = &http.Client{}
+	})
+	return sharedHTTPClient
+}
 
 type Discussion struct {
 	Number     int
@@ -193,12 +226,15 @@ func CreateDiscussion(ctx context.Context, owner, repo, category, title, body st
 }
 
 func runGraphQLRequest(ctx context.Context, token, query string, variables interface{}) ([]byte, error) {
-	reqBody, _ := json.Marshal(map[string]interface{}{
+	reqBody, err := json.Marshal(map[string]interface{}{
 		"query":     query,
 		"variables": variables,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", strings.NewReader(string(reqBody)))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -206,15 +242,32 @@ func runGraphQLRequest(ctx context.Context, token, query string, variables inter
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := getGraphQLClient().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("graphql request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("graphql request failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	// Check for GraphQL-level errors in the response body.
+	var gqlResp struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &gqlResp); err == nil && len(gqlResp.Errors) > 0 {
+		msgs := make([]string, len(gqlResp.Errors))
+		for i, e := range gqlResp.Errors {
+			msgs[i] = e.Message
+		}
+		return nil, fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
 	}
 
 	return body, nil

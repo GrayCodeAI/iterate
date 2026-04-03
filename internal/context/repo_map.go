@@ -211,11 +211,13 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 
 	var wg sync.WaitGroup
 
-	// Start workers
+	// Start workers — each gets its own generator with its own FileSet,
+	// because token.FileSet is not thread-safe.
 	for i := 0; i < maxWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			worker := NewRepoMapGenerator(g.config, g.logger)
 			for path := range fileChan {
 				select {
 				case <-ctx.Done():
@@ -224,7 +226,7 @@ func (g *RepoMapGenerator) Generate(ctx context.Context, rootPath string) (*Repo
 				default:
 				}
 
-				fileMap, err := g.parseFile(path)
+				fileMap, err := worker.parseFile(path)
 				resultChan <- &fileResult{path: path, fileMap: fileMap, err: err}
 			}
 		}()

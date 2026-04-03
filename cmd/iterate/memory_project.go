@@ -99,7 +99,11 @@ func readActiveLearnings(repoPath string) string {
 		if err2 != nil {
 			return ""
 		}
-		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+		trimmed := strings.TrimSpace(string(raw))
+		if trimmed == "" {
+			return ""
+		}
+		lines := strings.Split(trimmed, "\n")
 		if len(lines) > 10 {
 			lines = lines[len(lines)-10:]
 		}

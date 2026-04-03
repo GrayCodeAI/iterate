@@ -166,10 +166,9 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 	start := time.Now()
 
 	mm.mu.RLock()
-	defer mm.mu.RUnlock()
-
 	// Check cache
 	if result, ok := mm.queryCache[query]; ok && time.Now().Before(mm.cacheExpiry) {
+		mm.mu.RUnlock()
 		return result, nil
 	}
 
@@ -178,15 +177,29 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 		Matches: make([]*MentionMatch, 0),
 	}
 
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	if queryLower == "" {
+		mm.mu.RUnlock()
 		return result, nil
 	}
 
-	// Collect all matches
+	// Snapshot snapshot data under RLock so we can release it before the long
+	// matching phase (and before acquiring a write lock later for cache).
+	filesCopy := make([]*FileInfo, 0, len(mm.files))
+	for _, info := range mm.files {
+		filesCopy = append(filesCopy, info)
+	}
+	cfg := *mm.config
+	openFilesCopy := make(map[string]bool, len(mm.openFiles))
+	for k, v := range mm.openFiles {
+		openFilesCopy[k] = v
+	}
+	mm.mu.RUnlock()
+
+	// Collect all matches (no lock held).
 	var matches []*MentionMatch
 
-	for _, info := range mm.files {
+	for _, info := range filesCopy {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -194,12 +207,12 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 		}
 
 		// Skip hidden files unless configured
-		if info.IsHidden && !mm.config.IncludeHidden {
+		if info.IsHidden && !cfg.IncludeHidden {
 			continue
 		}
 
-		match := mm.matchFile(query, info)
-		if match != nil && match.Score >= mm.config.MinScore {
+		match := mm.matchFileWithOpenFiles(queryLower, info, openFilesCopy)
+		if match != nil && match.Score >= cfg.MinScore {
 			matches = append(matches, match)
 		}
 	}
@@ -207,7 +220,7 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 	// Sort by score (descending)
 	sort.Slice(matches, func(i, j int) bool {
 		// Prefer open files
-		if mm.config.PreferOpenFiles {
+		if cfg.PreferOpenFiles {
 			if matches[i].IsOpen != matches[j].IsOpen {
 				return matches[i].IsOpen
 			}
@@ -217,26 +230,97 @@ func (mm *MentionMatcher) Match(ctx context.Context, query string) (*MentionResu
 			return matches[i].Score > matches[j].Score
 		}
 		// Then by recent
-		if mm.config.PreferRecent {
+		if cfg.PreferRecent {
 			return matches[i].LastAccessed.After(matches[j].LastAccessed)
 		}
 		return matches[i].Path < matches[j].Path
 	})
 
 	// Limit results
-	if len(matches) > mm.config.MaxResults {
-		matches = matches[:mm.config.MaxResults]
+	if len(matches) > cfg.MaxResults {
+		matches = matches[:cfg.MaxResults]
 	}
 
 	result.Matches = matches
 	result.Total = len(matches)
 	result.Duration = time.Since(start)
 
-	// Cache result
+	// Cache result under write lock
+	mm.mu.Lock()
 	mm.queryCache[query] = result
-	mm.cacheExpiry = time.Now().Add(mm.config.CacheTTL)
+	mm.cacheExpiry = time.Now().Add(cfg.CacheTTL)
+	mm.mu.Unlock()
 
 	return result, nil
+}
+
+// matchFileWithOpenFiles is like matchFile but takes openFiles as a parameter
+// so it can be called without holding any locks.
+func (mm *MentionMatcher) matchFileWithOpenFiles(query string, info *FileInfo, openFiles map[string]bool) *MentionMatch {
+	basename := strings.ToLower(info.Basename)
+	path := strings.ToLower(info.Path)
+
+	match := &MentionMatch{
+		Path:   info.Path,
+		Name:   info.Basename,
+		Type:   "file",
+		IsOpen: openFiles[info.Path],
+	}
+
+	// 1. Exact match on basename
+	if basename == query {
+		match.Score = 1.0
+		match.MatchType = "exact"
+		return match
+	}
+
+	// 2. Exact match on full path
+	if path == query {
+		match.Score = 0.95
+		match.MatchType = "exact"
+		return match
+	}
+
+	// 3. Prefix match on basename
+	if strings.HasPrefix(basename, query) {
+		match.Score = 0.9
+		match.MatchType = "prefix"
+		match.MatchedRanges = []int{0, len(query)}
+		return match
+	}
+
+	// 4. Contains match on basename
+	if strings.Contains(basename, query) {
+		match.Score = 0.8
+		match.MatchType = "contains"
+		idx := strings.Index(basename, query)
+		match.MatchedRanges = []int{idx, idx + len(query)}
+		return match
+	}
+
+	// 5. Prefix match on path
+	if strings.HasPrefix(path, query) {
+		match.Score = 0.7
+		match.MatchType = "prefix"
+		return match
+	}
+
+	// 6. Contains match on path
+	if strings.Contains(path, query) {
+		match.Score = 0.6
+		match.MatchType = "contains"
+		return match
+	}
+
+	// 7. Fuzzy match on basename
+	if score, ranges := mm.fuzzyMatch(query, basename); score >= mm.config.FuzzyThreshold {
+		match.Score = score * 0.5 // Scale down fuzzy matches
+		match.MatchType = "fuzzy"
+		match.MatchedRanges = ranges
+		return match
+	}
+
+	return nil
 }
 
 // matchFile matches a file against the query.

@@ -90,10 +90,8 @@ func detectTestCommand(repoPath string) string {
 		return "python -m pytest"
 	}
 	// Check for Node.js project
-	if _, err := os.Stat(filepath.Join(repoPath, "package.json")); err == nil {
-		// Check for npm test script
-		pkgJSON, _ := os.ReadFile(filepath.Join(repoPath, "package.json"))
-		if bytes.Contains(pkgJSON, []byte(`"test"`)) {
+	if pkgData, err := os.ReadFile(filepath.Join(repoPath, "package.json")); err == nil {
+		if bytes.Contains(pkgData, []byte(`"test"`)) {
 			return "npm test"
 		}
 		return "node --test"

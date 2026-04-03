@@ -72,16 +72,16 @@ func TestCreateDiscussion_NoToken(t *testing.T) {
 // FetchDiscussions — via http.DefaultClient mock
 // ---------------------------------------------------------------------------
 
-// withMockHTTPClient temporarily replaces http.DefaultClient with a mock server.
+// withMockHTTPClient temporarily replaces the GraphQL client with a mock server.
 func withMockHTTPClient(t *testing.T, handler http.HandlerFunc) func() {
 	t.Helper()
 	srv := httptest.NewServer(handler)
-	orig := http.DefaultClient
-	http.DefaultClient = &http.Client{
+	mockClient := &http.Client{
 		Transport: &mockTransportRedirect{target: srv.URL},
 	}
+	SetGraphQLClientForTests(mockClient)
 	return func() {
-		http.DefaultClient = orig
+		SetGraphQLClientForTests(nil)
 		srv.Close()
 	}
 }

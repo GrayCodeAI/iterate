@@ -156,7 +156,11 @@ func loadBookmarks() []Bookmark {
 }
 
 func saveBookmarks(bms []Bookmark) {
-	data, _ := json.MarshalIndent(bms, "", "  ")
+	data, err := json.MarshalIndent(bms, "", "  ")
+	if err != nil {
+		slog.Warn("failed to marshal bookmarks", "err", err)
+		return
+	}
 	if err := atomicWriteFile(bookmarksPath(), data, 0o644); err != nil {
 		slog.Warn("failed to write bookmarks file", "err", err)
 	}

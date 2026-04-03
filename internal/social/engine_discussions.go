@@ -31,6 +31,14 @@ func (e *Engine) fetchDiscussions(ctx context.Context) ([]Discussion, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 300 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read error response: %w", err)
+		}
+		return nil, fmt.Errorf("graphql request failed (%d): %s", resp.StatusCode, string(body))
+	}
+
 	var result discussionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err

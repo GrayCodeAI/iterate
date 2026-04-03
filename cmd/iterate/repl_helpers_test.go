@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -144,7 +145,7 @@ func TestReplSystemPrompt_ContainsBaseText(t *testing.T) {
 	if prompt == "" {
 		t.Fatal("prompt should not be empty")
 	}
-	if !containsString([]string{prompt}, "iterate") && len(prompt) == 0 {
+	if !strings.Contains(prompt, "iterate") {
 		t.Error("prompt should contain 'iterate'")
 	}
 }
@@ -196,7 +197,7 @@ func TestReplSystemPrompt_WithActiveLearnings(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFetchOllamaModels_InvalidURL(t *testing.T) {
-	_, err := fetchOllamaModels("http://localhost:99999/api/tags")
+	_, err := fetchOllamaModels("http://localhost:9999/api/tags")
 	if err == nil {
 		t.Error("expected error for invalid URL")
 	}

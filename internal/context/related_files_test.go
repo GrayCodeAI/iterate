@@ -3,6 +3,7 @@ package context_test
 
 import (
 	stdcontext "context"
+	"strings"
 	"testing"
 
 	"github.com/GrayCodeAI/iterate/internal/context"
@@ -233,17 +234,8 @@ func TestRelatedFilesResult_ToMarkdown(t *testing.T) {
 	if markdown == "" {
 		t.Error("expected non-empty markdown output")
 	}
-	if result.FocusFile != "" && !containsStrR(markdown, result.FocusFile) {
+	if result.FocusFile != "" && !strings.Contains(markdown, result.FocusFile) {
 		t.Error("expected markdown to contain focus file")
 	}
 }
 
-// Helper
-func containsStrR(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}

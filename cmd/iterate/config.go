@@ -50,9 +50,20 @@ func (c *iterConfig) SetMaxTokens(v int)        { c.MaxTokens = v }
 func (c *iterConfig) SetCacheEnabled(v bool)    { c.CacheEnabled = v }
 func (c *iterConfig) SetOllamaBaseURL(v string) { c.OllamaBaseURL = v }
 
+// userHome returns OS.UserHomeDir, logging a warning on failure and falling
+// back to the HOME env var (or empty string) so the caller is never surprised
+// by a silent error.
+func userHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		slog.Warn("could not determine user home directory", "err", err)
+		home = os.Getenv("HOME")
+	}
+	return home
+}
+
 func configPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".iterate", "config.json")
+	return filepath.Join(userHome(), ".iterate", "config.json")
 }
 
 // configPathAlt returns the XDG-style config path (~/.config/iterate/config.json).
@@ -60,8 +71,7 @@ func configPathAlt() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "iterate", "config.json")
 	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "iterate", "config.json")
+	return filepath.Join(userHome(), ".config", "iterate", "config.json")
 }
 
 // configPathTOML returns the TOML config path (~/.config/iterate/config.toml).
@@ -69,8 +79,7 @@ func configPathTOML() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, "iterate", "config.toml")
 	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "iterate", "config.toml")
+	return filepath.Join(userHome(), ".config", "iterate", "config.toml")
 }
 
 func loadConfig() iterConfig {
@@ -88,9 +97,10 @@ func loadConfig() iterConfig {
 			if err != nil {
 				continue
 			}
-			if json.Unmarshal(data, &cfg) == nil {
+			if err := json.Unmarshal(data, &cfg); err == nil {
 				break
 			}
+			slog.Warn("corrupt JSON config file, skipping", "path", path, "err", err)
 		}
 	}
 

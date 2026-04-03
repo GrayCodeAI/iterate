@@ -27,9 +27,12 @@ func (e *Engine) RunPRPhase(ctx context.Context) error {
 	}
 
 	// Skip if nothing has changed relative to origin/main.
-	out, _ := e.runTool(ctx, "bash", map[string]interface{}{
+	out, err := e.runTool(ctx, "bash", map[string]interface{}{
 		"cmd": "git diff origin/main HEAD --stat",
 	})
+	if err != nil {
+		e.logger.Warn("git diff vs origin/main failed, continuing", "err", err, "output", out)
+	}
 	if strings.TrimSpace(out) == "" {
 		e.logger.Info("no changes vs origin/main — skipping PR creation")
 		return nil

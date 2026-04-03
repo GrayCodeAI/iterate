@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -37,7 +38,9 @@ func saveMCPServers(servers []commands.MCPServerEntry) {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(mcpServersPath(), data, 0o644)
+	if err := os.WriteFile(mcpServersPath(), data, 0o644); err != nil {
+		slog.Warn("failed to write MCP servers file", "err", err)
+	}
 }
 
 // mcpJSONEntry is the shape of an entry in .mcp.json.

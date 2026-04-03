@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -11,6 +12,7 @@ import (
 // ---------------------------------------------------------------------------
 
 type sessionState struct {
+	mu            sync.Mutex
 	Tokens        int
 	InputTokens   int
 	OutputTokens  int
@@ -33,8 +35,10 @@ func init() {
 	sess.Start = time.Now()
 }
 
-func (s *sessionState) RecordToolCall() { s.ToolCalls++ }
-func (s *sessionState) RecordMessage()  { s.Messages++ }
+func (s *sessionState) RecordToolCall()  { s.mu.Lock(); s.ToolCalls++; s.mu.Unlock() }
+func (s *sessionState) RecordMessage()   { s.mu.Lock(); s.Messages++; s.mu.Unlock() }
+func (s *sessionState) AddTokens(n int)  { s.mu.Lock(); s.Tokens += n; s.mu.Unlock() }
+func (s *sessionState) AddCostUSD(c float64) { s.mu.Lock(); s.CostUSD += c; s.mu.Unlock() }
 
 func (s *sessionState) Stats() string {
 	elapsed := time.Since(s.Start).Round(time.Second)

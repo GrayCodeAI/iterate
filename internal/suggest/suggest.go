@@ -97,7 +97,7 @@ func listGoFiles(repoPath string) ([]string, error) {
 				return nil
 			}
 			// Skip vendor and hidden dirs
-			if strings.Contains(path, "/vendor/") || strings.Contains(path, "/.") {
+			if strings.Contains(path, "/vendor/") || strings.Contains(path, "/.") || strings.HasPrefix(path, ".") {
 				return nil
 			}
 			rel, _ := filepath.Rel(repoPath, path)

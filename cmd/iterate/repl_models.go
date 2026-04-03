@@ -119,8 +119,8 @@ func promptOllamaHost(hosts []ollamaHost) string {
 	if choice == "enter URL manually" {
 		return ""
 	}
-	for _, h := range hosts {
-		if strings.HasPrefix(choice, h.name) {
+	for i, h := range hosts {
+		if choice == labels[i] {
 			return h.url
 		}
 	}

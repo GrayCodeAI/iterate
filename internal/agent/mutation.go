@@ -39,7 +39,9 @@ func MutationTestTool(repoPath string) Tool {
 			var out bytes.Buffer
 			cmd.Stdout = &out
 			cmd.Stderr = &out
-			_ = cmd.Run()
+			if err := cmd.Run(); err != nil {
+				return out.String(), fmt.Errorf("go-mutesting failed: %w", err)
+			}
 
 			result := out.String()
 			return summariseMutationResults(result), nil
@@ -55,7 +57,9 @@ func runCoverageReport(ctx context.Context, repoPath, pkg string) (string, error
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return out.String(), fmt.Errorf("go test -cover failed: %w", err)
+	}
 
 	lines := strings.Split(out.String(), "\n")
 	var sb strings.Builder

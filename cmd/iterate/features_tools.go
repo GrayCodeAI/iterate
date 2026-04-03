@@ -314,7 +314,22 @@ const (
 	modeArchitect           // planning only: no tools at all
 )
 
-var currentMode agentMode
+var (
+	currentMode     agentMode
+	currentModeMu   sync.RWMutex
+)
+
+func setCurrentMode(mode agentMode) {
+	currentModeMu.Lock()
+	currentMode = mode
+	currentModeMu.Unlock()
+}
+
+func getCurrentMode() agentMode {
+	currentModeMu.RLock()
+	defer currentModeMu.RUnlock()
+	return currentMode
+}
 
 // readOnlyTools filters out destructive tools for /ask mode.
 func readOnlyTools(tools []iteragent.Tool) []iteragent.Tool {

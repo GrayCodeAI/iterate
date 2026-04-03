@@ -51,7 +51,7 @@ func closeProvider(p iteragent.Provider) {
 
 func makeAgent(p iteragent.Provider, repoPath string, thinking iteragent.ThinkingLevel, logger *slog.Logger) *iteragent.Agent {
 	base := iteragent.DefaultTools(repoPath)
-	switch currentMode {
+	switch getCurrentMode() {
 	case modeAsk:
 		base = readOnlyTools(base)
 	case modeArchitect:
@@ -256,9 +256,11 @@ func handleModelProviderSwitch(line string, p *iteragent.Provider, thinking *ite
 	if line == "/model" || strings.HasPrefix(line, "/model ") {
 		newP, newThinking := selectModel(*thinking)
 		if newP != nil {
+			oldP := *p
 			*p = newP
 			*thinking = newThinking
 			_ = (*a).Close() // best-effort cleanup
+			closeProvider(oldP)
 			*a = makeAgent(*p, repoPath, *thinking, logger)
 			fmt.Printf("%s✓ switched to %s%s\n\n", colorLime, (*p).Name(), colorReset)
 			// Preserve all existing config — only update provider/model fields.
@@ -509,7 +511,7 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 			// automatically uses the new tool set on the next request.
 			MakeAgent: func() *iteragent.Agent {
 				base := iteragent.DefaultTools(repoPath)
-				switch currentMode {
+				switch getCurrentMode() {
 				case modeAsk:
 					base = readOnlyTools(base)
 				case modeArchitect:

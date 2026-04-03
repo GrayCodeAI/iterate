@@ -44,7 +44,12 @@ func exportConversation(messages []iteragent.Message, path string) error {
 	b.WriteString("# iterate — Conversation Export\n\n")
 	b.WriteString(fmt.Sprintf("Exported: %s\n\n---\n\n", time.Now().Format("2006-01-02 15:04:05")))
 	for _, m := range messages {
-		role := strings.ToUpper(m.Role[:1]) + m.Role[1:]
+		var role string
+		if len(m.Role) > 0 {
+			role = strings.ToUpper(m.Role[:1]) + m.Role[1:]
+		} else {
+			role = "unknown"
+		}
 		b.WriteString(fmt.Sprintf("## %s\n\n%s\n\n", role, m.Content))
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o644)
@@ -176,12 +181,17 @@ func compactHard(messages []iteragent.Message, keepLast int) []iteragent.Message
 	if len(messages) <= keepLast {
 		return messages
 	}
-	// Keep system context (first 2) + last keepLast messages
+	// Keep system context (first 2) + last keepLast messages.
+	// Ensure tail start is past the head to avoid duplicates when keepLast overlaps.
 	var out []iteragent.Message
 	if len(messages) > 2 {
 		out = append(out, messages[:2]...)
 	}
-	tail := messages[len(messages)-keepLast:]
+	tailStart := len(messages) - keepLast
+	if tailStart < 2 {
+		tailStart = 2
+	}
+	tail := messages[tailStart:]
 	out = append(out, tail...)
 	return out
 }

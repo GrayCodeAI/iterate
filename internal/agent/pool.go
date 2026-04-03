@@ -31,12 +31,17 @@ type RateLimiter struct {
 }
 
 // NewRateLimiter creates a rate limiter with the given requests per second.
+// If rps is 0 or negative, the limiter is unbuffered (all Wait calls return immediately).
 func NewRateLimiter(rps int) *RateLimiter {
 	rl := &RateLimiter{
-		tokens:   make(chan struct{}, rps*2), // burst capacity
-		refill:   time.Second / time.Duration(rps),
 		stopChan: make(chan struct{}),
 	}
+	if rps <= 0 {
+		// No rate limiting — return a no-op limiter.
+		return rl
+	}
+	rl.tokens = make(chan struct{}, rps*2) // burst capacity
+	rl.refill = time.Second / time.Duration(rps)
 	// Fill initial tokens
 	for i := 0; i < rps; i++ {
 		rl.tokens <- struct{}{}

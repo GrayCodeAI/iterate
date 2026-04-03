@@ -12,9 +12,17 @@ import (
 	"github.com/GrayCodeAI/iterate/internal/ui/selector"
 )
 
+// envOverrides holds environment variable overrides that the caller can
+// apply safely instead of resolveProviderConfig calling os.Setenv itself.
+type envOverrides struct {
+	OllamaBaseURL string
+	IterateModel  string
+}
+
 // resolveProviderConfig merges flag values with persisted config.
 // Flags take precedence: only defaults ("gemini", empty) are overridden.
-func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterConfig) (provider, model, apiKey string) {
+// Returns env overrides map that the caller should apply goroutine-safely.
+func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterConfig) (provider, model, apiKey string, env envOverrides) {
 	provider = flagProvider
 	model = flagModel
 	apiKey = flagAPIKey
@@ -29,13 +37,13 @@ func resolveProviderConfig(flagProvider, flagModel, flagAPIKey string, cfg iterC
 		apiKey = cfg.APIKey
 	}
 	if cfg.OllamaBaseURL != "" && os.Getenv("OLLAMA_BASE_URL") == "" {
-		os.Setenv("OLLAMA_BASE_URL", cfg.OllamaBaseURL)
+		env.OllamaBaseURL = cfg.OllamaBaseURL
 	}
 	if model != "" {
-		os.Setenv("ITERATE_MODEL", model)
+		env.IterateModel = model
 	}
 
-	return provider, model, apiKey
+	return provider, model, apiKey, env
 }
 
 // resolveThinkingLevel returns the effective thinking level, falling back to

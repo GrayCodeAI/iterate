@@ -127,7 +127,10 @@ func buildChangelogPrompt(repoPath string, since string) string {
 	} else {
 		args = append(args, "-50")
 	}
-	out, _ := exec.Command("git", args...).Output()
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return "Failed to read git log: " + err.Error()
+	}
 	log := strings.TrimSpace(string(out))
 	if log == "" {
 		return "No commits found."
@@ -201,7 +204,10 @@ func buildReleaseNotes(repoPath, from, to string) string {
 	} else {
 		args = append(args, "-30")
 	}
-	out, _ := exec.Command("git", args...).Output()
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return "Failed to read git log: " + err.Error()
+	}
 	log := strings.TrimSpace(string(out))
 	if log == "" {
 		return "No commits found."

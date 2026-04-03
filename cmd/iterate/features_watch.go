@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+	"io/fs"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -122,20 +122,25 @@ func runWatcher(ctx context.Context, repoPath string) {
 // snapshotMTimes returns a map of path → mtime for all watched files.
 func snapshotMTimes(repoPath string) map[string]time.Time {
 	result := make(map[string]time.Time)
-	_ = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil {
+	_ = filepath.WalkDir(repoPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d == nil {
 			return nil
 		}
-		if info.IsDir() {
-			// Skip excluded directories.
+		if d.IsDir() {
+			// Skip excluded directories using basename comparison.
+			name := d.Name()
 			for _, ex := range watchConfig.exclude {
-				if strings.Contains(path, ex) {
+				if name == ex {
 					return filepath.SkipDir
 				}
 			}
 			return nil
 		}
 		if !shouldWatch(path) {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
 			return nil
 		}
 		result[path] = info.ModTime()
@@ -146,8 +151,9 @@ func snapshotMTimes(repoPath string) map[string]time.Time {
 
 // shouldWatch returns true if path passes include/exclude filters.
 func shouldWatch(path string) bool {
+	base := filepath.Base(path)
 	for _, ex := range watchConfig.exclude {
-		if strings.Contains(path, ex) {
+		if base == ex {
 			return false
 		}
 	}

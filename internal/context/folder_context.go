@@ -151,6 +151,13 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 	var totalFiles int
 	truncated := false
 
+	// Snapshot config under lock before starting walk.
+	fcm.mu.RLock()
+	maxFiles := fcm.config.MaxFiles
+	maxDepth := fcm.config.MaxDepth
+	maxTotalSize := fcm.config.MaxTotalSize
+	fcm.mu.RUnlock()
+
 	err = filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
@@ -165,14 +172,14 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 		// Check depth
 		relPath, _ := filepath.Rel(folderPath, path)
 		currentDepth := len(strings.Split(relPath, string(os.PathSeparator)))
-		if currentDepth > fcm.config.MaxDepth {
+		if currentDepth > maxDepth {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// Check exclusions
+		// Check exclusions (shouldExclude is safe — no mutable state access).
 		if fcm.shouldExclude(path, info) {
 			if info.IsDir() {
 				return filepath.SkipDir
@@ -181,7 +188,7 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 		}
 
 		// Check limits
-		if totalFiles >= fcm.config.MaxFiles {
+		if totalFiles >= maxFiles {
 			truncated = true
 			if info.IsDir() {
 				return filepath.SkipDir
@@ -189,7 +196,7 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 			return nil
 		}
 
-		if totalSize > fcm.config.MaxTotalSize {
+		if totalSize > maxTotalSize {
 			truncated = true
 			return nil
 		}
@@ -270,13 +277,19 @@ func (fcm *FolderContextManager) GatherFolder(ctx context.Context, folderPath st
 func (fcm *FolderContextManager) shouldExclude(path string, info os.FileInfo) bool {
 	name := info.Name()
 
+	fcm.mu.RLock()
+	includeHidden := fcm.config.IncludeHidden
+	excludePatterns := make([]string, len(fcm.config.ExcludePatterns))
+	copy(excludePatterns, fcm.config.ExcludePatterns)
+	fcm.mu.RUnlock()
+
 	// Check hidden files
-	if !fcm.config.IncludeHidden && strings.HasPrefix(name, ".") {
+	if !includeHidden && strings.HasPrefix(name, ".") {
 		return true
 	}
 
 	// Check exclusion patterns
-	for _, pattern := range fcm.config.ExcludePatterns {
+	for _, pattern := range excludePatterns {
 		// Exact match
 		if name == pattern {
 			return true
@@ -301,8 +314,13 @@ func (fcm *FolderContextManager) shouldExclude(path string, info os.FileInfo) bo
 func (fcm *FolderContextManager) calculatePriority(summary *FileSummary) int {
 	priority := 0
 
+	fcm.mu.RLock()
+	priorityExts := make([]string, len(fcm.config.PriorityExtensions))
+	copy(priorityExts, fcm.config.PriorityExtensions)
+	fcm.mu.RUnlock()
+
 	// Check priority extensions
-	for i, ext := range fcm.config.PriorityExtensions {
+	for i, ext := range priorityExts {
 		if summary.Ext == ext {
 			priority = 100 - i // Higher priority for earlier extensions
 			break

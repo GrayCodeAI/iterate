@@ -25,10 +25,18 @@ var sandboxManager struct {
 
 func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logger) {
 	cfg := loadConfig()
-	providerName, modelName, apiKey := resolveProviderConfig(f.provider, f.model, f.apiKey, cfg)
+	providerName, modelName, apiKey, envOverrides := resolveProviderConfig(f.provider, f.model, f.apiKey, cfg)
 	f.provider = providerName
 	f.model = modelName
 	f.apiKey = apiKey
+
+	// Apply environment overrides safely (single goroutine at startup).
+	if envOverrides.OllamaBaseURL != "" {
+		os.Setenv("OLLAMA_BASE_URL", envOverrides.OllamaBaseURL)
+	}
+	if envOverrides.IterateModel != "" {
+		os.Setenv("ITERATE_MODEL", envOverrides.IterateModel)
+	}
 
 	p, err := initProvider(f.provider, f.apiKey, logger)
 	if err != nil {
@@ -39,7 +47,7 @@ func runMode(ctx context.Context, f mainFlags, absRepo string, logger *slog.Logg
 	f.thinking = resolveThinkingLevel(f.thinking, cfg)
 
 	if f.noTools {
-		currentMode = modeArchitect // reuse "no tools" mode
+		setCurrentMode(modeArchitect) // reuse "no tools" mode
 	}
 
 	// Initialize sandbox if enabled
