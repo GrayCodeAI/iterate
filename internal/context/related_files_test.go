@@ -238,4 +238,3 @@ func TestRelatedFilesResult_ToMarkdown(t *testing.T) {
 		t.Error("expected markdown to contain focus file")
 	}
 }
-

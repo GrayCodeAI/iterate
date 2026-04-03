@@ -52,7 +52,7 @@ func TestPushFileEdit(t *testing.T) {
 func TestPushFileCreate(t *testing.T) {
 	rs := NewRollbackStack(DefaultRollbackConfig())
 
-	entry := rs.PushFileCreate("new_file.go")
+	entry := rs.PushFileCreate("new_file.go", "initial content")
 
 	if entry.Type != RollbackTypeFileCreate {
 		t.Errorf("Expected type file_create, got %s", entry.Type)

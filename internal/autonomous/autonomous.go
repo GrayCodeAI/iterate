@@ -465,8 +465,16 @@ func (e *Engine) waitForApproval(step PlanStep) bool {
 	if e.config.SafetyMode == SafetyPermissive {
 		return true
 	}
-	// In strict mode, would prompt user - for now, auto-approve
-	return true
+	// SafetyStrict/Balanced: prompt user via stdin
+	e.status.NeedsApproval = true
+	e.status.PendingAction = fmt.Sprintf("%s: %s", step.Type, step.Target)
+	fmt.Printf("\n⚠ Approval needed: %s: %s — approve? (y/N): ", step.Type, step.Target)
+	var answer string
+	if _, err := fmt.Scanln(&answer); err != nil {
+		e.logger.Info("Approval not provided, defaulting to reject", "step", step.Type)
+		return false
+	}
+	return strings.ToLower(strings.TrimSpace(answer)) == "y"
 }
 
 func (e *Engine) createRollbackPoint(step PlanStep) RollbackOp {

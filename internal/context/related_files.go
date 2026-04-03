@@ -418,8 +418,10 @@ func FindTestFilePublic(filePath string) string {
 
 // findTestedFile attempts to find the tested file for a test file.
 func findTestedFile(testPath string) string {
+	dir := ""
 	base := testPath
 	if idx := strings.LastIndex(testPath, "/"); idx >= 0 {
+		dir = testPath[:idx+1]
 		base = testPath[idx+1:]
 	}
 
@@ -433,7 +435,11 @@ func findTestedFile(testPath string) string {
 
 	for _, suffix := range testSuffixes {
 		if strings.HasSuffix(base, suffix) {
-			return strings.TrimSuffix(base, suffix) + ext
+			base = strings.TrimSuffix(base, suffix)
+			if base == "" && ext == ".go" {
+				return "" // e.g. "_test.go" is not valid
+			}
+			return dir + base + ext
 		}
 	}
 

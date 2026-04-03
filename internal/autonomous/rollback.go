@@ -37,7 +37,7 @@ type RollbackEntry struct {
 // RollbackStack manages a stack of rollback operations.
 type RollbackStack struct {
 	mu         sync.RWMutex
-	entries    []RollbackEntry
+	entries    []*RollbackEntry
 	maxEntries int
 	baseDir    string
 	backupDir  string
@@ -64,7 +64,7 @@ func NewRollbackStack(config RollbackConfig) *RollbackStack {
 	}
 
 	rs := &RollbackStack{
-		entries:    make([]RollbackEntry, 0),
+		entries:    make([]*RollbackEntry, 0),
 		maxEntries: config.MaxEntries,
 		baseDir:    config.BaseDir,
 	}
@@ -103,27 +103,38 @@ func (rs *RollbackStack) PushFileEdit(path string, originalContent string) *Roll
 		}
 	}
 
-	rs.pushEntry(entry)
+	rs.pushEntry(&entry)
 	return &entry
 }
 
 // PushFileCreate records a file creation for potential rollback.
-func (rs *RollbackStack) PushFileCreate(path string) *RollbackEntry {
+func (rs *RollbackStack) PushFileCreate(path string, content string) *RollbackEntry {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
 	rs.counter++
-	entry := RollbackEntry{
+	entry := &RollbackEntry{
 		ID:        fmt.Sprintf("rb_%d", rs.counter),
 		Type:      RollbackTypeFileCreate,
 		Timestamp: time.Now().Unix(),
 		Path:      path,
+		Original:  content,
 		Applied:   false,
 		Metadata:  make(map[string]any),
 	}
 
+	// Save creation content for potential undo
+	if rs.backupDir != "" {
+		backupPath := filepath.Join(rs.backupDir, entry.ID+filepath.Ext(path))
+		if err := os.WriteFile(backupPath, []byte(content), 0644); err != nil {
+			entry.Metadata["backup_error"] = err.Error()
+		} else {
+			entry.Metadata["backup_path"] = backupPath
+		}
+	}
+
 	rs.pushEntry(entry)
-	return &entry
+	return entry
 }
 
 // PushFileDelete records a file deletion for potential rollback.
@@ -132,7 +143,7 @@ func (rs *RollbackStack) PushFileDelete(path string, content string) *RollbackEn
 	defer rs.mu.Unlock()
 
 	rs.counter++
-	entry := RollbackEntry{
+	entry := &RollbackEntry{
 		ID:        fmt.Sprintf("rb_%d", rs.counter),
 		Type:      RollbackTypeFileDelete,
 		Timestamp: time.Now().Unix(),
@@ -145,12 +156,15 @@ func (rs *RollbackStack) PushFileDelete(path string, content string) *RollbackEn
 	// Save backup
 	if rs.backupDir != "" {
 		backupPath := filepath.Join(rs.backupDir, entry.ID+filepath.Ext(path))
-		os.WriteFile(backupPath, []byte(content), 0644)
-		entry.Metadata["backup_path"] = backupPath
+		if err := os.WriteFile(backupPath, []byte(content), 0644); err != nil {
+			entry.Metadata["backup_error"] = err.Error()
+		} else {
+			entry.Metadata["backup_path"] = backupPath
+		}
 	}
 
 	rs.pushEntry(entry)
-	return &entry
+	return entry
 }
 
 // PushGitCommit records a git commit for potential rollback.
@@ -159,7 +173,7 @@ func (rs *RollbackStack) PushGitCommit(commitHash string) *RollbackEntry {
 	defer rs.mu.Unlock()
 
 	rs.counter++
-	entry := RollbackEntry{
+	entry := &RollbackEntry{
 		ID:         fmt.Sprintf("rb_%d", rs.counter),
 		Type:       RollbackTypeGitCommit,
 		Timestamp:  time.Now().Unix(),
@@ -169,11 +183,11 @@ func (rs *RollbackStack) PushGitCommit(commitHash string) *RollbackEntry {
 	}
 
 	rs.pushEntry(entry)
-	return &entry
+	return entry
 }
 
 // pushEntry adds an entry to the stack.
-func (rs *RollbackStack) pushEntry(entry RollbackEntry) {
+func (rs *RollbackStack) pushEntry(entry *RollbackEntry) {
 	rs.entries = append(rs.entries, entry)
 
 	// Trim old entries if needed
@@ -193,7 +207,7 @@ func (rs *RollbackStack) Pop() *RollbackEntry {
 
 	entry := rs.entries[len(rs.entries)-1]
 	rs.entries = rs.entries[:len(rs.entries)-1]
-	return &entry
+	return entry
 }
 
 // Peek returns the most recent entry without removing it.
@@ -205,8 +219,7 @@ func (rs *RollbackStack) Peek() *RollbackEntry {
 		return nil
 	}
 
-	entry := rs.entries[len(rs.entries)-1]
-	return &entry
+	return rs.entries[len(rs.entries)-1]
 }
 
 // Rollback performs the most recent rollback operation.
@@ -239,7 +252,7 @@ func (rs *RollbackStack) RollbackTo(entryID string) error {
 
 	// Rollback from most recent to target
 	for i := len(rs.entries) - 1; i >= targetIndex; i-- {
-		if err := rs.executeRollback(&rs.entries[i]); err != nil {
+		if err := rs.executeRollback(rs.entries[i]); err != nil {
 			return fmt.Errorf("rollback failed at entry %s: %w", rs.entries[i].ID, err)
 		}
 	}
@@ -294,7 +307,25 @@ func (rs *RollbackStack) rollbackFileCreate(entry *RollbackEntry) error {
 		return fmt.Errorf("no path for file create rollback")
 	}
 
-	return os.Remove(entry.Path)
+	// Try backup file content first (to restore the file)
+	if backupPath, ok := entry.Metadata["backup_path"].(string); ok {
+		data, err := os.ReadFile(backupPath)
+		if err == nil {
+			return os.WriteFile(entry.Path, data, 0644)
+		}
+	}
+
+	// Fall back to stored content, then try delete
+	if entry.Original != "" {
+		return os.WriteFile(entry.Path, []byte(entry.Original), 0644)
+	}
+
+	// If file exists and we just need to delete it
+	if _, err := os.Stat(entry.Path); err == nil {
+		return os.Remove(entry.Path)
+	}
+
+	return fmt.Errorf("no backup content available for created file")
 }
 
 func (rs *RollbackStack) rollbackFileDelete(entry *RollbackEntry) error {
@@ -337,13 +368,16 @@ func (rs *RollbackStack) RollbackAll() error {
 }
 
 // GetEntries returns all entries.
-func (rs *RollbackStack) GetEntries() []RollbackEntry {
+func (rs *RollbackStack) GetEntries() []*RollbackEntry {
 	rs.mu.RLock()
 	defer rs.mu.RUnlock()
 
-	entries := make([]RollbackEntry, len(rs.entries))
-	copy(entries, rs.entries)
-	return entries
+	result := make([]*RollbackEntry, len(rs.entries))
+	for i, entry := range rs.entries {
+		copy := *entry
+		result[i] = &copy
+	}
+	return result
 }
 
 // GetEntry returns a specific entry by ID.
@@ -353,7 +387,7 @@ func (rs *RollbackStack) GetEntry(id string) *RollbackEntry {
 
 	for _, entry := range rs.entries {
 		if entry.ID == id {
-			return &entry
+			return entry
 		}
 	}
 	return nil
@@ -370,7 +404,7 @@ func (rs *RollbackStack) Size() int {
 func (rs *RollbackStack) Clear() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	rs.entries = make([]RollbackEntry, 0)
+	rs.entries = make([]*RollbackEntry, 0)
 }
 
 // CreateSnapshot creates a named snapshot of the current stack.
@@ -383,7 +417,9 @@ func (rs *RollbackStack) CreateSnapshot(name string) (*RollbackSnapshot, error) 
 		Timestamp: time.Now().Unix(),
 		Entries:   make([]RollbackEntry, len(rs.entries)),
 	}
-	copy(snapshot.Entries, rs.entries)
+	for i, entry := range rs.entries {
+		snapshot.Entries[i] = *entry
+	}
 
 	return snapshot, nil
 }
@@ -409,7 +445,7 @@ func (rs *RollbackStack) GetLastOfType(rollbackType RollbackType) *RollbackEntry
 
 	for i := len(rs.entries) - 1; i >= 0; i-- {
 		if rs.entries[i].Type == rollbackType {
-			return &rs.entries[i]
+			return rs.entries[i]
 		}
 	}
 	return nil

@@ -205,10 +205,16 @@ func cmdCherryPick(ctx Context) Result {
 		fmt.Println("Usage: /cherry-pick <commit-hash>")
 		return Result{Handled: true}
 	}
+	commit := ctx.Arg(1)
+	// Validate commit hash doesn't start with '-' to prevent flag injection
+	if len(commit) > 0 && commit[0] == '-' {
+		fmt.Println("Error: invalid commit hash (cannot start with '-')")
+		return Result{Handled: true}
+	}
 	if ctx.REPL.RunShell != nil {
-		ctx.REPL.RunShell(ctx.RepoPath, "git", "cherry-pick", ctx.Arg(1))
+		ctx.REPL.RunShell(ctx.RepoPath, "git", "cherry-pick", commit)
 	} else {
-		cmd := exec.Command("git", "cherry-pick", ctx.Arg(1))
+		cmd := exec.Command("git", "cherry-pick", commit)
 		cmd.Dir = ctx.RepoPath
 		cmd.Stdout = Stdout
 		cmd.Stderr = Stdout

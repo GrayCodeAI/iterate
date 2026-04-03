@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	iteragent "github.com/GrayCodeAI/iteragent"
 	"github.com/GrayCodeAI/iterate/internal/agent"
@@ -313,7 +314,7 @@ func cmdSwarm(ctx Context) Result {
 		return Result{Handled: true}
 	}
 
-	results := executeSwarmAgents(ctx.Pool, n, task)
+	results := executeSwarmAgents(ctx.Context, ctx.Pool, n, task)
 	printSwarmResults(results, n)
 
 	return Result{Handled: true}
@@ -325,17 +326,25 @@ type swarmAgentResult struct {
 	isError bool
 }
 
-func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
+func executeSwarmAgents(ctx context.Context, pool *agent.Pool, n int, task string) []string {
 	resultCh := make(chan swarmAgentResult, n)
 	sem := make(chan struct{}, 10)
 	var doneCount int32
 
 	for i := 0; i < n; i++ {
 		go func(idx int) {
-			sem <- struct{}{}
+			select {
+			case <-ctx.Done():
+				resultCh <- swarmAgentResult{idx: idx, content: fmt.Sprintf("cancelled: %s", ctx.Err()), isError: true}
+				return
+			case sem <- struct{}{}:
+			}
 			defer func() { <-sem }()
 
-			ag, err := pool.Acquire(context.Background())
+			childCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			defer cancel()
+
+			ag, err := pool.Acquire(childCtx)
 			if err != nil {
 				resultCh <- swarmAgentResult{idx: idx, content: fmt.Sprintf("error: %s", err), isError: true}
 				return
@@ -344,7 +353,7 @@ func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
 
 			// Stream the agent, collecting output silently.
 			var full strings.Builder
-			events := ag.Prompt(context.Background(), task)
+			events := ag.Prompt(childCtx, task)
 			for e := range events {
 				if iteragent.EventType(e.Type) == iteragent.EventTokenUpdate {
 					full.WriteString(e.Content)
@@ -361,12 +370,16 @@ func executeSwarmAgents(pool *agent.Pool, n int, task string) []string {
 
 	results := make([]string, 0, n)
 	for i := 0; i < n; i++ {
-		r := <-resultCh
-		snippet := r.content
-		if len(snippet) > 120 {
-			snippet = snippet[:120] + "…"
+		select {
+		case <-ctx.Done():
+			return results
+		case r := <-resultCh:
+			snippet := r.content
+			if len(snippet) > 120 {
+				snippet = snippet[:120] + "…"
+			}
+			results = append(results, fmt.Sprintf("Agent %d: %s", r.idx, snippet))
 		}
-		results = append(results, fmt.Sprintf("Agent %d: %s", r.idx, snippet))
 	}
 	fmt.Printf("\r\033[K") // clear progress line
 	return results

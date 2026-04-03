@@ -84,24 +84,40 @@ func configPathTOML() string {
 
 func loadConfig() iterConfig {
 	var cfg iterConfig
+	tomlPath := configPathTOML()
 
 	// Try TOML first (new preferred format), then JSON paths.
-	if data, err := os.ReadFile(configPathTOML()); err == nil {
+	if data, err := os.ReadFile(tomlPath); err == nil {
 		if err := toml.Unmarshal(data, &cfg); err != nil {
 			slog.Warn("failed to parse TOML config, falling back to JSON", "err", err)
-		}
-	} else {
-		// Fall back to JSON: XDG path, then legacy ~/.iterate/config.json.
-		for _, path := range []string{configPathAlt(), configPath()} {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				continue
+			// Fall back to JSON paths on TOML parse error
+			for _, path := range []string{configPathAlt(), configPath()} {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					continue
+				}
+				if err := json.Unmarshal(data, &cfg); err == nil {
+					applyEnvOverrides(&cfg)
+					return cfg
+				}
+				slog.Warn("corrupt JSON config file, skipping", "path", path, "err", err)
 			}
-			if err := json.Unmarshal(data, &cfg); err == nil {
-				break
-			}
-			slog.Warn("corrupt JSON config file, skipping", "path", path, "err", err)
+		} else {
+			applyEnvOverrides(&cfg)
+			return cfg
 		}
+	}
+
+	// TOML not found, fall back to JSON paths.
+	for _, path := range []string{configPathAlt(), configPath()} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if err := json.Unmarshal(data, &cfg); err == nil {
+			break
+		}
+		slog.Warn("corrupt JSON config file, skipping", "path", path, "err", err)
 	}
 
 	// Environment variable overrides (always win over file config).
@@ -188,7 +204,7 @@ func globMatch(pattern, name string) bool {
 // Returns: allowed=true (auto-allow), denied=true (auto-deny), or neither (ask user).
 func checkBashPermission(cfg iterConfig, cmd string) (allowed, denied bool) {
 	for _, p := range cfg.DenyPatterns {
-		if globMatch(p, cmd) || (len(cmd) >= len(p) && globMatch(p, cmd[:len(p)])) {
+		if globMatch(p, cmd) {
 			return false, true
 		}
 		// Also check if any word in cmd matches the pattern

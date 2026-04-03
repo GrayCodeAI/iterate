@@ -97,13 +97,13 @@ func countLines(repoPath string) map[string]int {
 		if err != nil {
 			return nil
 		}
-		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		lines := 0
 		for scanner.Scan() {
 			lines++
 		}
+		f.Close()
 		counts[ext] += lines
 		return nil
 	})

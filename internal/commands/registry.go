@@ -119,6 +119,8 @@ type Context struct {
 
 	// Auto-commit state
 	AutoCommitEnabled *bool
+	// Caller context for cancellation/timeout support.
+	Context context.Context
 
 	// Runtime config
 	RuntimeConfig *RuntimeConfig

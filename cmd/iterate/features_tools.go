@@ -202,12 +202,12 @@ func performUndo() ([]string, error) {
 // wrapToolsWithPermissions wraps tools that need approval in safe mode
 // and adds audit logging to all tools.
 func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
-	cfg := loadConfig()
 	out := make([]iteragent.Tool, len(tools))
 	for i, t := range tools {
 		t := t // capture
 		origExec := t.Execute
 		t.Execute = func(ctx context.Context, args map[string]interface{}) (string, error) {
+			cfg := loadConfig() // Reload config each execution for runtime changes
 			trackSessionChanges(t.Name, args)
 
 			// Capture file snapshot before any write/edit so /undo can restore.
@@ -223,7 +223,7 @@ func wrapToolsWithPermissions(tools []iteragent.Tool) []iteragent.Tool {
 			}
 
 			if cfg.SafeMode && isDenied(t.Name) {
-				if result, handled := handleSafeModePrompt(cfg, t, args, origExec, args); handled {
+				if result, handled := handleSafeModePrompt(&cfg, t, args, origExec, args); handled {
 					return result, nil
 				}
 			}
@@ -261,10 +261,10 @@ func checkToolDirPermission(cfg iterConfig, toolName string, args map[string]int
 	return ""
 }
 
-func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]interface{}, origExec func(context.Context, map[string]interface{}) (string, error), auditArgs map[string]interface{}) (string, bool) {
+func handleSafeModePrompt(cfg *iterConfig, tool iteragent.Tool, args map[string]interface{}, origExec func(context.Context, map[string]interface{}) (string, error), auditArgs map[string]interface{}) (string, bool) {
 	if tool.Name == "bash" {
 		cmd := iteragent.ArgStr(args, "command")
-		if allowed, denied := checkBashPermission(cfg, cmd); allowed {
+		if allowed, denied := checkBashPermission(*cfg, cmd); allowed {
 			autoCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 			result, err := origExec(autoCtx, args)
@@ -291,6 +291,7 @@ func handleSafeModePrompt(cfg iterConfig, tool iteragent.Tool, args map[string]i
 		if tool.Name == "bash" {
 			if cmd := iteragent.ArgStr(args, "command"); cmd != "" {
 				cfg.AllowPatterns = append(cfg.AllowPatterns, cmd)
+				saveConfig(*cfg)
 			}
 		} else {
 			allowTool(tool.Name)
@@ -315,8 +316,8 @@ const (
 )
 
 var (
-	currentMode     agentMode
-	currentModeMu   sync.RWMutex
+	currentMode   agentMode
+	currentModeMu sync.RWMutex
 )
 
 func setCurrentMode(mode agentMode) {
