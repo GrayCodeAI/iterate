@@ -63,7 +63,10 @@ func injectAtFileContext(prompt, repoPath string) string {
 		for scanner.Scan() && len(lines) < maxLines {
 			lines = append(lines, scanner.Text())
 		}
-		f.Close() // explicit close — defer in loop would leak file descriptors
+		f.Close()
+		if scanner.Err() != nil {
+			continue // read error — skip this file silently
+		}
 
 		ext := strings.TrimPrefix(filepath.Ext(relPath), ".")
 		block := fmt.Sprintf("\n\n[File: %s]\n```%s\n%s\n```", relPath, ext, strings.Join(lines, "\n"))

@@ -539,6 +539,7 @@ func (s *Sandbox) streamOutput(reader io.Reader, outputChan chan<- string, wg *s
 	for scanner.Scan() {
 		outputChan <- scanner.Text() + "\n"
 	}
+	// scanner.Err() intentionally ignored — output channel will be closed by caller
 }
 
 // SandboxBuilder helps create Sandbox configurations.

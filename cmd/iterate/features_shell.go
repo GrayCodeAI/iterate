@@ -105,7 +105,9 @@ func countLines(repoPath string) map[string]int {
 			lines++
 		}
 		f.Close()
-		counts[ext] += lines
+		if scanner.Err() == nil {
+			counts[ext] += lines
+		}
 		return nil
 	})
 	return counts

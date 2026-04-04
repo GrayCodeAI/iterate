@@ -221,6 +221,7 @@ func loadLearnings(repoPath string) []learningEntry {
 		}
 		entries = append(entries, entry)
 	}
+	// scanner.Err() ignored — partial results are still useful
 	return entries
 }
 
