@@ -375,7 +375,7 @@ func (t *TDDEngine) suggestTestFileName(task string) string {
 		if len(name) > 20 {
 			break
 		}
-		name += strings.Title(w)
+		name += strings.ToUpper(w[:1]) + w[1:]
 	}
 
 	return fmt.Sprintf("internal/evolution/task_%s_test.go", strings.ToLower(name))
