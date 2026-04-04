@@ -331,7 +331,22 @@ func (a *DependencyAnalyzer) resolveGoImport(rootPath, fromFile, importPath stri
 		fromDir := filepath.Dir(fromFile)
 		resolved := filepath.Join(fromDir, importPath)
 		if info, err := os.Stat(resolved); err == nil && info.IsDir() {
-			return resolved
+			// For directory imports, find the primary .go file
+			entries, err := os.ReadDir(resolved)
+			if err == nil {
+				mainFiles := []string{"doc.go", "main.go"}
+				for _, main := range mainFiles {
+					if _, err := os.Stat(filepath.Join(resolved, main)); err == nil {
+						return filepath.Join(resolved, main)
+					}
+				}
+			}
+			// Fall back to first .go file
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
+					return filepath.Join(resolved, entry.Name())
+				}
+			}
 		}
 		return ""
 	}
@@ -345,6 +360,15 @@ func (a *DependencyAnalyzer) resolveGoImport(rootPath, fromFile, importPath stri
 
 			// Check if directory exists
 			if info, err := os.Stat(resolved); err == nil && info.IsDir() {
+				// Find the primary .go file in the directory
+				entries, err := os.ReadDir(resolved)
+				if err == nil {
+					for _, entry := range entries {
+						if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
+							return filepath.Join(resolved, entry.Name())
+						}
+					}
+				}
 				return resolved
 			}
 		}
@@ -360,26 +384,34 @@ func (a *DependencyAnalyzer) extractEmbedDirectives(rootPath, filePath string, c
 
 	lines := strings.Split(string(content), "\n")
 	for i, line := range lines {
-		if strings.Contains(line, "//go:embed") {
-			// Extract embedded file path
-			fields := strings.Fields(line)
-			for _, field := range fields {
-				if field != "//go:embed" && !strings.HasPrefix(field, "//") {
-					// This is a file pattern
-					fromDir := filepath.Dir(filePath)
-					resolved := filepath.Join(fromDir, field)
+		trimmed := strings.TrimSpace(line)
+		// Handle both single-line and comment-based embed directives
+		isEmbed := false
+		if strings.HasPrefix(trimmed, "//go:embed") || strings.HasPrefix(trimmed, "/*go:embed") {
+			isEmbed = true
+		}
+		if !isEmbed {
+			continue
+		}
+		// Extract embedded file path
+		fields := strings.Fields(line)
+		for _, field := range fields {
+			if field != "//go:embed" && !strings.HasPrefix(field, "//") {
+				// This is a file pattern
+				fromDir := filepath.Dir(filePath)
+				resolved := filepath.Join(fromDir, field)
 
-					if _, err := os.Stat(resolved); err == nil {
-						relToPath, _ := filepath.Rel(rootPath, resolved)
-						dep := Dependency{
-							FromFile: relFromPath,
-							ToFile:   relToPath,
-							Kind:     DependencyEmbed,
-							Line:     i + 1,
-							Strength: 8, // Embeds are strong dependencies
-						}
-						deps = append(deps, dep)
+				if _, err := os.Stat(resolved); err == nil {
+					relToPath, _ := filepath.Rel(rootPath, resolved)
+					dep := Dependency{
+						FromFile: relFromPath,
+						ToFile:   relToPath,
+						Kind:     DependencyEmbed,
+						Line:     i + 1,
+
+						Strength: 8, // Embeds are strong dependencies
 					}
+					deps = append(deps, dep)
 				}
 			}
 		}

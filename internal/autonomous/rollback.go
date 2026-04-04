@@ -307,25 +307,11 @@ func (rs *RollbackStack) rollbackFileCreate(entry *RollbackEntry) error {
 		return fmt.Errorf("no path for file create rollback")
 	}
 
-	// Try backup file content first (to restore the file)
-	if backupPath, ok := entry.Metadata["backup_path"].(string); ok {
-		data, err := os.ReadFile(backupPath)
-		if err == nil {
-			return os.WriteFile(entry.Path, data, 0644)
-		}
+	// Undo a create = delete the file
+	if err := os.Remove(entry.Path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove created file: %w", err)
 	}
-
-	// Fall back to stored content, then try delete
-	if entry.Original != "" {
-		return os.WriteFile(entry.Path, []byte(entry.Original), 0644)
-	}
-
-	// If file exists and we just need to delete it
-	if _, err := os.Stat(entry.Path); err == nil {
-		return os.Remove(entry.Path)
-	}
-
-	return fmt.Errorf("no backup content available for created file")
+	return nil
 }
 
 func (rs *RollbackStack) rollbackFileDelete(entry *RollbackEntry) error {

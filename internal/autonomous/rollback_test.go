@@ -165,7 +165,7 @@ func TestRollbackFileCreate(t *testing.T) {
 	os.WriteFile(testFile, []byte("new content"), 0644)
 
 	rs := NewRollbackStack(RollbackConfig{MaxEntries: 10})
-	rs.PushFileCreate(testFile)
+	rs.PushFileCreate(testFile, "new content")
 
 	err := rs.Rollback()
 	if err != nil {
@@ -352,7 +352,7 @@ func TestGetLastOfType(t *testing.T) {
 	rs := NewRollbackStack(DefaultRollbackConfig())
 
 	rs.PushFileEdit("file1.go", "c1")
-	rs.PushFileCreate("file2.go")
+	rs.PushFileCreate("file2.go", "")
 	rs.PushFileEdit("file3.go", "c3")
 
 	lastEdit := rs.GetLastOfType(RollbackTypeFileEdit)
@@ -421,7 +421,7 @@ func TestTask9FullIntegration(t *testing.T) {
 	t.Logf("✓ Pushed file edit for config.yaml")
 
 	// Operation 3: Create new file
-	rs.PushFileCreate(newFile)
+	rs.PushFileCreate(newFile, "")
 	os.WriteFile(newFile, []byte("package main\n\nfunc NewFeature() {}"), 0644)
 	t.Logf("✓ Pushed file create for new_feature.go")
 
