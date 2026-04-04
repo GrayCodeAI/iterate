@@ -1,3 +1,5 @@
+// Package agent provides agent pool management with rate limiting
+// and concurrency control for scalable AI agent operations.
 package agent
 
 import (

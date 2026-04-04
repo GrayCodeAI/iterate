@@ -80,12 +80,13 @@ func languageBreakdown(repoPath string) string {
 func countLines(repoPath string) map[string]int {
 	counts := map[string]int{}
 	_ = filepath.WalkDir(repoPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			if d != nil && d.IsDir() {
-				name := d.Name()
-				if strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" {
-					return filepath.SkipDir
-				}
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" {
+				return filepath.SkipDir
 			}
 			return nil
 		}

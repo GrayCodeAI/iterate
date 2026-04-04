@@ -1,3 +1,4 @@
+// Package prompts provides prompt templates and context building for agent interactions.
 package prompts
 
 import "fmt"

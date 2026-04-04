@@ -1,3 +1,5 @@
+// Package community provides GitHub integration for community features
+// including discussions, issues, and collaborative workflows.
 package community
 
 import (

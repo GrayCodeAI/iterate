@@ -1,3 +1,4 @@
+// Package util provides common utility functions used across the iterate codebase.
 package util
 
 // Truncate shortens s to maxLen characters, adding "…" if truncated.
