@@ -548,27 +548,36 @@ func buildCommandContext(repoPath, line string, parts []string, p iteragent.Prov
 // atFileCache is a session-scoped cache of the repo's filename index.
 // It is rebuilt if the repo path changes or if the TTL expires (60s),
 // so new files created by the agent are picked up within one minute.
-var atFileCache struct {
-	repoPath string
-	index    map[string]string // lowercase base → rel path
-	builtAt  time.Time
-}
+// Protected by atFileCacheMu since invalidateAtFileCache is called from
+// the tool-execution goroutine (via replHooks.OnToolEnd).
+var (
+	atFileCacheMu   sync.Mutex
+	atFileCacheData struct {
+		repoPath string
+		index    map[string]string // lowercase base → rel path
+		builtAt  time.Time
+	}
+)
 
 const atFileCacheTTL = 60 * time.Second
 
 // invalidateAtFileCache forces the next call to buildAtFileIndex to rebuild.
 // Called after the agent writes or deletes files so suggestions stay fresh.
 func invalidateAtFileCache() {
-	atFileCache.index = nil
-	atFileCache.repoPath = ""
+	atFileCacheMu.Lock()
+	defer atFileCacheMu.Unlock()
+	atFileCacheData.index = nil
+	atFileCacheData.repoPath = ""
 }
 
 // buildAtFileIndex walks repoPath and caches the result for atFileCacheTTL.
 func buildAtFileIndex(repoPath string) map[string]string {
-	if atFileCache.repoPath == repoPath &&
-		atFileCache.index != nil &&
-		time.Since(atFileCache.builtAt) < atFileCacheTTL {
-		return atFileCache.index
+	atFileCacheMu.Lock()
+	defer atFileCacheMu.Unlock()
+	if atFileCacheData.repoPath == repoPath &&
+		atFileCacheData.index != nil &&
+		time.Since(atFileCacheData.builtAt) < atFileCacheTTL {
+		return atFileCacheData.index
 	}
 	const maxScan = 800
 	idx := make(map[string]string)
@@ -593,9 +602,9 @@ func buildAtFileIndex(repoPath string) map[string]string {
 		count++
 		return nil
 	})
-	atFileCache.repoPath = repoPath
-	atFileCache.index = idx
-	atFileCache.builtAt = time.Now()
+	atFileCacheData.repoPath = repoPath
+	atFileCacheData.index = idx
+	atFileCacheData.builtAt = time.Now()
 	return idx
 }
 

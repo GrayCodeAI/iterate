@@ -183,10 +183,12 @@ Body: %s
 
 Use: gh issue comment %d --repo %s --body "..."`, resp.IssueNum, body, resp.IssueNum, e.repo)
 		issueCtx, issueCancel := context.WithTimeout(ctx, 90*time.Second)
-		a := e.newAgent(p, tools, systemPrompt, skills)
-		e.forwardEvents(a.Prompt(issueCtx, userMsg))
-		a.Finish()
-		issueCancel()
+		func() {
+			defer issueCancel()
+			a := e.newAgent(p, tools, systemPrompt, skills)
+			e.forwardEvents(a.Prompt(issueCtx, userMsg))
+			a.Finish()
+		}()
 	}
 }
 

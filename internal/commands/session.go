@@ -18,6 +18,7 @@ import (
 func RegisterSessionCommands(r *Registry) {
 	registerSessionCRUDCommands(r)
 	registerSessionBookmarkCommands(r)
+	registerSessionTemplateCommands(r)
 	registerSessionUtilityCommands(r)
 }
 
@@ -113,8 +114,6 @@ func registerSessionTemplateCommands(r *Registry) {
 }
 
 func registerSessionUtilityA(r *Registry) {
-	registerSessionTemplateCommands(r)
-
 	r.Register(Command{
 		Name:        "/multi",
 		Aliases:     []string{},
@@ -504,7 +503,18 @@ func cmdCompactHard(ctx Context) Result {
 		fmt.Printf("Only %d messages, nothing to compact.\n", before)
 		return Result{Handled: true}
 	}
-	ctx.Agent.Messages = ctx.Agent.Messages[len(ctx.Agent.Messages)-keep:]
+	// Preserve system context (first 2 messages) + last `keep` messages,
+	// matching the compactHard() implementation in features.go.
+	var out []iteragent.Message
+	if before > 2 {
+		out = append(out, ctx.Agent.Messages[:2]...)
+	}
+	tailStart := before - keep
+	if tailStart < 2 {
+		tailStart = 2
+	}
+	out = append(out, ctx.Agent.Messages[tailStart:]...)
+	ctx.Agent.Messages = out
 	fmt.Printf("%s✓ hard compacted: %d → %d messages%s\n\n", ColorLime, before, len(ctx.Agent.Messages), ColorReset)
 	return Result{Handled: true}
 }

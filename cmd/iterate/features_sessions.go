@@ -184,9 +184,9 @@ func addBookmark(name string, messages []iteragent.Message) {
 // /stats — session statistics
 // ---------------------------------------------------------------------------
 
-// recordToolCall and recordMessage are kept as thin wrappers for backward compatibility.
-func recordToolCall() { sess.ToolCalls++ }
-func recordMessage()  { sess.Messages++ }
+// recordToolCall and recordMessage use the mutex-protected sessionState methods.
+func recordToolCall() { sess.RecordToolCall() }
+func recordMessage()  { sess.RecordMessage() }
 
 func sessionStats() string {
 	return sess.Stats()

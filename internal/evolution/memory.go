@@ -50,11 +50,10 @@ func (e *Engine) appendLearningJSONL(title, source, context, takeaway string) er
 	if err != nil {
 		return fmt.Errorf("open learnings.jsonl: %w", err)
 	}
+	defer f.Close()
 	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
 		return err
 	}
-	f.Close()
 
 	// Trim entries older than 90 days (learnings have longer value than failures).
 	trimFailuresJSONL(path, 90*24*time.Hour)
@@ -94,11 +93,10 @@ func (e *Engine) appendFailureJSONL(taskTitle, reason string) error {
 	if err != nil {
 		return fmt.Errorf("open failures.jsonl: %w", err)
 	}
+	defer f.Close()
 	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
 		return err
 	}
-	f.Close()
 
 	// Trim entries older than 30 days to prevent unbounded growth.
 	trimFailuresJSONL(path, 30*24*time.Hour)

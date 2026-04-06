@@ -172,14 +172,11 @@ type ollamaHost struct {
 	url  string
 }
 
-// knownHosts are the fixed Tailscale machines to check for Ollama.
-// Override with OLLAMA_KNOWN_HOSTS env var (comma-separated name=url pairs).
+// knownHosts lists Ollama hosts to probe during /model selection.
+// Defaults to localhost only. Override with OLLAMA_KNOWN_HOSTS env var
+// (comma-separated name=url pairs, e.g. "gpu-box=http://10.0.0.5:11434/v1").
 var knownHosts = []ollamaHost{
-	{name: "agx-01", url: "http://100.102.194.103:11434/v1"},
-	{name: "agx-02", url: "http://100.87.35.70:11434/v1"},
-	{name: "gb10-01", url: "http://100.93.184.1:11434/v1"},
-	{name: "gb10-02", url: "http://100.87.126.2:11434/v1"},
-	{name: "vps-1", url: "http://100.79.60.48:11434/v1"},
+	{name: "localhost", url: "http://localhost:11434/v1"},
 }
 
 func initKnownHosts() {

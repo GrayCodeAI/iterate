@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // repoMapEntry holds the structural summary for one file.
@@ -204,25 +205,34 @@ func extractSymbolFromLine(line, ext string) string {
 }
 
 // repoMapCache caches the last-built map to avoid repeated filesystem walks.
-var repoMapCache struct {
-	repoPath string
-	content  string
-}
+// Protected by repoMapCacheMu since InvalidateRepoMap can be called from
+// tool-execution goroutines (via replHooks.OnToolEnd).
+var (
+	repoMapCacheMu   sync.Mutex
+	repoMapCacheData struct {
+		repoPath string
+		content  string
+	}
+)
 
 // CachedRepoMap returns a cached repo map, rebuilding if the path changed.
 func CachedRepoMap(repoPath string) string {
-	if repoMapCache.repoPath == repoPath && repoMapCache.content != "" {
-		return repoMapCache.content
+	repoMapCacheMu.Lock()
+	defer repoMapCacheMu.Unlock()
+	if repoMapCacheData.repoPath == repoPath && repoMapCacheData.content != "" {
+		return repoMapCacheData.content
 	}
 	cfg := defaultRepoMapConfig()
 	content := BuildRepoMap(repoPath, cfg)
-	repoMapCache.repoPath = repoPath
-	repoMapCache.content = content
+	repoMapCacheData.repoPath = repoPath
+	repoMapCacheData.content = content
 	return content
 }
 
 // InvalidateRepoMap clears the cache so the next call rebuilds.
 func InvalidateRepoMap() {
-	repoMapCache.repoPath = ""
-	repoMapCache.content = ""
+	repoMapCacheMu.Lock()
+	defer repoMapCacheMu.Unlock()
+	repoMapCacheData.repoPath = ""
+	repoMapCacheData.content = ""
 }

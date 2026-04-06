@@ -36,8 +36,6 @@ func contextStats(messages []iteragent.Message) string {
 // ---------------------------------------------------------------------------
 // /export — export conversation to markdown
 // ---------------------------------------------------------------------------
-// /export — export conversation to markdown
-// ---------------------------------------------------------------------------
 
 func exportConversation(messages []iteragent.Message, path string) error {
 	var b strings.Builder

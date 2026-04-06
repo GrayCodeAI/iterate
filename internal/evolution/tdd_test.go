@@ -99,11 +99,15 @@ func TestGenerateCodeFix_Default(t *testing.T) {
 	// Task that doesn't match any known pattern should use default
 	code := engine.generateCodeFix("unknown.go", "implement new feature")
 
-	if !strings.Contains(code, "not implemented") {
-		t.Error("default code generation should panic as placeholder")
+	if !strings.Contains(code, "not yet implemented") {
+		t.Error("default code generation should return error stub")
 	}
 	if !strings.Contains(code, "TODO") {
 		t.Error("default code should include TODO comment")
+	}
+	// Should NOT contain panic — we return an error instead.
+	if strings.Contains(code, "panic") {
+		t.Error("default code should not contain panic")
 	}
 }
 
