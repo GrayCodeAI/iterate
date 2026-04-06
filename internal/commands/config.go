@@ -286,8 +286,13 @@ func cmdEnv(ctx Context) Result {
 		return Result{Handled: true}
 	}
 	if ctx.HasArg(2) {
-		os.Setenv(ctx.Arg(1), ctx.Arg(2))
-		PrintSuccess("%s=%s", ctx.Arg(1), ctx.Arg(2))
+		envName := ctx.Arg(1)
+		if !isAllowedEnvVar(envName) {
+			PrintError("setting %s is not allowed — only ITERATE_*, OLLAMA_*, GEMINI_*, ANTHROPIC_*, OPENAI_*, GROQ_*, AZURE_*, NVIDIA_*, GITHUB_TOKEN env vars can be set", envName)
+			return Result{Handled: true}
+		}
+		os.Setenv(envName, ctx.Arg(2))
+		PrintSuccess("%s=%s", envName, ctx.Arg(2))
 	} else {
 		val := os.Getenv(ctx.Arg(1))
 		if val == "" {
@@ -380,4 +385,42 @@ func cmdMCPRemove(ctx Context) Result {
 	ctx.Config.SaveMCPServers(kept)
 	PrintSuccess("removed: %s", name)
 	return Result{Handled: true}
+}
+
+// allowedEnvPrefixes lists the environment variable prefixes that /env is
+// allowed to set. This prevents users from accidentally or maliciously
+// overriding security-sensitive variables like PATH, HOME, or LD_PRELOAD.
+var allowedEnvPrefixes = []string{
+	"ITERATE_",
+	"OLLAMA_",
+	"GEMINI_",
+	"ANTHROPIC_",
+	"OPENAI_",
+	"GROQ_",
+	"AZURE_",
+	"NVIDIA_",
+	"XAI_",
+	"MISTRAL_",
+	"DEEPSEEK_",
+}
+
+// allowedEnvExact lists exact env var names (not prefixes) that are allowed.
+var allowedEnvExact = []string{
+	"GITHUB_TOKEN",
+}
+
+// isAllowedEnvVar reports whether name is in the whitelist.
+func isAllowedEnvVar(name string) bool {
+	upper := strings.ToUpper(name)
+	for _, prefix := range allowedEnvPrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return true
+		}
+	}
+	for _, exact := range allowedEnvExact {
+		if upper == exact {
+			return true
+		}
+	}
+	return false
 }

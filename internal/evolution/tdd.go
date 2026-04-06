@@ -205,16 +205,19 @@ func (t *TDDEngine) generateCodeFix(codeFile, task string) string {
 		return t.generateResourceCloseFix(packageName, funcName)
 	}
 
-	// Default: generate a basic implementation
+	// Default: generate a basic implementation stub that returns an error
+	// instead of panicking, so tests fail gracefully.
 	return fmt.Sprintf(`package %s
+
+import "fmt"
 
 // %s handles the following task:
 // %s
 // TODO: Replace with actual implementation
-func %s() {
-	panic("not implemented")
+func %s() error {
+	return fmt.Errorf("%s: not yet implemented")
 }
-`, packageName, funcName, task, funcName)
+`, packageName, funcName, task, funcName, funcName)
 }
 
 func (t *TDDEngine) generatePanicFix(packageName, funcName string) string {

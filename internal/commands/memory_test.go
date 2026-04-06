@@ -265,8 +265,9 @@ func TestCmdCompactHard_Compacts(t *testing.T) {
 	if !result.Handled {
 		t.Error("expected handled=true")
 	}
-	if len(agent.Messages) != 5 {
-		t.Errorf("expected 5 messages after compact, got %d", len(agent.Messages))
+	// Expects: 2 system-context messages (head) + 5 tail messages = 7
+	if len(agent.Messages) != 7 {
+		t.Errorf("expected 7 messages after compact (2 system + 5 tail), got %d", len(agent.Messages))
 	}
 }
 
@@ -432,15 +433,28 @@ func TestCmdEnv_ShowVar(t *testing.T) {
 }
 
 func TestCmdEnv_SetVar(t *testing.T) {
-	ctx := Context{Parts: []string{"/env", "TEST_ITERATE_NEW", "value"}}
+	// Use an ITERATE_-prefixed var so it passes the whitelist check.
+	ctx := Context{Parts: []string{"/env", "ITERATE_TEST_VAR", "value"}}
 	result := cmdEnv(ctx)
 	if !result.Handled {
 		t.Error("expected handled=true")
 	}
-	if os.Getenv("TEST_ITERATE_NEW") != "value" {
+	if os.Getenv("ITERATE_TEST_VAR") != "value" {
 		t.Error("env var should be set")
 	}
-	os.Unsetenv("TEST_ITERATE_NEW")
+	os.Unsetenv("ITERATE_TEST_VAR")
+}
+
+func TestCmdEnv_SetVar_Blocked(t *testing.T) {
+	// Non-whitelisted env vars should be rejected.
+	ctx := Context{Parts: []string{"/env", "PATH", "/evil"}}
+	result := cmdEnv(ctx)
+	if !result.Handled {
+		t.Error("expected handled=true")
+	}
+	if os.Getenv("PATH") == "/evil" {
+		t.Error("PATH should not have been overwritten")
+	}
 }
 
 func TestCmdMCPAdd_NoArgs(t *testing.T) {

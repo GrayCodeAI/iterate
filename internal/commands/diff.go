@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,11 @@ import (
 
 	"github.com/fatih/color"
 )
+
+// ErrUserQuit is returned when the user chooses to quit during an interactive
+// diff review session. Callers should handle this gracefully instead of
+// calling os.Exit directly from library code.
+var ErrUserQuit = errors.New("user quit")
 
 // DiffViewer shows unified diffs before applying changes
 type DiffViewer struct {
@@ -90,8 +96,9 @@ func (dv *DiffViewer) ShowGitDiff(filename string) error {
 	return nil
 }
 
-// ConfirmChange prompts user to confirm a change
-func (dv *DiffViewer) ConfirmChange(filename string) bool {
+// ConfirmChange prompts user to confirm a change.
+// Returns (apply bool, err error). err is ErrUserQuit when user chooses to quit.
+func (dv *DiffViewer) ConfirmChange(filename string) (bool, error) {
 	fmt.Printf("\n🤔 Apply changes to %s? [y/n/a(apply all)/q(quit)]: ", filename)
 
 	var response string
@@ -99,20 +106,20 @@ func (dv *DiffViewer) ConfirmChange(filename string) bool {
 
 	switch strings.ToLower(strings.TrimSpace(response)) {
 	case "y", "yes":
-		return true
+		return true, nil
 	case "a", "all":
-		return true
+		return true, nil
 	case "q", "quit":
-		os.Exit(0)
-		return false
+		return false, ErrUserQuit
 	default:
 		fmt.Printf("❌ Skipped %s\n", filename)
-		return false
+		return false, nil
 	}
 }
 
-// BatchDiff shows diffs for multiple files
-func (dv *DiffViewer) BatchDiff(files []string) (approved []string, rejected []string) {
+// BatchDiff shows diffs for multiple files.
+// Returns ErrUserQuit if the user chooses to quit mid-review.
+func (dv *DiffViewer) BatchDiff(files []string) (approved []string, rejected []string, err error) {
 	applyAll := false
 
 	for _, file := range files {
@@ -126,17 +133,22 @@ func (dv *DiffViewer) BatchDiff(files []string) (approved []string, rejected []s
 			continue
 		}
 
-		if dv.ConfirmChange(file) {
+		ok, confirmErr := dv.ConfirmChange(file)
+		if confirmErr != nil {
+			return approved, rejected, confirmErr
+		}
+		if ok {
 			approved = append(approved, file)
 		} else {
 			rejected = append(rejected, file)
 		}
 	}
 
-	return approved, rejected
+	return approved, rejected, nil
 }
 
-// PreviewEdit shows a preview of an edit before applying
+// PreviewEdit shows a preview of an edit before applying.
+// Returns ErrUserQuit if the user chooses to quit.
 func PreviewEdit(filename string, oldContent string, newContent string) error {
 	viewer := NewDiffViewer()
 
@@ -145,7 +157,11 @@ func PreviewEdit(filename string, oldContent string, newContent string) error {
 
 	viewer.ShowDiff(filename, oldLines, newLines)
 
-	if viewer.ConfirmChange(filename) {
+	ok, err := viewer.ConfirmChange(filename)
+	if err != nil {
+		return err
+	}
+	if ok {
 		return os.WriteFile(filename, []byte(newContent), 0644)
 	}
 

@@ -264,10 +264,10 @@ func handleEvolutionCleanup(ctx context.Context, f mainFlags, absRepo string, re
 		}
 		socialEngine := social.New(absRepo, f.ghOwner, f.ghRepo, logger)
 		replyCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
 		if err := socialEngine.ReplyToIssues(replyCtx, p, issueNumbers); err != nil {
 			logger.Warn("issue replies failed", "err", err)
 		}
-		cancel()
 	}
 
 	incrementDayCount(absRepo)
