@@ -189,3 +189,4 @@
 {"day":101,"reason":"Agent error: empty streaming response from openai-compat","task":"Fix error handling gaps","ts":"2026-04-20T19:01:38Z","type":"failure"}
 {"day":101,"reason":"Agent error: empty streaming response from openai-compat","task":"Add missing tests","ts":"2026-04-20T19:01:38Z","type":"failure"}
 {"day":101,"reason":"Agent error: empty streaming response from openai-compat","task":"Clean up code smells","ts":"2026-04-20T19:01:39Z","type":"failure"}
+{"day":105,"reason":"Agent error: empty streaming response from openai-compat","task":"Fix error handling gaps","ts":"2026-04-21T07:45:57Z","type":"failure"}
