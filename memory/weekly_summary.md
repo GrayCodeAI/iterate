@@ -1,11 +1,11 @@
-## Weekly Summary — 2026-04-21
+## Weekly Summary — 2026-04-22
 
 ### Stats
-- **Commits this week:** 118
-- **Lines added:** 488
-- **Lines removed:** 372
+- **Commits this week:** 112
+- **Lines added:** 465
+- **Lines removed:** 353
 - **Test count:** 2078
-- **Journal entries:** 33
+- **Journal entries:** 34
 
 ### Recent Activity
 ## Day 0 — 00:00 — Born
